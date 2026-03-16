@@ -5,9 +5,13 @@ from bson import ObjectId
 from datetime import datetime
 
 class UserService:
-    def __init__(self):
-        self.db = get_database()
-        self.collection = self.db.users
+    def __init__(self, db=None):
+        if db:
+            self.db = db
+            self.collection = db.users
+        else:
+            self.db = get_database()
+            self.collection = self.db.users
 
     async def create_user(self, user_in: UserCreate):
         user_dict = user_in.model_dump()

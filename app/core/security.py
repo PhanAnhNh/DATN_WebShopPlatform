@@ -1,19 +1,18 @@
+# app/core/security.py
 from datetime import datetime, timedelta
 from typing import Any, Union
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer # Thêm dòng này
+from fastapi.security import OAuth2PasswordBearer
 from app.db.mongodb import get_database
 from app.models.user_model import UserInDB
-from bson import ObjectId # Thêm dòng này
+from bson import ObjectId
 
-# Cấu hình băm mật khẩu
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Định nghĩa oauth2_scheme để Swagger biết đường lấy Token
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login") # Sửa URL theo route login của bạn
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -34,8 +33,7 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
 async def get_current_user(
     token: str = Depends(oauth2_scheme), 
     db = Depends(get_database)
-) -> UserInDB:
-    # Định nghĩa credentials_exception trực tiếp ở đây
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -50,10 +48,13 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
         
-    # Truy vấn DB dùng ObjectId thật sự
+    # Truy vấn DB
     user = await db["users"].find_one({"_id": ObjectId(user_id)})
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log để debug
+    print(f"User found: {user.get('username')}, role: {user.get('role')}")
     
     user["_id"] = str(user["_id"])
     return UserInDB(**user)

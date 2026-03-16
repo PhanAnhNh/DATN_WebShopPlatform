@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
 from app.services.shop_service import ShopService
-from app.models.shops_model import ShopCreate, ShopUpdate
+from app.models.shops_model import ShopCreate, ShopUpdate, ShopWithOwnerCreate
 
 router = APIRouter(prefix="/shops", tags=["Shops"])
 
@@ -25,6 +25,24 @@ async def create_shop(
     
     # Bạn sẽ cần sửa nhẹ hàm create_shop trong service để nhận dict thay vì model
     return await service.create_shop(shop_data)
+
+@router.post("/with-owner", status_code=status.HTTP_201_CREATED)
+async def create_shop_with_owner(
+    data: ShopWithOwnerCreate,
+    service: ShopService = Depends(get_shop_service)
+):
+    """
+    Tạo cửa hàng mới kèm tài khoản chủ shop
+    """
+    result, error = await service.create_shop_with_owner(data.model_dump())
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {
+        "message": "Tạo cửa hàng và tài khoản chủ shop thành công",
+        "data": result
+    }
 
 @router.get("/{shop_id}")
 async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service)):

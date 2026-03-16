@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from bson import ObjectId
 
 class ShopBase(BaseModel):
@@ -20,6 +20,30 @@ class ShopBase(BaseModel):
 
 class ShopCreate(ShopBase):
     pass
+
+class ShopWithOwnerCreate(BaseModel):
+    # Thông tin shop
+    shop_name: str = Field(..., min_length=3)
+    shop_slug: str = Field(..., description="URL thân thiện")
+    shop_description: Optional[str] = None
+    shop_phone: Optional[str] = None
+    shop_email: Optional[str] = None
+    shop_address: Optional[str] = None
+    shop_province: Optional[str] = None
+    shop_district: Optional[str] = None
+    shop_ward: Optional[str] = None
+    shop_logo_url: Optional[str] = None
+    shop_banner_url: Optional[str] = None
+    
+    # Thông tin chủ shop
+    owner_username: str = Field(..., min_length=3)
+    owner_email: EmailStr
+    owner_password: str = Field(..., min_length=6)
+    owner_full_name: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_gender: Optional[str] = None
+    owner_dob: Optional[date] = None
+    owner_address: Optional[str] = None
 
 class ShopUpdate(BaseModel):
     name: Optional[str] = None

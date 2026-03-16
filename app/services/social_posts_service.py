@@ -12,9 +12,6 @@ class SocialPostService:
         self.collection = db["social_posts"]
         self.user_collection = db["users"]
 
-    # =========================
-    # CREATE POST
-    # =========================
     async def create_post(self, post_data: SocialPostCreate, current_user) -> dict:
 
         new_post = post_data.dict()
@@ -46,9 +43,6 @@ class SocialPostService:
 
         return new_post
 
-    # =========================
-    # GET SOCIAL FEED
-    # =========================
     async def get_feed(
         self,
         limit: int = 10,
@@ -100,9 +94,6 @@ class SocialPostService:
 
         return posts
 
-    # =========================
-    # UPDATE POST
-    # =========================
     async def update_post(
         self,
         post_id: str,
@@ -135,9 +126,6 @@ class SocialPostService:
 
         return updated_post
 
-    # =========================
-    # GET POSTS BY USER
-    # =========================
     async def get_user_posts(
         self,
         user_id: str,
@@ -204,3 +192,108 @@ class SocialPostService:
         )
 
         return result.modified_count > 0
+
+    async def get_all_posts_admin(self, filter_query: dict, skip: int = 0, limit: int = 20):
+        """Admin lấy tất cả bài viết"""
+        pipeline = [
+            {"$match": filter_query},
+            {"$sort": {"created_at": -1}},
+            {"$skip": skip},
+            {"$limit": limit},
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "author_id",
+                    "foreignField": "_id",
+                    "as": "author_info"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$author_info",
+                    "preserveNullAndEmptyArrays": True
+                }
+            }
+        ]
+        
+        cursor = self.collection.aggregate(pipeline)
+        posts = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            doc["author_id"] = str(doc["author_id"])
+            author = doc.get("author_info", {})
+            doc["author_name"] = author.get("full_name", "Người dùng")
+            doc["author_avatar"] = author.get("avatar_url")
+            posts.append(doc)
+        
+        return posts
+
+# app/services/social_posts_service.py
+
+    async def update_post_admin(self, post_id: str, update_data: dict):
+        """Admin cập nhật bài viết (không cần check quyền)"""
+        update_data["updated_at"] = datetime.utcnow()
+        
+        # Thay vì chỉ update, hãy lấy document đã update và convert ObjectId
+        updated_post = await self.collection.find_one_and_update(
+            {"_id": ObjectId(post_id)},
+            {"$set": update_data},
+            return_document=ReturnDocument.AFTER
+        )
+        
+        if updated_post:
+            # Convert ObjectId sang string
+            updated_post["_id"] = str(updated_post["_id"])
+            updated_post["author_id"] = str(updated_post["author_id"])
+            
+            # Lấy thông tin author
+            author = await self.user_collection.find_one({"_id": ObjectId(updated_post["author_id"])})
+            if author:
+                updated_post["author_name"] = author.get("full_name", "Người dùng")
+                updated_post["author_avatar"] = author.get("avatar_url")
+            
+            return updated_post
+        
+        return None
+
+    async def delete_post_admin(self, post_id: str):
+        """Admin xóa bài viết (xóa thật hoặc soft delete)"""
+        # Soft delete
+        result = await self.collection.update_one(
+            {"_id": ObjectId(post_id)},
+            {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+        )
+        return result.modified_count > 0
+    
+    # app/services/social_posts_service.py - THÊM hàm
+
+    async def get_post_by_id(self, post_id: str) -> Optional[dict]:
+        """Lấy bài viết theo ID"""
+        pipeline = [
+            {"$match": {"_id": ObjectId(post_id)}},
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "author_id",
+                    "foreignField": "_id",
+                    "as": "author_info"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$author_info",
+                    "preserveNullAndEmptyArrays": True
+                }
+            }
+        ]
+        
+        cursor = self.collection.aggregate(pipeline)
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            doc["author_id"] = str(doc["author_id"])
+            author = doc.get("author_info", {})
+            doc["author_name"] = author.get("full_name", "Người dùng")
+            doc["author_avatar"] = author.get("avatar_url")
+            return doc
+        
+        return None

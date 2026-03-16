@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
-from app.routes import admin_dashboard_router, auth_routes, cart_router, category_router, follow_router, like_router, order_router, post_comments_routes, product_router, product_variants_router, report_router, review_shop_router, reviews_router, share_router, shop_router, social_posts_routes, user_routes, voucher_router  # Import router bạn đã viết
+from app.routes import admin_dashboard_router, admin_posts_router, admin_shops_router, auth_routes, cart_router, category_router, follow_router, like_router, order_router, post_comments_routes, product_router, product_variants_router, report_router, review_shop_router, reviews_router, share_router, shop_router, social_posts_routes, user_routes, voucher_router  # Import router bạn đã viết
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +47,8 @@ app.include_router(product_variants_router.router)
 app.include_router(category_router.router)  
 app.include_router(share_router.router)  
 app.include_router(admin_dashboard_router.router)  
+app.include_router(admin_posts_router.router)  
+app.include_router(admin_shops_router.router)  # Đăng ký router admin shops
 
 @app.get("/")
 async def root():
