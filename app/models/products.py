@@ -1,8 +1,9 @@
+# app/models/products.py
 from pydantic import BaseModel, Field, HttpUrl
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
-from app.models.product_variants_model import ProductVariantResponse
+from app.models.product_variants_model import ProductVariantResponse, ProductVariantCreateWithProduct
 
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
@@ -10,11 +11,13 @@ class ProductBase(BaseModel):
     category_id: str
     origin: Optional[str] = None
     certification: Optional[str] = None
-    image_url: Optional[HttpUrl] = None
+    image_url: Optional[str] = None  
 
 class ProductCreate(ProductBase):
-    # Dữ liệu khi nhận từ Client (không cần shop_id vì lấy từ Token)
-    pass
+    # Dùng model không yêu cầu product_id
+    variants: List[ProductVariantCreateWithProduct] = Field(default_factory=list)
+    price: Optional[float] = None  
+    stock: Optional[int] = 0       
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -22,14 +25,19 @@ class ProductUpdate(BaseModel):
     category_id: Optional[str] = None
     origin: Optional[str] = None
     certification: Optional[str] = None
-    image_url: Optional[HttpUrl] = None
+    image_url: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
 
 class ProductResponse(ProductBase):
-    id: str = Field(alias="_id") # Thêm alias này để Pydantic tự hiểu _id từ DB là id
+    id: str = Field(alias="_id")
     shop_id: str
     qr_code_url: Optional[str] = None
     variants: list[ProductVariantResponse] = Field(default_factory=list)
     created_at: datetime
+    price: Optional[float] = None
+    stock: Optional[int] = 0
 
     class Config:
-        populate_by_name = True # Cho phép dùng cả 'id' và '_id'
+        populate_by_name = True
+        arbitrary_types_allowed = True

@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/shop/products", tags=["Shop Products"])
 
+# app/routes/shop_products_router.py
+
 @router.get("/")
 async def get_shop_products(
     db = Depends(get_database),
@@ -72,11 +74,29 @@ async def get_shop_products(
         if variants:
             total_stock = sum(v.get("stock", 0) for v in variants)
         
+        # Xác định giá hiển thị
+        display_price = product.get("price", 0)
+        if variants and len(variants) > 0:
+            # Nếu có variants, lấy giá thấp nhất (hoặc giá đầu tiên)
+            # Có thể chọn logic: giá thấp nhất, giá trung bình, hoặc khoảng giá
+            min_price = min(v.get("price", 0) for v in variants)
+            max_price = max(v.get("price", 0) for v in variants)
+            
+            if min_price == max_price:
+                display_price = min_price
+            else:
+                # Hiển thị khoảng giá, ví dụ: "20,000đ - 50,000đ"
+                # Nhưng trong table chỉ hiển thị 1 giá, nên dùng min_price
+                display_price = min_price
+                
+                # Nếu muốn hiển thị khoảng giá, có thể thêm field price_range
+                # product["price_range"] = f"{min_price} - {max_price}"
+        
         result.append({
             "id": str(product["_id"]),
             "name": product["name"],
             "description": product.get("description"),
-            "price": product.get("price", 0),
+            "price": display_price,  # Dùng price đã xử lý
             "stock": total_stock,
             "category_id": str(product["category_id"]),
             "image_url": product.get("image_url"),
@@ -112,11 +132,23 @@ async def create_shop_product(
     if not shop_id:
         raise HTTPException(status_code=400, detail="Bạn chưa có shop")
     
+    # Log dữ liệu nhận được
+    print(f"Received product data: {product_in.dict()}")
+    
     service = ProductService(db)
-    product_data = product_in.model_dump()
+    product_data = product_in.dict()
     product_data["shop_id"] = shop_id
     
-    return await service.create_product(product_data)
+    # Tạo sản phẩm
+    product = await service.create_product(product_data)
+    
+    # Đảm bảo tất cả ID đều là string
+    if "category_id" in product and isinstance(product["category_id"], ObjectId):
+        product["category_id"] = str(product["category_id"])
+    if "shop_id" in product and isinstance(product["shop_id"], ObjectId):
+        product["shop_id"] = str(product["shop_id"])
+    
+    return product
 
 @router.get("/{product_id}")
 async def get_shop_product_detail(
