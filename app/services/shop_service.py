@@ -8,7 +8,7 @@ from app.services.user_service import UserService
 class ShopService:
     def __init__(self, db):
         self.collection = db["shops"]
-        self.user_service = UserService()
+        self.user_service = UserService(db)
 
     # =========================
     # CREATE SHOP

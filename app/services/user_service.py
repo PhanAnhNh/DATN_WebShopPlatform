@@ -1,3 +1,4 @@
+# app/services/user_service.py
 from app.db.mongodb import get_database
 from app.core.security import get_password_hash
 from app.models.user_model import UserCreate, UserUpdate
@@ -6,7 +7,8 @@ from datetime import datetime
 
 class UserService:
     def __init__(self, db=None):
-        if db:
+        # Sửa cách kiểm tra db
+        if db is not None:  # Thay vì if db:
             self.db = db
             self.collection = db.users
         else:
@@ -83,7 +85,6 @@ class UserService:
 
     async def get_user_by_id(self, user_id: str):
         try:
-            # Tìm user bằng _id trong MongoDB
             user = await self.collection.find_one({"_id": ObjectId(user_id)})
             if user:
                 user["_id"] = str(user["_id"])

@@ -1,6 +1,5 @@
-# app/core/security.py
 from datetime import datetime, timedelta
-from typing import Any, Union
+from typing import Any, Union, Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -12,7 +11,7 @@ from bson import ObjectId
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -58,3 +57,33 @@ async def get_current_user(
     
     user["_id"] = str(user["_id"])
     return UserInDB(**user)
+
+# Hàm kiểm tra role shop_owner
+async def get_current_shop_owner(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    if current_user.role != "shop_owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Không có quyền truy cập. Yêu cầu tài khoản chủ shop."
+        )
+    
+    if not current_user.shop_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tài khoản chưa được gắn với shop nào"
+        )
+    
+    return current_user
+
+# Hàm kiểm tra role admin
+async def get_current_admin(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Không có quyền truy cập. Yêu cầu tài khoản admin."
+        )
+    
+    return current_user
