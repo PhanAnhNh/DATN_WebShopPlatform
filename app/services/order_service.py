@@ -52,16 +52,23 @@ class OrderService:
                 "price": price,
                 "variant_name": item.get("variant_name", "")
             })
-
+        payment_method = order_data.get("payment_method", "cod")
         # 2. Tạo object đơn hàng đơn giản
         order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
             "total_price": total_price,
             "shipping_address": order_data["shipping_address"],
-            "status": OrderStatus.pending.value,  # SỬA: dùng .value
+            "status": OrderStatus.pending.value,
+            "payment_method": payment_method,
+            "payment_status": "unpaid",  
             "created_at": datetime.utcnow()
         }
+
+        if payment_method == "cod":
+            order["status"] = OrderStatus.pending.value
+        else:
+            order["status"] = OrderStatus.pending.value
 
         result = await self.collection.insert_one(order)
         

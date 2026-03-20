@@ -1,0 +1,66 @@
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.db.mongodb import get_database
+from app.core.security import get_current_user
+from app.models.payment_model import PaymentCreate, MomoPaymentRequest, VNPayPaymentRequest
+from app.services.payment_service import PaymentService
+from typing import Optional
+
+router = APIRouter(prefix="/payments", tags=["Payments"])
+
+@router.post("/create")
+async def create_payment(
+    payment_data: PaymentCreate,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Tạo yêu cầu thanh toán"""
+    service = PaymentService(db)
+    
+    result, error = await service.create_payment(
+        str(current_user.id),
+        payment_data.dict()
+    )
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return result
+
+@router.post("/momo/ipn")
+async def momo_ipn(
+    request: Request,
+    db = Depends(get_database)
+):
+    """IPN từ MoMo (gọi tự động)"""
+    data = await request.json()
+    service = PaymentService(db)
+    return await service.process_momo_ipn(data)
+
+@router.get("/vnpay/return")
+async def vnpay_return(
+    request: Request,
+    db = Depends(get_database)
+):
+    """Return từ VNPay"""
+    params = dict(request.query_params)
+    service = PaymentService(db)
+    return await service.process_vnpay_return(params)
+
+@router.get("/{payment_id}")
+async def get_payment(
+    payment_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Lấy thông tin thanh toán"""
+    payment = await db["payments"].find_one({"_id": ObjectId(payment_id)})
+    
+    if not payment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thanh toán")
+    
+    payment["_id"] = str(payment["_id"])
+    payment["order_id"] = str(payment["order_id"])
+    payment["user_id"] = str(payment["user_id"])
+    
+    return payment
