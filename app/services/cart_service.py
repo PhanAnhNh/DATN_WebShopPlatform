@@ -1,3 +1,4 @@
+# services/cart_service.py
 from typing import Optional
 from bson import ObjectId
 
@@ -11,7 +12,6 @@ class CartService:
         prod_oid = ObjectId(product_id)
         var_oid = ObjectId(variant_id) if variant_id else None
 
-        # Tìm sản phẩm trùng cả product_id VÀ variant_id
         cart = await self.collection.find_one({
             "user_id": user_oid,
             "items": {
@@ -23,13 +23,11 @@ class CartService:
         })
 
         if cart:
-            # Cộng dồn số lượng cho đúng loại đó
             await self.collection.update_one(
                 {"user_id": user_oid, "items.product_id": prod_oid, "items.variant_id": var_oid},
                 {"$inc": {"items.$.quantity": quantity}}
             )
         else:
-            # Thêm mới một dòng vào giỏ hàng
             new_item = {"product_id": prod_oid, "variant_id": var_oid, "quantity": quantity}
             await self.collection.update_one(
                 {"user_id": user_oid},
@@ -47,7 +45,6 @@ class CartService:
         total_cart_price = 0
 
         for item in cart["items"]:
-            # 1. Lấy thông tin sản phẩm gốc
             product = await db["products"].find_one({"_id": item["product_id"]})
             if not product:
                 continue
@@ -59,7 +56,6 @@ class CartService:
                 "image_url": str(product.get("image_url", ""))
             }
 
-            # 2. Nếu có variant, lấy thông tin variant (giá, tên variant, ảnh riêng)
             if item.get("variant_id"):
                 variant = await db["product_variants"].find_one({"_id": item["variant_id"]})
                 if variant:
@@ -69,10 +65,8 @@ class CartService:
                     if variant.get("image_url"):
                         item_detail["image_url"] = str(variant["image_url"])
             else:
-                # Nếu không có variant thì lấy giá gốc của sản phẩm (nếu bạn có để giá ở bảng product)
                 item_detail["price"] = product.get("price", 0)
 
-            # Tính tổng tiền cho item này
             item_detail["subtotal"] = item_detail["price"] * item["quantity"]
             total_cart_price += item_detail["subtotal"]
             
@@ -80,7 +74,8 @@ class CartService:
 
         return {
             "items": detailed_items,
-            "total_price": total_cart_price
+            "total_price": total_cart_price,
+            "item_count": len(detailed_items)  # Thêm số lượng sản phẩm
         }
 
     async def remove_from_cart(self, user_id: str, product_id: str, variant_id: Optional[str] = None):
@@ -93,4 +88,3 @@ class CartService:
             {"$pull": {"items": query}}
         )
         return {"status": "success", "message": "Đã xóa sản phẩm khỏi giỏ hàng"}
-    

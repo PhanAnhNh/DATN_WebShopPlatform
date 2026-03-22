@@ -1,4 +1,3 @@
-# app/services/product_service.py
 from bson import ObjectId
 from datetime import datetime
 from typing import List
@@ -54,7 +53,7 @@ class ProductService:
             {"$set": {"qr_code_url": qr_path}}
         )
 
-        # Tạo variants nếu có - THÊM product_id VÀO ĐÂY
+        # Tạo variants nếu có
         created_variants = []
         if variants_data:
             for variant in variants_data:
@@ -88,15 +87,39 @@ class ProductService:
         return product
 
     async def get_products(self, limit=20, skip=0):
+        """Lấy danh sách sản phẩm kèm variants"""
         cursor = self.collection.find().skip(skip).limit(limit)
         products = []
+        
         async for doc in cursor:
-            doc["id"] = str(doc["_id"])
-            doc["_id"] = str(doc["_id"])
+            product_id = str(doc["_id"])
+            
+            # Chuyển đổi ObjectId sang string
+            doc["id"] = product_id
+            doc["_id"] = product_id
             doc["shop_id"] = str(doc["shop_id"])
             if "category_id" in doc:
                 doc["category_id"] = str(doc["category_id"])
+            
+            # Lấy variants cho sản phẩm này
+            variants = []
+            variant_cursor = self.variant_collection.find({"product_id": ObjectId(product_id)})
+            async for v in variant_cursor:
+                v["id"] = str(v["_id"])
+                v["_id"] = str(v["_id"])
+                v["product_id"] = str(v["product_id"])
+                variants.append(v)
+            
+            doc["variants"] = variants
+            
+            # Nếu có variants, tính lại price và stock từ variants
+            if variants:
+                # Lấy giá thấp nhất làm price hiển thị
+                doc["price"] = min(v["price"] for v in variants)
+                doc["stock"] = sum(v["stock"] for v in variants)
+            
             products.append(doc)
+        
         return products
 
     async def update_product(self, product_id, update_data):
@@ -112,6 +135,7 @@ class ProductService:
         return await self.get_product(product_id)
 
     async def get_product(self, product_id: str):
+        """Lấy chi tiết sản phẩm kèm variants"""
         product = await self.collection.find_one({"_id": ObjectId(product_id)})
         if not product:
             return None
@@ -122,7 +146,7 @@ class ProductService:
         product["category_id"] = str(product["category_id"])
 
         # Lấy variants
-        variant_cursor = self.db["product_variants"].find({"product_id": ObjectId(product_id)})
+        variant_cursor = self.variant_collection.find({"product_id": ObjectId(product_id)})
         variants = []
         async for v in variant_cursor:
             v["id"] = str(v["_id"])
@@ -131,8 +155,16 @@ class ProductService:
             variants.append(v)
         
         product["variants"] = variants
+        
+        # Nếu có variants, tính lại price và stock từ variants
+        if variants:
+            product["price"] = min(v["price"] for v in variants)
+            product["stock"] = sum(v["stock"] for v in variants)
+        
         return product
 
     async def delete_product(self, product_id):
+        # Xóa cả variants của sản phẩm
+        await self.variant_collection.delete_many({"product_id": ObjectId(product_id)})
         await self.collection.delete_one({"_id": ObjectId(product_id)})
         return {"message": "Product deleted"}

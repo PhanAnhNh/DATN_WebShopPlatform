@@ -1,14 +1,22 @@
+from datetime import datetime
+
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
 from app.services.shop_service import ShopService
+from app.services.product_service import ProductService  # Thêm import
 from app.models.shops_model import ShopCreate, ShopUpdate, ShopWithOwnerCreate
+from app.models.products import ProductResponse  # Thêm import
 
 router = APIRouter(prefix="/shops", tags=["Shops"])
 
 
 def get_shop_service(db = Depends(get_database)):
     return ShopService(db)
+
+def get_product_service(db = Depends(get_database)):
+    return ProductService(db)
 
 # =========================
 # CREATE SHOP
@@ -17,13 +25,12 @@ def get_shop_service(db = Depends(get_database)):
 async def create_shop(
     shop_in: ShopCreate,
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user) # Bắt buộc đăng nhập
+    current_user = Depends(get_current_user)
 ):
     # Chuyển dữ liệu model thành dict và tự động gán owner_id từ user đang đăng nhập
     shop_data = shop_in.model_dump()
     shop_data["owner_id"] = str(current_user.id)
     
-    # Bạn sẽ cần sửa nhẹ hàm create_shop trong service để nhận dict thay vì model
     return await service.create_shop(shop_data)
 
 @router.post("/with-owner", status_code=status.HTTP_201_CREATED)
@@ -51,12 +58,220 @@ async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service
         raise HTTPException(status_code=404, detail="Shop not found")
     return shop
 
+# =========================
+# GET SHOP PRODUCTS - THÊM ENDPOINT NÀY
+# =========================
+@router.get("/{shop_id}/products", response_model=list[ProductResponse])
+async def get_shop_products(
+    shop_id: str,
+    skip: int = 0,
+    limit: int = 20,
+    product_service: ProductService = Depends(get_product_service)
+):
+    """
+    Lấy danh sách sản phẩm của shop
+    """
+    # Kiểm tra shop có tồn tại không
+    shop_service = ShopService(product_service.db)
+    shop = await shop_service.get_shop_by_id(shop_id)
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Lấy sản phẩm của shop
+    products = []
+    cursor = product_service.collection.find({"shop_id": ObjectId(shop_id)}).skip(skip).limit(limit)
+    
+    async for doc in cursor:
+        product_id = str(doc["_id"])
+        
+        # Chuyển đổi ObjectId sang string
+        doc["id"] = product_id
+        doc["_id"] = product_id
+        doc["shop_id"] = str(doc["shop_id"])
+        if "category_id" in doc:
+            doc["category_id"] = str(doc["category_id"])
+        
+        # Lấy variants cho sản phẩm này
+        variants = []
+        variant_cursor = product_service.variant_collection.find({"product_id": ObjectId(product_id)})
+        async for v in variant_cursor:
+            v["id"] = str(v["_id"])
+            v["_id"] = str(v["_id"])
+            v["product_id"] = str(v["product_id"])
+            variants.append(v)
+        
+        doc["variants"] = variants
+        
+        # Nếu có variants, tính lại price và stock từ variants
+        if variants:
+            doc["price"] = min(v["price"] for v in variants)
+            doc["stock"] = sum(v["stock"] for v in variants)
+        
+        products.append(doc)
+    
+    return products
+
+# =========================
+# GET SHOP REVIEWS - THÊM ENDPOINT NÀY
+# =========================
+@router.get("/{shop_id}/reviews")
+async def get_shop_reviews(
+    shop_id: str,
+    skip: int = 0,
+    limit: int = 20,
+    db = Depends(get_database)
+):
+    """
+    Lấy danh sách đánh giá của shop
+    """
+    # Kiểm tra shop có tồn tại không
+    shop_service = ShopService(db)
+    shop = await shop_service.get_shop_by_id(shop_id)
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Lấy reviews của shop (giả sử bạn có collection reviews)
+    # Nếu chưa có collection reviews, bạn có thể trả về mảng rỗng
+    reviews_collection = db["reviews"]
+    
+    reviews = []
+    cursor = reviews_collection.find({"shop_id": ObjectId(shop_id)}).skip(skip).limit(limit)
+    
+    async for review in cursor:
+        review["id"] = str(review["_id"])
+        review["_id"] = str(review["_id"])
+        review["shop_id"] = str(review["shop_id"])
+        if "user_id" in review:
+            review["user_id"] = str(review["user_id"])
+        reviews.append(review)
+    
+    return reviews
+
+# =========================
+# CREATE SHOP REVIEW - THÊM ENDPOINT NÀY
+# =========================
+@router.post("/{shop_id}/reviews", status_code=status.HTTP_201_CREATED)
+async def create_shop_review(
+    shop_id: str,
+    review_data: dict,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """
+    Tạo đánh giá cho shop
+    """
+    # Kiểm tra shop có tồn tại không
+    shop_service = ShopService(db)
+    shop = await shop_service.get_shop_by_id(shop_id)
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Tạo review
+    reviews_collection = db["reviews"]
+    
+    review = {
+        "shop_id": ObjectId(shop_id),
+        "user_id": ObjectId(current_user.id),
+        "user_name": getattr(current_user, "full_name", current_user.username),
+        "user_avatar": getattr(current_user, "avatar_url", None),
+        "rating": review_data.get("rating", 5),
+        "comment": review_data.get("comment", ""),
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await reviews_collection.insert_one(review)
+    
+    # Cập nhật lại số lượng đánh giá và rating trung bình cho shop
+    # Tính rating trung bình
+    pipeline = [
+        {"$match": {"shop_id": ObjectId(shop_id)}},
+        {"$group": {
+            "_id": None,
+            "avg_rating": {"$avg": "$rating"},
+            "total_reviews": {"$sum": 1}
+        }}
+    ]
+    
+    cursor = reviews_collection.aggregate(pipeline)
+    stats = await cursor.to_list(length=1)
+    
+    if stats:
+        avg_rating = stats[0]["avg_rating"]
+        total_reviews = stats[0]["total_reviews"]
+        
+        await shop_service.collection.update_one(
+            {"_id": ObjectId(shop_id)},
+            {"$set": {
+                "rating": round(avg_rating, 1),
+                "total_reviews": total_reviews,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+    
+    # Trả về review vừa tạo
+    created_review = await reviews_collection.find_one({"_id": result.inserted_id})
+    created_review["id"] = str(created_review["_id"])
+    created_review["_id"] = str(created_review["_id"])
+    created_review["shop_id"] = str(created_review["shop_id"])
+    created_review["user_id"] = str(created_review["user_id"])
+    
+    return created_review
+
+# =========================
+# FOLLOW SHOP - THÊM ENDPOINT NÀY
+# =========================
+@router.post("/{shop_id}/follow")
+async def follow_shop(
+    shop_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """
+    Theo dõi shop
+    """
+    # Kiểm tra shop có tồn tại không
+    shop_service = ShopService(db)
+    shop = await shop_service.get_shop_by_id(shop_id)
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Kiểm tra đã follow chưa
+    follows_collection = db["shop_follows"]
+    existing = await follows_collection.find_one({
+        "user_id": ObjectId(current_user.id),
+        "shop_id": ObjectId(shop_id)
+    })
+    
+    if existing:
+        # Nếu đã follow thì unfollow
+        await follows_collection.delete_one({"_id": existing["_id"]})
+        # Giảm số lượng followers
+        await shop_service.collection.update_one(
+            {"_id": ObjectId(shop_id)},
+            {"$inc": {"followers_count": -1}, "$set": {"updated_at": datetime.utcnow()}}
+        )
+        return {"message": "Unfollowed shop", "following": False}
+    else:
+        # Nếu chưa follow thì follow
+        follow = {
+            "user_id": ObjectId(current_user.id),
+            "shop_id": ObjectId(shop_id),
+            "created_at": datetime.utcnow()
+        }
+        await follows_collection.insert_one(follow)
+        # Tăng số lượng followers
+        await shop_service.collection.update_one(
+            {"_id": ObjectId(shop_id)},
+            {"$inc": {"followers_count": 1}, "$set": {"updated_at": datetime.utcnow()}}
+        )
+        return {"message": "Followed shop", "following": True}
+
 @router.put("/{shop_id}")
 async def update_shop(
     shop_id: str,
     shop_in: ShopUpdate,
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user) # Bắt buộc đăng nhập
+    current_user = Depends(get_current_user)
 ):
     # 1. Kiểm tra shop có tồn tại không
     existing_shop = await service.get_shop_by_id(shop_id)
@@ -82,7 +297,7 @@ async def list_shops(
 async def shop_dashboard(
     shop_id: str, 
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user) # Bắt buộc đăng nhập
+    current_user = Depends(get_current_user)
 ):
     # 1. Lấy thông tin shop
     existing_shop = await service.get_shop_by_id(shop_id)
@@ -95,3 +310,30 @@ async def shop_dashboard(
         raise HTTPException(status_code=403, detail="Không có quyền xem báo cáo của shop này")
 
     return await service.get_shop_dashboard(shop_id)
+
+# =========================
+# CHECK FOLLOW STATUS - THÊM ENDPOINT NÀY
+# =========================
+@router.get("/{shop_id}/follow-status")
+async def get_follow_status(
+    shop_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """
+    Kiểm tra xem user hiện tại đã follow shop chưa
+    """
+    # Kiểm tra shop có tồn tại không
+    shop_service = ShopService(db)
+    shop = await shop_service.get_shop_by_id(shop_id)
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Kiểm tra trạng thái follow
+    follows_collection = db["shop_follows"]
+    existing = await follows_collection.find_one({
+        "user_id": ObjectId(current_user.id),
+        "shop_id": ObjectId(shop_id)
+    })
+    
+    return {"isFollowing": existing is not None}
