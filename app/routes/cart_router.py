@@ -1,6 +1,7 @@
+# routes/cart_router.py
 from typing import Optional
 from bson import ObjectId
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from app.db.mongodb import get_database
 from app.services.cart_service import CartService
 from app.core.security import get_current_user
@@ -17,20 +18,20 @@ async def get_my_cart(
 
 @router.post("/add")
 async def add_to_cart(
-    product_id: str,
-    quantity: int,
-    variant_id: Optional[str] = None,
+    product_id: str = Query(...),
+    quantity: int = Query(...),
+    variant_id: Optional[str] = Query(None),
+    shop_id: Optional[str] = Query(None),  # Thêm shop_id
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):
-
     service = CartService(db)
-
     return await service.add_to_cart(
         str(current_user.id),
         product_id,
         quantity,
-        variant_id
+        variant_id,
+        shop_id  # Truyền shop_id vào
     )
 
 @router.get("/count")
@@ -45,15 +46,13 @@ async def get_cart_count(
     if not cart or "items" not in cart:
         return {"count": 0}
     
-    # Đếm số lượng item (sản phẩm) trong giỏ hàng
     item_count = len(cart["items"])
-    
     return {"count": item_count}
 
 @router.delete("/remove")
 async def remove_item(
-    product_id: str,
-    variant_id: Optional[str] = None,
+    product_id: str = Query(...),
+    variant_id: Optional[str] = Query(None),
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):

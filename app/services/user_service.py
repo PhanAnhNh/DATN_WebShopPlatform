@@ -1,14 +1,14 @@
 # app/services/user_service.py
 from app.db.mongodb import get_database
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 from app.models.user_model import UserCreate, UserUpdate
 from bson import ObjectId
 from datetime import datetime
+from typing import Optional
 
 class UserService:
     def __init__(self, db=None):
-        # Sửa cách kiểm tra db
-        if db is not None:  # Thay vì if db:
+        if db is not None:
             self.db = db
             self.collection = db.users
         else:
@@ -36,6 +36,7 @@ class UserService:
             "posts_count": 0,
             "shop_id": None,
             "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
         })
 
         existing_user = await self.collection.find_one({
@@ -55,8 +56,47 @@ class UserService:
         cursor = self.collection.find()
         async for document in cursor:
             document["_id"] = str(document["_id"])
+            # Xóa mật khẩu
+            document.pop("hashed_password", None)
             users.append(document)
         return users
+
+    async def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        try:
+            user = await self.collection.find_one({"_id": ObjectId(user_id)})
+            if user:
+                user["id"] = str(user["_id"])
+                user["_id"] = str(user["_id"])
+                # Giữ lại hashed_password cho các thao tác xác thực
+                return user
+            return None
+        except Exception as e:
+            print(f"Error getting user by id: {e}")
+            return None
+
+    async def get_user_by_email(self, email: str) -> Optional[dict]:
+        user = await self.collection.find_one({"email": email})
+        if user:
+            user["id"] = str(user["_id"])
+            user["_id"] = str(user["_id"])
+            return user
+        return None
+
+    async def get_user_by_username(self, username: str) -> Optional[dict]:
+        user = await self.collection.find_one({"username": username})
+        if user:
+            user["id"] = str(user["_id"])
+            user["_id"] = str(user["_id"])
+            return user
+        return None
+
+    async def authenticate_user(self, username: str, password: str) -> Optional[dict]:
+        user = await self.get_user_by_username(username)
+        if not user:
+            return None
+        if not verify_password(password, user["hashed_password"]):
+            return None
+        return user
 
     async def update_user(self, user_id: str, user_update: UserUpdate):
         update_data = {k: v for k, v in user_update.model_dump().items() if v is not None}
@@ -66,7 +106,9 @@ class UserService:
             
         if "password" in update_data:
             update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
-            
+        
+        update_data["updated_at"] = datetime.utcnow()
+        
         result = await self.collection.update_one(
             {"_id": ObjectId(user_id)}, {"$set": update_data}
         )
@@ -76,19 +118,8 @@ class UserService:
         result = await self.collection.delete_one({"_id": ObjectId(user_id)})
         return result.deleted_count > 0
 
-    async def get_user_by_username(self, username: str):
-        user = await self.collection.find_one({"username": username})
-        if user:
-            user["_id"] = str(user["_id"])
-            return user
-        return None
-
-    async def get_user_by_id(self, user_id: str):
-        try:
-            user = await self.collection.find_one({"_id": ObjectId(user_id)})
-            if user:
-                user["_id"] = str(user["_id"])
-                return user
-            return None
-        except Exception:
-            return None
+    async def update_last_login(self, user_id: str):
+        await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"last_login": datetime.utcnow()}}
+        )

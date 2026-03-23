@@ -64,3 +64,4 @@ class UserInDB(UserBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
+    default_address_id: Optional[str] = None

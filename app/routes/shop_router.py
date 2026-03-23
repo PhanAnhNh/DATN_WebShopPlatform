@@ -147,9 +147,6 @@ async def get_shop_reviews(
     
     return reviews
 
-# =========================
-# CREATE SHOP REVIEW - THÊM ENDPOINT NÀY
-# =========================
 @router.post("/{shop_id}/reviews", status_code=status.HTTP_201_CREATED)
 async def create_shop_review(
     shop_id: str,
