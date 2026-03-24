@@ -117,64 +117,82 @@ async def get_dashboard_stats(
 
 @router.get("/recent-activities")
 async def get_recent_activities(
-    limit: int = 10,
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
-    """
-    Lấy hoạt động gần đây của shop
-    """
-    if current_user.role != "shop_owner":
-        raise HTTPException(status_code=403, detail="Chỉ shop owner mới có quyền truy cập")
+    """Lấy các hoạt động gần đây của shop"""
     
-    if not current_user.shop_id:
-        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    # Kiểm tra xem user có phải chủ shop không
+    shop = await db["shops"].find_one({"owner_id": ObjectId(current_user.id)})
+    if not shop:
+        raise HTTPException(status_code=403, detail="Bạn không phải chủ shop")
     
-    shop_id = ObjectId(current_user.shop_id)
+    shop_id = str(shop["_id"])
     
-    # Lấy đơn hàng gần đây
-    recent_orders = await db["orders"].find(
-        {"items.shop_id": shop_id}
-    ).sort("created_at", -1).limit(limit).to_list(length=limit)
+    # Lấy các đơn hàng gần đây của shop
+    recent_orders = []
+    cursor = db["orders"].find({
+        "items.shop_id": ObjectId(shop_id)
+    }).sort("created_at", -1).limit(10)
     
-    activities = []
+    async for order in cursor:
+        # Lọc các items thuộc shop này
+        shop_items = [item for item in order["items"] if str(item.get("shop_id")) == shop_id]
+        
+        if shop_items:
+            # SỬA: Dùng total_amount hoặc total_price
+            order_total = order.get("total_amount", order.get("total_price", 0))
+            
+            recent_orders.append({
+                "id": str(order["_id"]),
+                "order_code": f"ORD{str(order['_id'])[-6:]}",
+                "total": order_total,  # Đã sửa ở đây
+                "status": order.get("status", "pending"),
+                "created_at": order["created_at"],
+                "item_count": len(shop_items),
+                "customer_name": order.get("shipping_address_details", {}).get("name", "Khách hàng")
+            })
     
-    for order in recent_orders:
-        activities.append({
-            "type": "order",
-            "description": f"Đơn hàng mới #{str(order['_id'])[-6:]}",
-            "time": order["created_at"],
-            "data": {
-                "order_id": str(order["_id"]),
-                "total": order["total_price"],
-                "status": order["status"]
-            }
+    # Lấy các sản phẩm mới được thêm gần đây
+    recent_products = []
+    cursor = db["products"].find({
+        "shop_id": ObjectId(shop_id)
+    }).sort("created_at", -1).limit(5)
+    
+    async for product in cursor:
+        recent_products.append({
+            "id": str(product["_id"]),
+            "name": product["name"],
+            "price": product.get("price", 0),
+            "stock": product.get("stock", 0),
+            "image": product.get("image_url", ""),
+            "created_at": product["created_at"]
         })
     
-    # Lấy sản phẩm mới
-    new_products = await db["products"].find(
-        {"shop_id": shop_id}
-    ).sort("created_at", -1).limit(limit).to_list(length=limit)
+    # Lấy đánh giá gần đây
+    recent_reviews = []
+    cursor = db["reviews"].find({
+        "shop_id": ObjectId(shop_id)
+    }).sort("created_at", -1).limit(5)
     
-    for product in new_products:
-        activities.append({
-            "type": "product",
-            "description": f"Sản phẩm mới: {product['name']}",
-            "time": product["created_at"],
-            "data": {
-                "product_id": str(product["_id"]),
-                "name": product["name"]
-            }
+    async for review in cursor:
+        # Lấy thông tin user
+        user = await db["users"].find_one({"_id": review["user_id"]})
+        user_name = user.get("full_name", user.get("username", "Người dùng")) if user else "Người dùng"
+        
+        recent_reviews.append({
+            "id": str(review["_id"]),
+            "user_name": user_name,
+            "rating": review.get("rating", 0),
+            "comment": review.get("comment", ""),
+            "created_at": review["created_at"]
         })
     
-    # Sắp xếp theo thời gian
-    activities.sort(key=lambda x: x["time"], reverse=True)
-    
-    # Format time
-    for activity in activities[:limit]:
-        activity["time"] = activity["time"].strftime("%d/%m/%Y %H:%M")
-    
-    return activities[:limit]
+    return {
+        "recent_orders": recent_orders,
+        "recent_products": recent_products,
+        "recent_reviews": recent_reviews
+    }
 
 @router.get("/chart-data")
 async def get_chart_data(

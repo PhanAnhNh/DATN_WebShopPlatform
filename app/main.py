@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.routes import (
-    address_router, admin_dashboard_router, shop_vouchers_router, 
+    address_router, admin_dashboard_router, notification_router, shop_vouchers_router, 
     admin_posts_router, admin_shops_router, auth_routes, cart_router, 
     category_router, follow_router, like_router, order_router, 
     post_comments_routes, product_router, product_variants_router, 
@@ -34,11 +34,17 @@ app = FastAPI(
 # CORS Configuration - SỬA LẠI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Đăng ký các Router
@@ -74,6 +80,7 @@ app.include_router(shop_returns_router.router, prefix=API_PREFIX)
 app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 app.include_router(payment_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
+app.include_router(notification_router.router, prefix=API_PREFIX)
 
 @app.get("/")
 async def root():

@@ -17,16 +17,17 @@ class OrderService:
     async def create_order(self, user_id: str, order_data: dict):
         total_price = 0
         items_to_save = []
-
+        
+        # Validate each item
         for item in order_data["items"]:
-            # 1. Check kho và lấy giá
+            # 1. Check stock and get price
             if item.get("variant_id"):
                 variant = await self.variant_collection.find_one({"_id": ObjectId(item["variant_id"])})
                 if not variant or variant["stock"] < item["quantity"]:
                     raise Exception(f"Sản phẩm {item.get('variant_name')} không đủ hàng")
                 
                 price = variant["price"]
-                # Trừ kho Variant
+                # Reduce stock
                 await self.variant_collection.update_one(
                     {"_id": variant["_id"]}, 
                     {"$inc": {"stock": -item["quantity"]}}
@@ -37,12 +38,12 @@ class OrderService:
                     raise Exception("Sản phẩm không đủ hàng")
                 
                 price = product.get("price", 0)
-                # Trừ kho Product
+                # Reduce stock
                 await self.product_collection.update_one(
                     {"_id": product["_id"]}, 
                     {"$inc": {"stock": -item["quantity"]}}
                 )
-
+            
             total_price += price * item["quantity"]
             items_to_save.append({
                 "product_id": ObjectId(item["product_id"]),
@@ -52,32 +53,47 @@ class OrderService:
                 "price": price,
                 "variant_name": item.get("variant_name", "")
             })
-        payment_method = order_data.get("payment_method", "cod")
-        # 2. Tạo object đơn hàng đơn giản
+        
+        # Format shipping address
+        shipping_addr = order_data["shipping_address"]
+        formatted_address = shipping_addr.get("full_address") or f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
+        
+        # Create order
         order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
-            "total_price": total_price,
-            "shipping_address": order_data["shipping_address"],
+            "total_amount": order_data["total_amount"],
+            "subtotal": order_data["subtotal"],
+            "discount": order_data["discount"],
+            "shipping_fee": order_data["shipping_fee"],
+            "shipping_address": formatted_address,
+            "shipping_address_details": shipping_addr,
+            "note": order_data.get("note", ""),
+            "payment_method": order_data["payment_method"],
+            "payment_status": "unpaid",
             "status": OrderStatus.pending.value,
-            "payment_method": payment_method,
-            "payment_status": "unpaid",  
             "created_at": datetime.utcnow()
         }
-
-        if payment_method == "cod":
-            order["status"] = OrderStatus.pending.value
-        else:
-            order["status"] = OrderStatus.pending.value
-
+        
+        # Add voucher if present
+        if order_data.get("voucher"):
+            order["voucher"] = {
+                "id": ObjectId(order_data["voucher"]["id"]),
+                "code": order_data["voucher"]["code"],
+                "discount": order_data["voucher"]["discount"]
+            }
+        
         result = await self.collection.insert_one(order)
         
-        # 3. Xóa giỏ hàng
+        # Clear cart
         await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
-
-        # SỬA: Convert ObjectId sang string trước khi return
+        
+        # Convert ObjectId to string before returning
         order["_id"] = str(result.inserted_id)
         order["user_id"] = str(order["user_id"])
+        if order.get("voucher") and order["voucher"].get("id"):
+            order["voucher"]["id"] = str(order["voucher"]["id"])
+        
         for item in order["items"]:
             item["product_id"] = str(item["product_id"])
             item["shop_id"] = str(item["shop_id"])
@@ -85,7 +101,7 @@ class OrderService:
                 item["variant_id"] = str(item["variant_id"])
         
         return order
-    
+
     async def get_user_orders(self, user_id: str):
         cursor = self.collection.find({
             "user_id": ObjectId(user_id)

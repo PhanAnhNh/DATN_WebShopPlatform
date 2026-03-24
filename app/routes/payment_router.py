@@ -64,3 +64,31 @@ async def get_payment(
     payment["user_id"] = str(payment["user_id"])
     
     return payment
+
+# app/routes/payment_router.py
+# ... code hiện tại ...
+
+@router.get("/instructions/{order_id}")
+async def get_payment_instructions(
+    order_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Lấy thông tin hướng dẫn thanh toán cho đơn hàng"""
+    order = await db["orders"].find_one({
+        "_id": ObjectId(order_id),
+        "user_id": ObjectId(current_user.id)
+    })
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Lấy thông tin ngân hàng từ settings
+    bank_settings = await db["settings"].find_one({"key": "bank_info"})
+    
+    return {
+        "order_id": order_id,
+        "amount": order["total_amount"],
+        "bank_info": bank_settings.get("value", {}) if bank_settings else {},
+        "qr_code_url": f"/static/qr/{order_id}.png"  # Tạo QR code động nếu có
+    }

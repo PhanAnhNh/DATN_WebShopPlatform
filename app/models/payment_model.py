@@ -32,7 +32,7 @@ class PaymentResponse(BaseModel):
     amount: float
     status: PaymentStatus
     transaction_id: Optional[str]
-    payment_url: Optional[str]  # URL chuyển hướng thanh toán
+    payment_url: Optional[str]  
     created_at: datetime
     completed_at: Optional[datetime]
 
