@@ -1,8 +1,7 @@
 from bson import ObjectId
 from datetime import datetime
-
-from app.models.orders_model import OrderStatus  # THIẾU DÒNG NÀY
-
+from app.models.orders_model import OrderStatus
+from app.services.notification_service import NotificationService
 
 class OrderService:
 
@@ -13,21 +12,21 @@ class OrderService:
         self.shop_collection = db["shops"]
         self.cart_collection = db["carts"]
         self.variant_collection = db["product_variants"]
+        self.notification_service = NotificationService(db)
 
+    # QUAN TRỌNG: Phương thức create_order phải nằm ở đây, KHÔNG nằm trong __init__
     async def create_order(self, user_id: str, order_data: dict):
         total_price = 0
         items_to_save = []
         
         # Validate each item
         for item in order_data["items"]:
-            # 1. Check stock and get price
             if item.get("variant_id"):
                 variant = await self.variant_collection.find_one({"_id": ObjectId(item["variant_id"])})
                 if not variant or variant["stock"] < item["quantity"]:
                     raise Exception(f"Sản phẩm {item.get('variant_name')} không đủ hàng")
                 
                 price = variant["price"]
-                # Reduce stock
                 await self.variant_collection.update_one(
                     {"_id": variant["_id"]}, 
                     {"$inc": {"stock": -item["quantity"]}}
@@ -38,7 +37,6 @@ class OrderService:
                     raise Exception("Sản phẩm không đủ hàng")
                 
                 price = product.get("price", 0)
-                # Reduce stock
                 await self.product_collection.update_one(
                     {"_id": product["_id"]}, 
                     {"$inc": {"stock": -item["quantity"]}}
@@ -88,8 +86,35 @@ class OrderService:
         # Clear cart
         await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
         
+        order_id = str(result.inserted_id)
+        
+        # ========== TẠO THÔNG BÁO ==========
+        # 1. Thông báo cho người đặt hàng
+        await self.notification_service.create_notification(
+            user_id=user_id,
+            type="order",
+            title="Đặt hàng thành công",
+            message=f"Đơn hàng #{order_id[-8:].upper()} đã được đặt thành công",
+            reference_id=order_id
+        )
+        
+        # 2. Thông báo cho các shop
+        shop_ids = set()
+        for item in order_data["items"]:
+            shop_ids.add(item["shop_id"])
+        
+        for shop_id in shop_ids:
+            await self.notification_service.create_notification(
+                user_id=shop_id,
+                type="order",
+                title="Đơn hàng mới",
+                message=f"Có đơn hàng mới #{order_id[-8:].upper()} cần xử lý",
+                reference_id=order_id
+            )
+        # ========== KẾT THÚC TẠO THÔNG BÁO ==========
+        
         # Convert ObjectId to string before returning
-        order["_id"] = str(result.inserted_id)
+        order["_id"] = order_id
         order["user_id"] = str(order["user_id"])
         if order.get("voucher") and order["voucher"].get("id"):
             order["voucher"]["id"] = str(order["voucher"]["id"])
@@ -97,7 +122,7 @@ class OrderService:
         for item in order["items"]:
             item["product_id"] = str(item["product_id"])
             item["shop_id"] = str(item["shop_id"])
-            if item["variant_id"]:
+            if item.get("variant_id"):
                 item["variant_id"] = str(item["variant_id"])
         
         return order
@@ -113,7 +138,7 @@ class OrderService:
             doc["_id"] = str(doc["_id"])
             doc["user_id"] = str(doc["user_id"])
 
-            for item in doc["items"]:
+            for item in doc.get("items", []):
                 item["product_id"] = str(item["product_id"])
                 item["shop_id"] = str(item["shop_id"])
                 if item.get("variant_id"):
@@ -124,9 +149,12 @@ class OrderService:
         return orders
 
     async def get_order(self, order_id: str):
-        order = await self.collection.find_one({
-            "_id": ObjectId(order_id)
-        })
+        try:
+            order = await self.collection.find_one({
+                "_id": ObjectId(order_id)
+            })
+        except:
+            return None
 
         if not order:
             return None
@@ -134,7 +162,7 @@ class OrderService:
         order["_id"] = str(order["_id"])
         order["user_id"] = str(order["user_id"])
 
-        for item in order["items"]:
+        for item in order.get("items", []):
             item["product_id"] = str(item["product_id"])
             item["shop_id"] = str(item["shop_id"])
             if item.get("variant_id"):
@@ -145,9 +173,8 @@ class OrderService:
     async def update_order_status(self, order_id: str, status: OrderStatus):
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
-            {"$set": {"status": status.value}}  # SỬA: dùng .value
+            {"$set": {"status": status.value}}
         )
-
         return await self.get_order(order_id)
     
     async def update_payment_status(self, order_id: str, status: str):
@@ -159,27 +186,30 @@ class OrderService:
         return await self.get_order(order_id)
 
     async def cancel_order(self, order_id: str, user_id: str):
-        order = await self.collection.find_one({
-            "_id": ObjectId(order_id),
-            "user_id": ObjectId(user_id)
-        })
+        try:
+            order = await self.collection.find_one({
+                "_id": ObjectId(order_id),
+                "user_id": ObjectId(user_id)
+            })
+        except:
+            raise Exception("Không tìm thấy đơn hàng")
 
         if not order:
             raise Exception("Không tìm thấy đơn hàng")
         
-        if order["status"] not in [OrderStatus.pending.value, OrderStatus.paid.value]:  # SỬA
+        if order["status"] not in [OrderStatus.pending.value, OrderStatus.paid.value]:
             raise Exception("Không thể hủy đơn hàng ở trạng thái này")
 
         # 1. Hoàn lại kho (Stock)
-        for item in order["items"]:
+        for item in order.get("items", []):
             if item.get("variant_id"):
                 await self.db["product_variants"].update_one(
-                    {"_id": ObjectId(item["variant_id"])},  # SỬA: convert sang ObjectId
+                    {"_id": ObjectId(item["variant_id"])},
                     {"$inc": {"stock": item["quantity"]}}
                 )
             else:
                 await self.db["products"].update_one(
-                    {"_id": ObjectId(item["product_id"])},  # SỬA: convert sang ObjectId
+                    {"_id": ObjectId(item["product_id"])},
                     {"$inc": {"stock": item["quantity"]}}
                 )
             
@@ -195,7 +225,7 @@ class OrderService:
         # 3. Cập nhật trạng thái đơn hàng
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
-            {"$set": {"status": OrderStatus.cancelled.value, "cancelled_at": datetime.utcnow()}}  # SỬA
+            {"$set": {"status": OrderStatus.cancelled.value, "cancelled_at": datetime.utcnow()}}
         )
 
         return {"status": "success", "message": "Đơn hàng đã được hủy và hoàn kho"}

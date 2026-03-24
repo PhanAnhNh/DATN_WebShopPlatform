@@ -131,10 +131,11 @@ class SocialPostInDB(SocialPostBase):
     report_count: int = 0
 
     feed_score: float = 0.0  # dùng cho ranking feed
-
+    deleted_at: Optional[datetime] = None
+    is_permanently_deleted: bool = False 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
-
+    
 # =========================
 # Response Model
 # =========================

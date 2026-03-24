@@ -17,13 +17,17 @@ class PostCommentUpdate(BaseModel):
 class PostCommentResponse(PostCommentBase):
     id: str = Field(alias="_id")
     post_id: str
+    user_id: str  # Thêm user_id
+    author_id: Optional[str] = None  # Thêm author_id để tương thích
     parent_id: Optional[str] = None
     
-    # Thông tin người dùng để hiện lên giao diện (được map từ service)
+    # Thông tin người dùng để hiện lên giao diện
     author_name: Optional[str] = None
     author_avatar: Optional[str] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
+        arbitrary_types_allowed = True

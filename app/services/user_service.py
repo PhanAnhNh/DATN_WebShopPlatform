@@ -6,6 +6,8 @@ from bson import ObjectId
 from datetime import datetime
 from typing import Optional
 
+from app.services.admin_notification_service import AdminNotificationService
+
 class UserService:
     def __init__(self, db=None):
         if db is not None:
@@ -14,6 +16,7 @@ class UserService:
         else:
             self.db = get_database()
             self.collection = self.db.users
+        self.admin_notification_service = AdminNotificationService(self.db)
 
     async def create_user(self, user_in: UserCreate):
         user_dict = user_in.model_dump()
@@ -49,7 +52,20 @@ class UserService:
             return None
 
         result = await self.collection.insert_one(user_dict)
-        return str(result.inserted_id)
+        user_id = str(result.inserted_id)
+
+        admin_users = await self.collection.find({"role": "admin"}).to_list(length=None)
+        
+        for admin in admin_users:
+            await self.admin_notification_service.create_notification(
+                user_id=str(admin["_id"]),
+                type="new_user",
+                title="Người dùng mới đăng ký",
+                message=f"Người dùng {user_in.username} vừa đăng ký tài khoản mới",
+                reference_id=user_id
+            )
+
+        return user_id
 
     async def get_all_users(self):
         users = []

@@ -118,3 +118,45 @@ async def get_current_admin(
         )
     
     return current_user
+
+async def get_current_user_optional(
+    token: str = Depends(oauth2_scheme), 
+    db = Depends(get_database)
+):
+    """Lấy user hiện tại nếu có token, không thì trả về None"""
+    if not token:
+        return None
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+        
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if user is None:
+        return None
+    
+    user["_id"] = str(user["_id"])
+    if "shop_id" in user and user["shop_id"]:
+        user["shop_id"] = str(user["shop_id"])
+    if "default_address_id" in user and user["default_address_id"]:
+        user["default_address_id"] = str(user["default_address_id"])
+    
+    return CurrentUser(user)
+
+# Trong user_service.py
+async def get_user_profile(self, user_id: str):
+    user = await self.user_collection.find_one({"_id": ObjectId(user_id)})
+    if user:
+        # Đếm số lượng bạn bè
+        friends_count = await self.db["friends"].count_documents({
+            "$or": [
+                {"user_id": user_id, "status": "accepted"},
+                {"friend_id": user_id, "status": "accepted"}
+            ]
+        })
+        user["friends_count"] = friends_count
+    return user

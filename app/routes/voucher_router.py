@@ -42,8 +42,6 @@ async def save_voucher(
         voucher_id
     )
 
-# app/routes/voucher_router.py
-# app/routes/voucher_router.py
 @router.post("/validate")
 async def validate_voucher(
     code: str,
@@ -84,7 +82,6 @@ async def get_my_vouchers(
     service = VoucherService(db)
     return await service.get_user_vouchers(str(current_user.id))
 
-# app/routes/voucher_router.py
 @router.get("/available")
 async def get_available_vouchers(
     db = Depends(get_database),

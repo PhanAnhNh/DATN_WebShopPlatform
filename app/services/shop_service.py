@@ -2,6 +2,7 @@ from datetime import datetime
 from bson import ObjectId
 from app.models.shops_model import ShopCreate, ShopUpdate
 from app.models.user_model import UserCreate
+from app.services.admin_notification_service import AdminNotificationService
 from app.services.user_service import UserService
 
 
@@ -9,11 +10,13 @@ class ShopService:
     def __init__(self, db):
         self.collection = db["shops"]
         self.user_service = UserService(db)
+        self.db = db
+        self.admin_notification_service = AdminNotificationService(db)
 
     # =========================
     # CREATE SHOP
     # =========================
-    async def create_shop(self, shop_dict: dict):
+    async def create_shop(self, shop_dict: dict, shop_owner_data: dict):
         # Convert owner_id sang ObjectId
         if "owner_id" in shop_dict and shop_dict["owner_id"]:
             shop_dict["owner_id"] = ObjectId(shop_dict["owner_id"])
@@ -32,7 +35,19 @@ class ShopService:
         })
 
         result = await self.collection.insert_one(shop_dict)
+        shop_id = str(result.inserted_id)
+
+        admin_users = await self.db["users"].find({"role": "admin"}).to_list(length=None)
         
+        for admin in admin_users:
+            await self.admin_notification_service.create_notification(
+                user_id=str(admin["_id"]),
+                type="new_shop",
+                title="Cửa hàng mới đăng ký",
+                message=f"Cửa hàng {shop_owner_data['shop_name']} vừa đăng ký mở bán",
+                reference_id=shop_id
+            )
+            
         # Lấy shop vừa tạo và convert ObjectId sang string
         shop = await self.collection.find_one({"_id": result.inserted_id})
         if shop:

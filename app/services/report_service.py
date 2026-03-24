@@ -1,11 +1,14 @@
 from bson import ObjectId
 from datetime import datetime
 
+from app.services.admin_notification_service import AdminNotificationService
 
 class ReportService:
 
     def __init__(self, db):
         self.collection = db.reports
+        self.db = db
+        self.admin_notification_service = AdminNotificationService(db)
 
     # create report
     async def create_report(self, data: dict):
@@ -14,7 +17,27 @@ class ReportService:
         data["status"] = "pending"
 
         result = await self.collection.insert_one(data)
+        report_id = str(result.inserted_id)
 
+        admin_users = await self.db["users"].find({"role": "admin"}).to_list(length=None)
+        
+        # Map target_type sang tiếng Việt
+        target_labels = {
+            "user": "người dùng",
+            "shop": "cửa hàng",
+            "post": "bài viết"
+        }
+        target_label = target_labels.get(data.get("target_type"), "nội dung")
+        
+        for admin in admin_users:
+            await self.admin_notification_service.create_notification(
+                user_id=str(admin["_id"]),
+                type=f"report_{data.get('target_type')}",
+                title=f"Báo cáo mới về {target_label}",
+                message=f"Có báo cáo mới về {target_label} cần xử lý",
+                reference_id=report_id
+            )
+            
         return await self.collection.find_one({
             "_id": result.inserted_id
         })

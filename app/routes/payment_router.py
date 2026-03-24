@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
 from app.models.payment_model import PaymentCreate, MomoPaymentRequest, VNPayPaymentRequest
+from app.services.notification_service import NotificationService
 from app.services.payment_service import PaymentService
 from typing import Optional
 
@@ -35,7 +36,28 @@ async def momo_ipn(
     """IPN từ MoMo (gọi tự động)"""
     data = await request.json()
     service = PaymentService(db)
-    return await service.process_momo_ipn(data)
+    
+    # Xử lý thanh toán
+    result = await service.process_momo_ipn(data)
+    
+    # ========== TẠO THÔNG BÁO NẾU THANH TOÁN THÀNH CÔNG ==========
+    if data.get('resultCode') == 0:
+        notification_service = NotificationService(db)
+        
+        # Lấy thông tin order
+        order = await db["orders"].find_one({"_id": ObjectId(data['orderId'])})
+        if order:
+            order_code = data['orderId'][-8:].upper()
+            await notification_service.create_notification(
+                user_id=str(order["user_id"]),
+                type="payment",
+                title="Thanh toán thành công",
+                message=f"Đơn hàng #{order_code} đã thanh toán thành công",
+                reference_id=data['orderId']
+            )
+    # ========== KẾT THÚC TẠO THÔNG BÁO ==========
+    
+    return result
 
 @router.get("/vnpay/return")
 async def vnpay_return(
@@ -64,9 +86,6 @@ async def get_payment(
     payment["user_id"] = str(payment["user_id"])
     
     return payment
-
-# app/routes/payment_router.py
-# ... code hiện tại ...
 
 @router.get("/instructions/{order_id}")
 async def get_payment_instructions(

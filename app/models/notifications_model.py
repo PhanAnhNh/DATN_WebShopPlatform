@@ -11,6 +11,8 @@ class NotificationType(str, Enum):
     PROMOTION = "promotion"
     REVIEW = "review"
     FOLLOW = "follow"
+    FRIEND_REQUEST = "friend_request"  # Thêm type này
+    FRIEND_ACCEPTED = "friend_accepted"  # Thêm type này
 
 class Notification(BaseModel):
     user_id: str

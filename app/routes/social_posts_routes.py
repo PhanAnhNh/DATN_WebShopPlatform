@@ -10,40 +10,55 @@ from app.models.social_posts_model import (
 )
 from app.services.social_posts_service import SocialPostService
 from app.db.mongodb import get_database
-from app.core.security import get_current_user, CurrentUser
+from app.core.security import get_current_admin, get_current_user, CurrentUser, get_current_user_optional
 
 router = APIRouter(prefix="/posts", tags=["Social Posts"])
 
-# ĐẢM BẢO ENDPOINT NÀY ĐƯỢC ĐỊNH NGHĨA TRƯỚC CÁC ENDPOINT KHÁC
+
 @router.get("/user/{user_id}", response_model=List[SocialPostResponse])
 async def get_posts_by_user(
     user_id: str,
     limit: int = 10,
     skip: int = 0,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),  # Thêm current_user
     db = Depends(get_database)
 ):
     """
     Lấy danh sách bài viết của một user cụ thể
+    Có kiểm tra quyền truy cập dựa trên visibility
     """
-    print(f"=== GET /posts/user/{user_id} ===")  # Debug
+    print(f"=== GET /posts/user/{user_id} ===")
     service = SocialPostService(db)
     try:
-        posts = await service.get_user_posts(user_id=user_id, limit=limit, skip=skip)
-        print(f"Found {len(posts)} posts for user {user_id}")  # Debug
+        current_user_id = str(current_user.id) if current_user else None
+        posts = await service.get_user_posts(
+            user_id=user_id, 
+            limit=limit, 
+            skip=skip,
+            current_user_id=current_user_id
+        )
+        print(f"Found {len(posts)} posts for user {user_id}")
         return posts
     except Exception as e:
         print(f"Error fetching posts for user {user_id}: {e}")
         raise HTTPException(status_code=404, detail=f"Không tìm thấy bài viết cho user: {user_id}")
-
+    
 @router.get("/feed", response_model=List[SocialPostResponse])
 async def get_social_feed(
     category: Optional[CategoryType] = None,
     limit: int = 10,
     skip: int = 0,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),  # Sử dụng optional
     db = Depends(get_database)
 ):
     service = SocialPostService(db)
-    return await service.get_feed(limit, skip, category)
+    user_id = str(current_user.id) if current_user else None
+    return await service.get_feed(
+        limit=limit, 
+        skip=skip, 
+        category=category,
+        current_user_id=user_id
+    )
 
 @router.get("/{post_id}", response_model=SocialPostResponse)
 async def get_post_by_id(
@@ -93,3 +108,18 @@ async def delete_post(
             detail="Bài viết không tồn tại hoặc bạn không có quyền xóa"
         )
     return {"message": "Xóa bài viết thành công"}
+
+@router.delete("/admin/{post_id}/permanent")
+async def permanently_delete_post(
+    post_id: str,
+    current_user: CurrentUser = Depends(get_current_admin),
+    db = Depends(get_database)
+):
+    """
+    Admin xóa vĩnh viễn bài viết
+    """
+    service = SocialPostService(db)
+    deleted = await service.delete_post_admin(post_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết")
+    return {"message": "Đã xóa vĩnh viễn bài viết"}

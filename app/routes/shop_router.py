@@ -130,8 +130,6 @@ async def get_shop_reviews(
     if not shop:
         raise HTTPException(status_code=404, detail="Shop not found")
     
-    # Lấy reviews của shop (giả sử bạn có collection reviews)
-    # Nếu chưa có collection reviews, bạn có thể trả về mảng rỗng
     reviews_collection = db["reviews"]
     
     reviews = []

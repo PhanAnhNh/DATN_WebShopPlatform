@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.services.follow_service import FollowService
 from app.db.mongodb import get_database
-from app.core.security import get_current_user
+from app.core.security import CurrentUser, get_current_user
 
 router = APIRouter(prefix="/follows", tags=["Follows"])
 
@@ -43,3 +43,16 @@ async def get_follow_stats(
         "followers_count": followers_count,
         "following_count": following_count
     }
+
+@router.get("/check/{user_id}")
+async def check_follow_status(
+    user_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """
+    Kiểm tra xem current user có đang follow user_id không
+    """
+    service = FollowService(db)
+    is_following = await service.is_following(str(current_user.id), user_id)
+    return {"isFollowing": is_following}
