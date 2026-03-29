@@ -1,4 +1,3 @@
-# app/routes/shop_statistics_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
@@ -53,8 +52,22 @@ async def get_shop_overview(
     revenue_result = await db["orders"].aggregate(pipeline_revenue).to_list(length=None)
     total_revenue = revenue_result[0]["total"] if revenue_result else 0
     
-    # Đếm số đơn trả hàng (nếu có collection riêng)
-    total_returns = 0  # Tạm thời
+    shop_orders = await db["orders"].find(
+        {"items.shop_id": shop_id}
+    ).to_list(length=None)
+    
+    order_ids = [order["_id"] for order in shop_orders]
+    
+    # Đếm số lượng yêu cầu đổi trả đã được duyệt/hoàn thành
+    total_returns = await db["returns"].count_documents({
+        "order_id": {"$in": order_ids},
+        "status": {"$in": ["approved", "completed"]}  # Chỉ tính các yêu cầu đã được duyệt/hoàn thành
+    })
+
+    total_returns = await db["returns"].count_documents({
+        "order_id": {"$in": order_ids},
+        "status": {"$in": ["approved", "completed"]}  # Chỉ tính các yêu cầu đã được duyệt/hoàn thành
+    })
     
     return {
         "totalCustomers": total_customers,
@@ -62,6 +75,7 @@ async def get_shop_overview(
         "totalRevenue": total_revenue,
         "totalReturns": total_returns
     }
+
 
 @router.get("/revenue")
 async def get_revenue_stats(
@@ -79,24 +93,17 @@ async def get_revenue_stats(
         raise HTTPException(status_code=400, detail="Bạn chưa có shop")
     
     shop_id = ObjectId(current_user.shop_id)
-    
     now = datetime.utcnow()
     
     if range == "week":
-        # 7 ngày gần nhất
         start_date = now - timedelta(days=7)
         group_by = {"$dayOfWeek": "$created_at"}
-        format_label = "%A"
     elif range == "month":
-        # 30 ngày gần nhất
         start_date = now - timedelta(days=30)
         group_by = {"$dayOfMonth": "$created_at"}
-        format_label = "%d/%m"
-    else:  # year
-        # 12 tháng gần nhất
+    else:
         start_date = now - timedelta(days=365)
         group_by = {"$month": "$created_at"}
-        format_label = "%m/%Y"
     
     pipeline = [
         {"$match": {
@@ -114,8 +121,8 @@ async def get_revenue_stats(
     ]
     
     result = await db["orders"].aggregate(pipeline).to_list(length=None)
-    
     return result
+
 
 @router.get("/orders/daily")
 async def get_daily_orders(
@@ -152,7 +159,6 @@ async def get_daily_orders(
     ]
     
     result = await db["orders"].aggregate(pipeline).to_list(length=None)
-    
     return result
 
 @router.get("/reviews")
@@ -161,7 +167,7 @@ async def get_review_stats(
     current_user: UserInDB = Depends(get_current_user)
 ):
     """
-    Lấy thống kê đánh giá sản phẩm
+    Lấy thống kê đánh giá shop
     """
     if current_user.role != "shop_owner":
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
@@ -171,13 +177,9 @@ async def get_review_stats(
     
     shop_id = ObjectId(current_user.shop_id)
     
-    # Lấy tất cả sản phẩm của shop
-    products = await db["products"].find({"shop_id": shop_id}).to_list(length=None)
-    product_ids = [p["_id"] for p in products]
-    
-    # Thống kê đánh giá
+    # Thống kê đánh giá từ collection "shop_reviews"
     pipeline = [
-        {"$match": {"product_id": {"$in": product_ids}}},
+        {"$match": {"shop_id": shop_id}},
         {"$group": {
             "_id": "$rating",
             "count": {"$sum": 1}
@@ -186,12 +188,10 @@ async def get_review_stats(
     
     rating_stats = await db["reviews"].aggregate(pipeline).to_list(length=None)
     
-    # Tính điểm trung bình
     total_reviews = sum(stat["count"] for stat in rating_stats)
     weighted_sum = sum(stat["_id"] * stat["count"] for stat in rating_stats if stat["_id"])
     avg_rating = weighted_sum / total_reviews if total_reviews > 0 else 0
     
-    # Phân loại đánh giá
     good = sum(stat["count"] for stat in rating_stats if stat["_id"] >= 4)
     normal = sum(stat["count"] for stat in rating_stats if stat["_id"] == 3)
     bad = sum(stat["count"] for stat in rating_stats if stat["_id"] <= 2)
@@ -204,4 +204,130 @@ async def get_review_stats(
             "normal": normal,
             "bad": bad
         }
+    }
+
+
+@router.get("/recent-reviews")
+async def get_recent_reviews(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Lấy danh sách bình luận gần đây của shop
+    """
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    shop_id = ObjectId(current_user.shop_id)
+    
+    # Lấy reviews gần đây từ collection "reviews"
+    pipeline = [
+        {"$match": {"shop_id": shop_id}},
+        {"$sort": {"created_at": -1}},
+        {"$limit": limit},
+
+        {"$lookup": {
+            "from": "users",
+            "localField": "user_id",
+            "foreignField": "_id",
+            "as": "user_info"
+        }},
+        {"$unwind": {
+            "path": "$user_info",
+            "preserveNullAndEmptyArrays": True
+        }},
+        {"$project": {
+            "rating": 1,
+            "comment": 1,
+            "created_at": 1,
+            "user_name": {
+                "$ifNull": [
+                    "$user_info.full_name",
+                    "$user_name",
+                    "$user_info.username"
+                ]
+            },
+            "avatar_url": {
+                "$ifNull": ["$user_info.avatar_url", "$user_avatar"]
+            }
+        }}
+    ]
+    
+    reviews = await db["reviews"].aggregate(pipeline).to_list(length=None)
+    
+    for review in reviews:
+        review["_id"] = str(review["_id"]) if "_id" in review else None
+    
+    print(f"Found {len(reviews)} recent shop reviews")
+    for review in reviews:
+        print(f"Review: {review}")
+    
+    return reviews
+
+
+@router.get("/debug/shop-reviews")
+async def debug_shop_reviews(
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Debug: Kiểm tra dữ liệu shop_reviews
+    """
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    shop_id = ObjectId(current_user.shop_id)
+    
+    total_reviews = await db["reviews"].count_documents({"shop_id": shop_id})
+    
+    sample_reviews = await db["reviews"].find({"shop_id": shop_id}).limit(5).to_list(length=None)
+    
+    return {
+        "shop_id": str(shop_id),
+        "total_reviews": total_reviews,
+        "sample_reviews": [
+            {
+                "_id": str(r["_id"]),
+                "shop_id": str(r["shop_id"]),
+                "user_id": str(r["user_id"]),
+                "user_name": r.get("user_name"),
+                "rating": r.get("rating"),
+                "comment": r.get("comment"),
+                "created_at": r.get("created_at")
+            }
+            for r in sample_reviews
+        ]
+    }
+
+@router.get("/export")
+async def export_statistics(
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Xuất báo cáo thống kê ra Excel
+    """
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    overview = await get_shop_overview(db, current_user)
+    revenue = await get_revenue_stats("year", db, current_user)
+    reviews = await get_review_stats(db, current_user)
+    recent_reviews = await get_recent_reviews(10, db, current_user)
+    
+    return {
+        "overview": overview,
+        "revenue": revenue,
+        "reviews": reviews,
+        "recent_reviews": recent_reviews
     }

@@ -1,37 +1,117 @@
+# app/routes/shops_router.py (hoặc shop_router.py tùy tên file)
 from datetime import datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
+from app.models.user_model import UserInDB
 from app.services.shop_service import ShopService
-from app.services.product_service import ProductService  # Thêm import
+from app.services.product_service import ProductService
 from app.models.shops_model import ShopCreate, ShopUpdate, ShopWithOwnerCreate
-from app.models.products import ProductResponse  # Thêm import
+from app.models.products import ProductResponse
 
 router = APIRouter(prefix="/shops", tags=["Shops"])
 
 
-def get_shop_service(db = Depends(get_database)):
+def get_shop_service(db=Depends(get_database)):
     return ShopService(db)
 
-def get_product_service(db = Depends(get_database)):
+def get_product_service(db=Depends(get_database)):
     return ProductService(db)
 
+
 # =========================
-# CREATE SHOP
+# CÁC ROUTE CỤ THỂ PHẢI ĐẶT TRƯỚC ROUTE ĐỘNG
 # =========================
+
+@router.get("/info")
+async def get_shop_info(
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Lấy thông tin shop cho header và các component khác
+    """
+    # Kiểm tra quyền
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    # Lấy thông tin từ shops collection
+    shop = await db["shops"].find_one({"_id": ObjectId(current_user.shop_id)})
+    
+    if not shop:
+        raise HTTPException(status_code=404, detail="Không tìm thấy shop")
+    
+    # Lấy thông tin từ shop_settings để có dữ liệu cập nhật nhất
+    settings = await db["shop_settings"].find_one({"shop_id": ObjectId(current_user.shop_id)})
+    
+    # Ưu tiên dữ liệu từ settings nếu có
+    shop_name = settings.get("general", {}).get("shop_name") if settings else None
+    shop_email = settings.get("general", {}).get("shop_email") if settings else None
+    shop_phone = settings.get("general", {}).get("shop_phone") if settings else None
+    shop_address = settings.get("general", {}).get("shop_address") if settings else None
+    
+    return {
+        "id": str(shop["_id"]),
+        "name": shop_name or shop.get("name", ""),
+        "email": shop_email or shop.get("email", ""),
+        "phone": shop_phone or shop.get("phone", ""),
+        "address": shop_address or shop.get("address", ""),
+        "logo_url": shop.get("logo_url"),
+        "banner_url": shop.get("banner_url"),
+        "is_verified": shop.get("is_verified", False),
+        "followers_count": shop.get("followers_count", 0),
+        "general_settings": settings.get("general") if settings else None
+    }
+
+
+@router.get("/stats")
+async def get_shops_stats(
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Lấy thống kê tổng quan các shop (chỉ admin)
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    total_shops = await db["shops"].count_documents({})
+    active_shops = await db["shops"].count_documents({"status": "active"})
+    verified_shops = await db["shops"].count_documents({"is_verified": True})
+    
+    return {
+        "total": total_shops,
+        "active": active_shops,
+        "verified": verified_shops
+    }
+
+
+@router.get("/")
+async def list_shops(
+    skip: int = 0,
+    limit: int = 20,
+    service: ShopService = Depends(get_shop_service)
+):
+    return await service.list_shops(skip, limit)
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_shop(
     shop_in: ShopCreate,
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     # Chuyển dữ liệu model thành dict và tự động gán owner_id từ user đang đăng nhập
     shop_data = shop_in.model_dump()
     shop_data["owner_id"] = str(current_user.id)
     
-    return await service.create_shop(shop_data)
+    return await service.create_shop(shop_data, shop_data)  # Sửa lại tham số
+
 
 @router.post("/with-owner", status_code=status.HTTP_201_CREATED)
 async def create_shop_with_owner(
@@ -51,6 +131,11 @@ async def create_shop_with_owner(
         "data": result
     }
 
+
+# =========================
+# ROUTE ĐỘNG (CÓ THAM SỐ) PHẢI ĐẶT SAU CÁC ROUTE CỤ THỂ
+# =========================
+
 @router.get("/{shop_id}")
 async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service)):
     shop = await service.get_shop_by_id(shop_id)
@@ -58,9 +143,7 @@ async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service
         raise HTTPException(status_code=404, detail="Shop not found")
     return shop
 
-# =========================
-# GET SHOP PRODUCTS - THÊM ENDPOINT NÀY
-# =========================
+
 @router.get("/{shop_id}/products", response_model=list[ProductResponse])
 async def get_shop_products(
     shop_id: str,
@@ -111,9 +194,7 @@ async def get_shop_products(
     
     return products
 
-# =========================
-# GET SHOP REVIEWS - THÊM ENDPOINT NÀY
-# =========================
+
 @router.get("/{shop_id}/reviews")
 async def get_shop_reviews(
     shop_id: str,
@@ -145,12 +226,13 @@ async def get_shop_reviews(
     
     return reviews
 
+
 @router.post("/{shop_id}/reviews", status_code=status.HTTP_201_CREATED)
 async def create_shop_review(
     shop_id: str,
     review_data: dict,
     db = Depends(get_database),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Tạo đánh giá cho shop
@@ -212,14 +294,12 @@ async def create_shop_review(
     
     return created_review
 
-# =========================
-# FOLLOW SHOP - THÊM ENDPOINT NÀY
-# =========================
+
 @router.post("/{shop_id}/follow")
 async def follow_shop(
     shop_id: str,
     db = Depends(get_database),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Theo dõi shop
@@ -261,12 +341,13 @@ async def follow_shop(
         )
         return {"message": "Followed shop", "following": True}
 
+
 @router.put("/{shop_id}")
 async def update_shop(
     shop_id: str,
     shop_in: ShopUpdate,
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     # 1. Kiểm tra shop có tồn tại không
     existing_shop = await service.get_shop_by_id(shop_id)
@@ -280,19 +361,12 @@ async def update_shop(
 
     return await service.update_shop(shop_id, shop_in)
 
-@router.get("/")
-async def list_shops(
-    skip: int = 0,
-    limit: int = 20,
-    service: ShopService = Depends(get_shop_service)
-):
-    return await service.list_shops(skip, limit)
 
 @router.get("/{shop_id}/dashboard")
 async def shop_dashboard(
     shop_id: str, 
     service: ShopService = Depends(get_shop_service),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     # 1. Lấy thông tin shop
     existing_shop = await service.get_shop_by_id(shop_id)
@@ -306,14 +380,12 @@ async def shop_dashboard(
 
     return await service.get_shop_dashboard(shop_id)
 
-# =========================
-# CHECK FOLLOW STATUS - THÊM ENDPOINT NÀY
-# =========================
+
 @router.get("/{shop_id}/follow-status")
 async def get_follow_status(
     shop_id: str,
     db = Depends(get_database),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     """
     Kiểm tra xem user hiện tại đã follow shop chưa

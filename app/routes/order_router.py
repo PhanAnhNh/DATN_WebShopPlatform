@@ -37,8 +37,6 @@ async def my_orders(
     """
     Lấy danh sách đơn hàng của user hiện tại với phân trang
     """
-    service = OrderService(db)
-    
     # Build query
     query = {"user_id": ObjectId(current_user.id)}
     
@@ -72,25 +70,74 @@ async def my_orders(
     
     orders = []
     async for order in cursor:
-        # Chuyển đổi ObjectId sang string
-        order["_id"] = str(order["_id"])
-        order["user_id"] = str(order["user_id"])
+        # Tạo dict mới với các trường đã chuyển đổi
+        order_dict = {
+            "_id": str(order["_id"]),
+            "user_id": str(order["user_id"]),
+            "total_amount": order.get("total_amount", 0),
+            "total_price": order.get("total_amount", 0),
+            "subtotal": order.get("subtotal", 0),
+            "discount": order.get("discount", 0),
+            "shipping_fee": order.get("shipping_fee", 0),
+            "status": order.get("status", "pending"),
+            "payment_status": order.get("payment_status", "unpaid"),
+            "payment_method": order.get("payment_method", "cod"),
+            "shipping_address": order.get("shipping_address", ""),
+            "shipping_address_details": order.get("shipping_address_details", {}),
+            "note": order.get("note", ""),
+            "created_at": order.get("created_at")
+        }
         
-        # Thêm total_price để tương thích với frontend
-        order["total_price"] = order.get("total_amount", 0)
+        # Xử lý items
+        items = []
+        for idx, item in enumerate(order.get("items", [])):
+            items.append({
+                "_id": f"{order_dict['_id']}_item_{idx}",
+                "product_id": str(item.get("product_id")),
+                "shop_id": str(item.get("shop_id")),
+                "quantity": item.get("quantity", 0),
+                "price": item.get("price", 0),
+                "variant_id": str(item.get("variant_id")) if item.get("variant_id") else None,
+                "variant_name": item.get("variant_name", "")
+            })
+        order_dict["items"] = items
         
-        # Chuyển đổi items
-        for item in order.get("items", []):
-            item["product_id"] = str(item["product_id"])
-            item["shop_id"] = str(item["shop_id"])
-            if item.get("variant_id"):
-                item["variant_id"] = str(item["variant_id"])
+        # Xử lý voucher
+        if order.get("voucher"):
+            voucher = order["voucher"]
+            order_dict["voucher"] = {
+                "id": str(voucher.get("id")) if voucher.get("id") else None,
+                "code": voucher.get("code", ""),
+                "discount": voucher.get("discount", 0)
+            }
         
-        # Chuyển đổi voucher
-        if order.get("voucher") and order["voucher"].get("id"):
-            order["voucher"]["id"] = str(order["voucher"]["id"])
+        # Xử lý shipping unit
+        if order.get("shipping_unit"):
+            shipping_unit = order["shipping_unit"]
+            order_dict["shipping_unit"] = {
+                "id": shipping_unit.get("id"),
+                "name": shipping_unit.get("name"),
+                "code": shipping_unit.get("code"),
+                "shipping_fee": shipping_unit.get("shipping_fee", 0),
+                "estimated_delivery_days": shipping_unit.get("estimated_delivery_days", 3)
+            }
         
-        orders.append(order)
+        if order.get("shipping_unit_id"):
+            order_dict["shipping_unit_id"] = str(order["shipping_unit_id"])
+        
+        # Thêm thông tin khách hàng
+        try:
+            user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
+            if user:
+                order_dict["customer_name"] = user.get("full_name", user.get("username", ""))
+                order_dict["customer_phone"] = user.get("phone", "")
+                order_dict["customer_email"] = user.get("email", "")
+        except:
+            order_dict["customer_name"] = ""
+            order_dict["customer_phone"] = ""
+            order_dict["customer_email"] = ""
+        
+        orders.append(order_dict)
     
     return {
         "data": orders,
@@ -101,7 +148,6 @@ async def my_orders(
             "total_pages": (total + limit - 1) // limit if total > 0 else 1
         }
     }
-
 
 @router.get("/stats")
 async def get_order_stats(
@@ -157,39 +203,99 @@ async def get_order(
             "_id": ObjectId(order_id),
             "user_id": ObjectId(current_user.id)
         })
-    except:
+    except Exception as e:
+        print(f"Error finding order: {e}")
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
     
     if not order:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
     
-    # Chuyển đổi ObjectId sang string
-    order["_id"] = str(order["_id"])
-    order["user_id"] = str(order["user_id"])
+    # Chuyển đổi ObjectId sang string cho tất cả các trường
+    result = {}
+    
+    # Chuyển _id
+    result["_id"] = str(order["_id"])
+    result["order_id"] = str(order["_id"])
+    result["user_id"] = str(order["user_id"])
     
     # Thêm total_price để tương thích với frontend
-    order["total_price"] = order.get("total_amount", 0)
+    result["total_price"] = order.get("total_amount", 0)
+    result["total_amount"] = order.get("total_amount", 0)
+    result["subtotal"] = order.get("subtotal", 0)
+    result["discount"] = order.get("discount", 0)
+    result["shipping_fee"] = order.get("shipping_fee", 0)
+    result["status"] = order.get("status", "pending")
+    result["payment_status"] = order.get("payment_status", "unpaid")
+    result["payment_method"] = order.get("payment_method", "cod")
+    result["shipping_address"] = order.get("shipping_address", "")
+    result["shipping_address_details"] = order.get("shipping_address_details", {})
+    result["note"] = order.get("note", "")
+    result["created_at"] = order.get("created_at")
     
-    # Chuyển đổi items
-    for item in order.get("items", []):
-        item["product_id"] = str(item["product_id"])
-        item["shop_id"] = str(item["shop_id"])
-        if item.get("variant_id"):
-            item["variant_id"] = str(item["variant_id"])
+    # Xử lý items
+    items = []
+    for idx, item in enumerate(order.get("items", [])):
+        item_result = {
+            "_id": f"{result['_id']}_item_{idx}",
+            "product_id": str(item.get("product_id")),
+            "product_name": "",  # Sẽ lấy sau
+            "shop_id": str(item.get("shop_id")),
+            "quantity": item.get("quantity", 0),
+            "price": item.get("price", 0),
+            "variant_id": str(item.get("variant_id")) if item.get("variant_id") else None,
+            "variant_name": item.get("variant_name", "")
+        }
+        
+        # Lấy tên sản phẩm
+        try:
+            product = await db["products"].find_one({"_id": ObjectId(item["product_id"])})
+            if product:
+                item_result["product_name"] = product.get("name", "Sản phẩm")
+            else:
+                item_result["product_name"] = "Sản phẩm"
+        except:
+            item_result["product_name"] = "Sản phẩm"
+        
+        items.append(item_result)
     
-    # Chuyển đổi voucher
-    if order.get("voucher") and order["voucher"].get("id"):
-        order["voucher"]["id"] = str(order["voucher"]["id"])
+    result["items"] = items
     
-    # Thêm customer info nếu có
-    user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
-    if user:
-        order["customer_name"] = user.get("full_name", user.get("username", ""))
-        order["customer_phone"] = user.get("phone", "")
-        order["customer_email"] = user.get("email", "")
+    # Xử lý voucher
+    if order.get("voucher"):
+        voucher = order["voucher"]
+        result["voucher"] = {
+            "id": str(voucher["id"]) if isinstance(voucher.get("id"), ObjectId) else voucher.get("id"),
+            "code": voucher.get("code", ""),
+            "discount": voucher.get("discount", 0)
+        }
     
-    return order
-
+    # Xử lý shipping unit
+    if order.get("shipping_unit"):
+        shipping_unit = order["shipping_unit"]
+        result["shipping_unit"] = {
+            "id": shipping_unit.get("id"),
+            "name": shipping_unit.get("name"),
+            "code": shipping_unit.get("code"),
+            "shipping_fee": shipping_unit.get("shipping_fee", 0),
+            "estimated_delivery_days": shipping_unit.get("estimated_delivery_days", 3)
+        }
+    
+    if order.get("shipping_unit_id"):
+        result["shipping_unit_id"] = str(order["shipping_unit_id"])
+    
+    # Thêm customer info
+    try:
+        user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
+        if user:
+            result["customer_name"] = user.get("full_name", user.get("username", ""))
+            result["customer_phone"] = user.get("phone", "")
+            result["customer_email"] = user.get("email", "")
+    except:
+        result["customer_name"] = ""
+        result["customer_phone"] = ""
+        result["customer_email"] = ""
+    
+    return result
 
 @router.put("/{order_id}/status")
 async def update_status(

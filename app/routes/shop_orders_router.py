@@ -8,6 +8,9 @@ from bson import ObjectId
 from typing import Optional
 from datetime import datetime, timedelta
 
+from app.services.notification_service import NotificationService
+from app.services.shipping_unit_service import ShippingUnitService
+
 router = APIRouter(prefix="/shop/orders", tags=["Shop Orders"])
 
 class PaymentStatusUpdateRequest(BaseModel):
@@ -105,7 +108,7 @@ async def get_shop_orders(
         # Lấy thông tin user
         user_info = await db["users"].find_one({"_id": order["user_id"]})
         
-        orders.append({
+        order_dict = {
             "_id": str(order["_id"]),
             "order_id": str(order["_id"]),
             "customer_name": user_info.get("full_name", user_info.get("username", "")) if user_info else "",
@@ -116,22 +119,34 @@ async def get_shop_orders(
             "shipping_address_details": order.get("shipping_address_details", {}),
             "total_price": order.get("total_amount", order.get("total_price", 0)),
             "subtotal": order.get("subtotal", 0),
-            "discount": order.get("discount", 0),  # THÊM DISCOUNT
-            "shipping_fee": order.get("shipping_fee", 0),  # THÊM SHIPPING FEE
+            "discount": order.get("discount", 0),
+            "shipping_fee": order.get("shipping_fee", 0),
             "status": order.get("status", "pending"),
             "payment_status": order.get("payment_status", "unpaid"),
             "payment_method": order.get("payment_method", "cod"),
             "created_at": order.get("created_at"),
             "items": shop_items
-        })
+        }
+        
+        # THÊM SHIPPING UNIT VÀO ĐÂY
+        if order.get("shipping_unit"):
+            order_dict["shipping_unit"] = {
+                "id": order["shipping_unit"].get("id"),
+                "name": order["shipping_unit"].get("name"),
+                "code": order["shipping_unit"].get("code"),
+                "shipping_fee": order["shipping_unit"].get("shipping_fee", 0),
+                "estimated_delivery_days": order["shipping_unit"].get("estimated_delivery_days", 3)
+            }
         
         # Thêm voucher nếu có
         if order.get("voucher"):
-            orders[-1]["voucher"] = {
+            order_dict["voucher"] = {
                 "id": str(order["voucher"]["id"]) if isinstance(order["voucher"].get("id"), ObjectId) else order["voucher"].get("id"),
                 "code": order["voucher"].get("code"),
                 "discount": order["voucher"].get("discount", 0)
             }
+        
+        orders.append(order_dict)
     
     return {
         "data": orders,
@@ -195,6 +210,7 @@ async def get_order_stats(
     
     return stats
 
+# app/routes/shop_orders_router.py
 @router.get("/{order_id}")
 async def get_shop_order_detail(
     order_id: str,
@@ -245,7 +261,6 @@ async def get_shop_order_detail(
     # Lấy thông tin user
     user_info = await db["users"].find_one({"_id": order["user_id"]})
     
-    # THÊM CÁC TRƯỜNG: discount, shipping_fee, voucher
     result = {
         "_id": str(order["_id"]),
         "order_id": str(order["_id"]),
@@ -255,18 +270,28 @@ async def get_shop_order_detail(
         "customer_phone": user_info.get("phone", "") if user_info else "",
         "customer_email": user_info.get("email", "") if user_info else "",
         "shipping_address": order.get("shipping_address", ""),
-        "shipping_address_details": order.get("shipping_address_details", {}),  # Thêm địa chỉ chi tiết
+        "shipping_address_details": order.get("shipping_address_details", {}),
         "total_price": order.get("total_amount", order.get("total_price", 0)),
-        "subtotal": order.get("subtotal", 0),  # Thêm subtotal
-        "discount": order.get("discount", 0),  # THÊM DISCOUNT
-        "shipping_fee": order.get("shipping_fee", 0),  # THÊM SHIPPING FEE
+        "subtotal": order.get("subtotal", 0),
+        "discount": order.get("discount", 0),
+        "shipping_fee": order.get("shipping_fee", 0),
         "status": order.get("status", "pending"),
         "payment_status": order.get("payment_status", "unpaid"),
-        "payment_method": order.get("payment_method", "cod"),  # Thêm payment_method
+        "payment_method": order.get("payment_method", "cod"),
         "created_at": order.get("created_at"),
-        "note": order.get("note", ""),  # Thêm note
+        "note": order.get("note", ""),
         "items": shop_items
     }
+    
+    # THÊM SHIPPING UNIT VÀO ĐÂY
+    if order.get("shipping_unit"):
+        result["shipping_unit"] = {
+            "id": order["shipping_unit"].get("id"),
+            "name": order["shipping_unit"].get("name"),
+            "code": order["shipping_unit"].get("code"),
+            "shipping_fee": order["shipping_unit"].get("shipping_fee", 0),
+            "estimated_delivery_days": order["shipping_unit"].get("estimated_delivery_days", 3)
+        }
     
     # THÊM VOUCHER NẾU CÓ
     if order.get("voucher"):
@@ -394,3 +419,132 @@ async def update_payment_status(
         "order_id": order_id,
         "payment_status": new_payment_status
     }
+
+# Thêm endpoint để gán shipping unit cho đơn hàng
+@router.put("/{order_id}/assign-shipping")
+async def assign_shipping_unit(
+    order_id: str,
+    shipping_unit_id: str = Query(..., description="ID đơn vị vận chuyển"),
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Shop gán đơn vị vận chuyển cho đơn hàng
+    """
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    shop_id = ObjectId(current_user.shop_id)
+    
+    # Kiểm tra đơn hàng có chứa sản phẩm của shop không
+    try:
+        order = await db["orders"].find_one({
+            "_id": ObjectId(order_id),
+            "items.shop_id": shop_id
+        })
+    except:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+    
+    # Kiểm tra đơn vị vận chuyển
+    shipping_unit_service = ShippingUnitService(db)
+    shipping_unit = await shipping_unit_service.get_shipping_unit_by_id(
+        shipping_unit_id, 
+        current_user.shop_id
+    )
+    
+    if not shipping_unit:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn vị vận chuyển")
+    
+    if shipping_unit["status"] != "active":
+        raise HTTPException(status_code=400, detail="Đơn vị vận chuyển không hoạt động")
+    
+    # Cập nhật đơn hàng
+    shipping_unit_info = {
+        "id": shipping_unit["id"],
+        "name": shipping_unit["name"],
+        "code": shipping_unit["code"],
+        "shipping_fee": shipping_unit["shipping_fee_base"],
+        "estimated_delivery_days": shipping_unit["estimated_delivery_days"]
+    }
+    
+    await db["orders"].update_one(
+        {"_id": ObjectId(order_id)},
+        {"$set": {
+            "shipping_unit": shipping_unit_info,
+            "shipping_unit_id": ObjectId(shipping_unit_id)
+        }}
+    )
+    
+    # Cập nhật thống kê cho shipping unit
+    await db["shipping_units"].update_one(
+        {"_id": ObjectId(shipping_unit_id)},
+        {"$inc": {"total_orders": 1}}
+    )
+    
+    # Tạo thông báo
+    notification_service = NotificationService(db)
+    await notification_service.create_notification(
+        user_id=str(order["user_id"]),
+        type="order",
+        title="Đơn hàng đã được gán vận chuyển",
+        message=f"Đơn hàng #{order_id[-8:].upper()} đã được giao cho {shipping_unit['name']}",
+        reference_id=order_id
+    )
+    
+    return {
+        "message": "Đã gán đơn vị vận chuyển thành công",
+        "shipping_unit": shipping_unit_info
+    }
+
+@router.get("/{order_id}/tracking")
+async def get_order_tracking(
+    order_id: str,
+    db = Depends(get_database),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Lấy thông tin vận chuyển của đơn hàng
+    """
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    try:
+        order = await db["orders"].find_one({
+            "_id": ObjectId(order_id),
+            "items.shop_id": ObjectId(current_user.shop_id)
+        })
+    except:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+    
+    tracking_info = {
+        "order_id": order_id,
+        "shipping_address": order.get("shipping_address"),
+        "status": order.get("status"),
+        "created_at": order.get("created_at")
+    }
+    
+    if order.get("shipping_unit"):
+        tracking_info["shipping_unit"] = order["shipping_unit"]
+        tracking_info["estimated_delivery_date"] = order.get("created_at") + timedelta(
+            days=order["shipping_unit"]["estimated_delivery_days"]
+        )
+    
+    if order.get("shipped_at"):
+        tracking_info["shipped_at"] = order["shipped_at"]
+    
+    if order.get("delivered_at"):
+        tracking_info["delivered_at"] = order["delivered_at"]
+    
+    return tracking_info

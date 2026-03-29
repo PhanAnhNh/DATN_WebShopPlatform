@@ -39,13 +39,22 @@ class VoucherInfo(BaseModel):
     code: str
     discount: float
 
+class ShippingUnitInfo(BaseModel):
+    """Model for shipping unit information"""
+    id: str
+    name: str
+    code: str
+    shipping_fee: float
+    estimated_delivery_days: int
+
 class OrderCreate(BaseModel):
     items: List[OrderItem]
     total_amount: float = Field(..., gt=0)
     subtotal: float = Field(..., gt=0)
     discount: float = Field(default=0)
     shipping_fee: float = Field(default=0)
-    shipping_address: ShippingAddress  # Now accepts object instead of string
+    shipping_address: ShippingAddress
     note: Optional[str] = ""
     payment_method: str = "cod"
     voucher: Optional[VoucherInfo] = None
+    shipping_unit_id: Optional[str] = None  # Thêm shipping_unit_id

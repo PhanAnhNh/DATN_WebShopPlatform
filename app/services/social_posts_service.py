@@ -178,7 +178,6 @@ class SocialPostService:
         print(f"Found {len(posts)} posts")
         return posts
 
-    # In social_posts_service.py, update the get_feed method's pipeline
     async def get_feed(
         self,
         limit: int = 10,
@@ -318,6 +317,7 @@ class SocialPostService:
             import traceback
             traceback.print_exc()
             return []
+    
     async def update_post(
         self,
         post_id: str,
@@ -392,7 +392,6 @@ class SocialPostService:
         
         return False
 
-    # Thêm vào cuối class SocialPostService
     async def permanently_delete_expired_posts(self):
         """
         Xóa vĩnh viễn các bài viết đã bị xóa tạm thời quá 10 ngày

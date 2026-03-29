@@ -3,7 +3,7 @@ from app.db.mongodb import get_database
 from app.core.security import get_current_user
 from app.models.user_model import UserInDB
 from bson import ObjectId
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 
 router = APIRouter(prefix="/shop/customers", tags=["Customers"])
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/shop/customers", tags=["Customers"])
 @router.get("/")
 async def get_customers(
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = None
@@ -19,7 +19,7 @@ async def get_customers(
     """
     Lấy danh sách khách hàng của shop (phân trang, tìm kiếm)
     """
-    # Kiểm tra quyền (chỉ shop_owner mới được xem)
+    # Kiểm tra quyền
     if current_user.role not in ["shop_owner", "admin"]:
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
     
@@ -28,48 +28,90 @@ async def get_customers(
     if not shop_id and current_user.role != "admin":
         raise HTTPException(status_code=400, detail="Bạn chưa có shop")
     
-    # Query filter
-    filter_query = {}
-    if current_user.role != "admin":
-        # Nếu là shop_owner, chỉ lấy khách hàng của shop mình
-        filter_query["shop_id"] = shop_id
+    # Tìm tất cả orders có chứa sản phẩm của shop này
+    # SỬA: Tìm orders có items.shop_id = shop_id
+    match_stage = {
+        "$match": {
+            "items.shop_id": ObjectId(shop_id) if current_user.role != "admin" else {"$exists": True}
+        }
+    }
     
-    # Tìm kiếm theo tên, email, phone
+    # Thêm điều kiện tìm kiếm
     if search:
-        filter_query["$or"] = [
-            {"full_name": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}},
-            {"phone": {"$regex": search, "$options": "i"}}
-        ]
+        # Tìm user theo tên, email, phone
+        users_with_search = await db["users"].find({
+            "$or": [
+                {"full_name": {"$regex": search, "$options": "i"}},
+                {"email": {"$regex": search, "$options": "i"}},
+                {"phone": {"$regex": search, "$options": "i"}},
+                {"username": {"$regex": search, "$options": "i"}}
+            ]
+        }).to_list(length=None)
+        
+        user_ids = [u["_id"] for u in users_with_search]
+        
+        if user_ids:
+            match_stage["$match"]["user_id"] = {"$in": user_ids}
     
-    # Tính skip
-    skip = (page - 1) * limit
-    
-    # Lấy danh sách khách hàng từ orders (distinct)
+    # Pipeline chính
     pipeline = [
-        {"$match": filter_query},
-        {"$group": {
-            "_id": "$user_id",
-            "total_spent": {"$sum": "$total_price"},
-            "order_count": {"$sum": 1},
-            "last_order": {"$max": "$created_at"}
-        }},
-        {"$lookup": {
-            "from": "users",
-            "localField": "_id",
-            "foreignField": "_id",
-            "as": "user_info"
-        }},
-        {"$unwind": "$user_info"},
-        {"$skip": skip},
+        match_stage,
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_spent": {"$sum": "$total_amount"},  # SỬA: total_amount thay vì total_price
+                "order_count": {"$sum": 1},
+                "last_order": {"$max": "$created_at"},
+                "orders": {"$push": {
+                    "order_id": "$_id",
+                    "total_amount": "$total_amount",
+                    "status": "$status",
+                    "created_at": "$created_at",
+                    "items_count": {"$size": "$items"}
+                }}
+            }
+        },
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "_id",
+                "foreignField": "_id",
+                "as": "user_info"
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$user_info",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+        {
+            "$project": {
+                "user_id": "$_id",
+                "full_name": "$user_info.full_name",
+                "username": "$user_info.username",
+                "email": "$user_info.email",
+                "phone": "$user_info.phone",
+                "address": "$user_info.address",
+                "gender": "$user_info.gender",
+                "avatar_url": "$user_info.avatar_url",
+                "total_spent": 1,
+                "order_count": 1,
+                "last_order": 1,
+                "orders": 1,
+                "created_at": "$user_info.created_at"
+            }
+        },
+        {"$sort": {"last_order": -1}},
+        {"$skip": (page - 1) * limit},
         {"$limit": limit}
     ]
     
     customers = await db["orders"].aggregate(pipeline).to_list(length=None)
     
-    # Đếm tổng số
+    # Đếm tổng số khách hàng
     count_pipeline = [
-        {"$match": filter_query},
+        match_stage,
         {"$group": {"_id": "$user_id"}},
         {"$count": "total"}
     ]
@@ -79,17 +121,19 @@ async def get_customers(
     # Format response
     result = []
     for c in customers:
-        user = c["user_info"]
         result.append({
-            "id": str(user["_id"]),
-            "full_name": user.get("full_name", user["username"]),
-            "email": user.get("email"),
-            "phone": user.get("phone"),
-            "address": user.get("address"),
+            "id": str(c["user_id"]),
+            "full_name": c.get("full_name") or c.get("username", ""),
+            "username": c.get("username", ""),
+            "email": c.get("email", ""),
+            "phone": c.get("phone", ""),
+            "address": c.get("address", ""),
+            "gender": c.get("gender", ""),
+            "avatar_url": c.get("avatar_url", ""),
             "total_spent": c.get("total_spent", 0),
             "order_count": c.get("order_count", 0),
             "last_order": c.get("last_order"),
-            "created_at": user.get("created_at")
+            "created_at": c.get("created_at")
         })
     
     return {
@@ -98,18 +142,19 @@ async def get_customers(
             "page": page,
             "limit": limit,
             "total": total,
-            "total_pages": (total + limit - 1) // limit
+            "total_pages": (total + limit - 1) // limit if total > 0 else 1
         }
     }
+
 
 @router.get("/{customer_id}")
 async def get_customer_detail(
     customer_id: str,
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
-    Xem chi tiết khách hàng
+    Xem chi tiết khách hàng (chỉ hiển thị đơn hàng từ shop của mình)
     """
     if current_user.role not in ["shop_owner", "admin"]:
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
@@ -119,24 +164,42 @@ async def get_customer_detail(
     if not user:
         raise HTTPException(status_code=404, detail="Không tìm thấy khách hàng")
     
-    # Lấy lịch sử mua hàng
-    orders = await db["orders"].find(
-        {"user_id": ObjectId(customer_id)}
-    ).sort("created_at", -1).to_list(length=50)
+    # Lấy shop_id
+    shop_id = current_user.shop_id
+    
+    # Lấy lịch sử mua hàng từ shop này
+    query = {"user_id": ObjectId(customer_id)}
+    if current_user.role != "admin" and shop_id:
+        query["items.shop_id"] = ObjectId(shop_id)
+    
+    orders = await db["orders"].find(query).sort("created_at", -1).to_list(length=50)
     
     # Format orders
     formatted_orders = []
-    for order in orders:
-        formatted_orders.append({
-            "id": str(order["_id"]),
-            "total_price": order["total_price"],
-            "status": order["status"],
-            "created_at": order["created_at"],
-            "items_count": len(order["items"])
-        })
+    total_spent = 0
     
-    # Tính tổng chi tiêu
-    total_spent = sum(o["total_price"] for o in orders if o["status"] != "cancelled")
+    for order in orders:
+        # Tính tổng tiền chỉ từ sản phẩm của shop này
+        order_total_from_shop = 0
+        items_count_from_shop = 0
+        
+        for item in order["items"]:
+            if str(item["shop_id"]) == shop_id:
+                order_total_from_shop += item["price"] * item["quantity"]
+                items_count_from_shop += 1
+        
+        if order_total_from_shop > 0:
+            formatted_orders.append({
+                "id": str(order["_id"]),
+                "total_price": order_total_from_shop,
+                "status": order["status"],
+                "created_at": order["created_at"],
+                "items_count": items_count_from_shop
+            })
+            total_spent += order_total_from_shop
+    
+    # Tính tổng chi tiêu từ shop này
+    total_spent = sum(o["total_price"] for o in formatted_orders)
     
     return {
         "id": str(user["_id"]),
@@ -149,17 +212,18 @@ async def get_customer_detail(
         "dob": user.get("dob"),
         "avatar_url": user.get("avatar_url"),
         "total_spent": total_spent,
-        "order_count": len(orders),
+        "order_count": len(formatted_orders),
         "orders": formatted_orders,
         "created_at": user.get("created_at")
     }
+
 
 @router.put("/{customer_id}")
 async def update_customer(
     customer_id: str,
     data: dict,
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
     Cập nhật thông tin khách hàng
@@ -184,11 +248,12 @@ async def update_customer(
     
     return {"message": "Cập nhật thành công"}
 
+
 @router.delete("/{customer_id}")
 async def delete_customer(
     customer_id: str,
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
     Xóa khách hàng (admin only)
@@ -203,10 +268,11 @@ async def delete_customer(
     
     return {"message": "Xóa khách hàng thành công"}
 
+
 @router.get("/export/excel")
 async def export_customers_excel(
     db = Depends(get_database),
-    current_user: UserInDB = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
     Xuất danh sách khách hàng ra Excel
@@ -217,26 +283,37 @@ async def export_customers_excel(
     # Lấy shop_id
     shop_id = current_user.shop_id
     
-    # Query
-    filter_query = {}
-    if current_user.role != "admin":
-        filter_query["shop_id"] = shop_id
+    # Pipeline để lấy danh sách khách hàng
+    match_stage = {
+        "$match": {
+            "items.shop_id": ObjectId(shop_id) if current_user.role != "admin" else {"$exists": True}
+        }
+    }
     
-    # Lấy danh sách khách hàng
     pipeline = [
-        {"$match": filter_query},
-        {"$group": {
-            "_id": "$user_id",
-            "total_spent": {"$sum": "$total_price"},
-            "order_count": {"$sum": 1}
-        }},
-        {"$lookup": {
-            "from": "users",
-            "localField": "_id",
-            "foreignField": "_id",
-            "as": "user_info"
-        }},
-        {"$unwind": "$user_info"}
+        match_stage,
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_spent": {"$sum": "$total_amount"},
+                "order_count": {"$sum": 1},
+                "last_order": {"$max": "$created_at"}
+            }
+        },
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "_id",
+                "foreignField": "_id",
+                "as": "user_info"
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$user_info",
+                "preserveNullAndEmptyArrays": True
+            }
+        }
     ]
     
     customers = await db["orders"].aggregate(pipeline).to_list(length=None)
@@ -247,16 +324,15 @@ async def export_customers_excel(
         user = c["user_info"]
         excel_data.append({
             "STT": i,
-            "Tên khách hàng": user.get("full_name", user["username"]),
+            "Tên khách hàng": user.get("full_name") or user.get("username", ""),
             "Số điện thoại": user.get("phone", ""),
             "Email": user.get("email", ""),
             "Địa chỉ": user.get("address", ""),
             "Tổng chi tiêu": c.get("total_spent", 0),
-            "Số đơn hàng": c.get("order_count", 0)
+            "Số đơn hàng": c.get("order_count", 0),
+            "Đơn gần nhất": c.get("last_order").strftime("%Y-%m-%d %H:%M") if c.get("last_order") else ""
         })
     
-    # Trả về file Excel (cần thư viện xử lý Excel)
-    # Ở đây tạm thời trả về JSON
     return {
         "data": excel_data,
         "total": len(excel_data),

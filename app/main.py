@@ -13,6 +13,7 @@ from app.routes import (
     admin_dashboard_router,
     admin_notification_router,
     admin_posts_router,
+    admin_profile_router,
     admin_shops_router,
     auth_routes,
     cart_router,
@@ -27,9 +28,12 @@ from app.routes import (
     product_router,
     product_variants_router,
     report_router,
+    return_router,
     review_shop_router,
     reviews_router,
     share_router,
+    shipping_unit_router,
+    shipping_voucher_router,
     shop_auth,
     shop_customers_router,
     shop_dashboard,
@@ -138,11 +142,14 @@ app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
 app.include_router(shop_returns_router.router, prefix=API_PREFIX)
 app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
+app.include_router(shipping_unit_router.router, prefix=API_PREFIX)
+app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 
 # Products
 app.include_router(product_router.router, prefix=API_PREFIX)
 app.include_router(product_variants_router.router, prefix=API_PREFIX)
 app.include_router(category_router.router, prefix=API_PREFIX)
+app.include_router(return_router.router, prefix=API_PREFIX)
 
 # Cart & Orders
 app.include_router(cart_router.router, prefix=API_PREFIX)
@@ -155,6 +162,7 @@ app.include_router(review_shop_router.router, prefix=API_PREFIX)
 
 # Vouchers
 app.include_router(voucher_router.router, prefix=API_PREFIX)
+app.include_router(shipping_voucher_router.router, prefix=API_PREFIX)
 
 # Address
 app.include_router(address_router.router, prefix=API_PREFIX)
@@ -170,6 +178,7 @@ app.include_router(admin_notification_router.router, prefix=API_PREFIX)
 app.include_router(admin_dashboard_router.router, prefix=API_PREFIX)
 app.include_router(admin_posts_router.router, prefix=API_PREFIX)
 app.include_router(admin_shops_router.router, prefix=API_PREFIX)
+app.include_router(admin_profile_router.router, prefix=API_PREFIX)
 
 
 @app.get("/")

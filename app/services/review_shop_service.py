@@ -5,7 +5,7 @@ from datetime import datetime
 class ShopReviewService:
 
     def __init__(self, db):
-        self.collection = db["shop_reviews"]
+        self.collection = db["reviews"]
         self.shop_collection = db["shops"]
 
     async def create_review(self, user_id: str, data: dict):

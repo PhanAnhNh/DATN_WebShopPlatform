@@ -11,17 +11,22 @@ class FriendService:
         self.notification_service = None  # Sẽ inject sau
         self.notification_service = NotificationService(db)
         
+    # app/services/friend_service.py
     async def send_friend_request(self, user_id: str, friend_id: str) -> Dict:
         """Gửi lời mời kết bạn"""
         # Kiểm tra không tự kết bạn với chính mình
         if user_id == friend_id:
             raise ValueError("Không thể kết bạn với chính mình")
             
-        # Kiểm tra user tồn tại
+        # Kiểm tra user tồn tại và kiểm tra loại tài khoản
         friend = await self.user_collection.find_one({"_id": ObjectId(friend_id)})
         if not friend:
             raise ValueError("Người dùng không tồn tại")
-            
+        
+        # THÊM: Kiểm tra nếu người nhận là shop thì không cho phép gửi lời mời
+        if friend.get('user_type') == 'shop':
+            raise ValueError("Không thể gửi lời mời kết bạn đến tài khoản shop")
+        
         # Kiểm tra đã là bạn bè chưa
         existing_friendship = await self.collection.find_one({
             "$or": [
@@ -58,8 +63,9 @@ class FriendService:
         result = await self.collection.insert_one(friend_request)
         friend_request["_id"] = str(result.inserted_id)
         
-        # Gửi thông báo
-        if self.notification_service:
+        # THÊM: Kiểm tra lại loại người nhận trước khi gửi thông báo
+        # Chỉ gửi thông báo nếu người nhận không phải là shop
+        if self.notification_service and friend.get('user_type') != 'shop':
             # Lấy thông tin người gửi
             sender = await self.user_collection.find_one({"_id": ObjectId(user_id)})
             sender_name = sender.get('full_name') or sender.get('username', 'Ai đó')
@@ -67,11 +73,11 @@ class FriendService:
             # Tạo thông báo cho người nhận
             await self.notification_service.create_notification(
                 user_id=friend_id,
-                type="friend_request",  # Đúng với NotificationType.FOLLOW
+                type="friend_request",
                 title="Lời mời kết bạn",
                 message=f"{sender_name} đã gửi lời mời kết bạn",
                 reference_id=str(result.inserted_id),
-                image_url=sender.get('avatar_url')  # Thêm avatar nếu có
+                image_url=sender.get('avatar_url')
             )
         
         return friend_request

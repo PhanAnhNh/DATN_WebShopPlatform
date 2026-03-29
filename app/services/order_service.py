@@ -2,6 +2,7 @@ from bson import ObjectId
 from datetime import datetime
 from app.models.orders_model import OrderStatus
 from app.services.notification_service import NotificationService
+from app.services.shipping_unit_service import ShippingUnitService
 
 class OrderService:
 
@@ -13,8 +14,8 @@ class OrderService:
         self.cart_collection = db["carts"]
         self.variant_collection = db["product_variants"]
         self.notification_service = NotificationService(db)
+        self.shipping_unit_service = ShippingUnitService(db)
 
-    # QUAN TRỌNG: Phương thức create_order phải nằm ở đây, KHÔNG nằm trong __init__
     async def create_order(self, user_id: str, order_data: dict):
         total_price = 0
         items_to_save = []
@@ -56,6 +57,22 @@ class OrderService:
         shipping_addr = order_data["shipping_address"]
         formatted_address = shipping_addr.get("full_address") or f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
+        # Lấy thông tin shipping unit nếu có
+        shipping_unit_info = None
+        if order_data.get("shipping_unit_id"):
+            shipping_unit = await self.shipping_unit_service.get_shipping_unit_by_id(
+                order_data["shipping_unit_id"],
+                None  # Không cần shop_id khi lấy thông tin cơ bản
+            )
+            if shipping_unit:
+                shipping_unit_info = {
+                    "id": shipping_unit["id"],
+                    "name": shipping_unit["name"],
+                    "code": shipping_unit["code"],
+                    "shipping_fee": order_data["shipping_fee"],
+                    "estimated_delivery_days": shipping_unit["estimated_delivery_days"]
+                }
+        
         # Create order
         order = {
             "user_id": ObjectId(user_id),
@@ -72,6 +89,11 @@ class OrderService:
             "status": OrderStatus.pending.value,
             "created_at": datetime.utcnow()
         }
+        
+        # Thêm shipping unit info nếu có
+        if shipping_unit_info:
+            order["shipping_unit"] = shipping_unit_info
+            order["shipping_unit_id"] = ObjectId(order_data["shipping_unit_id"])
         
         # Add voucher if present
         if order_data.get("voucher"):
@@ -111,13 +133,14 @@ class OrderService:
                 message=f"Có đơn hàng mới #{order_id[-8:].upper()} cần xử lý",
                 reference_id=order_id
             )
-        # ========== KẾT THÚC TẠO THÔNG BÁO ==========
         
         # Convert ObjectId to string before returning
         order["_id"] = order_id
         order["user_id"] = str(order["user_id"])
         if order.get("voucher") and order["voucher"].get("id"):
             order["voucher"]["id"] = str(order["voucher"]["id"])
+        if order.get("shipping_unit_id"):
+            order["shipping_unit_id"] = str(order["shipping_unit_id"])
         
         for item in order["items"]:
             item["product_id"] = str(item["product_id"])
@@ -148,6 +171,7 @@ class OrderService:
 
         return orders
 
+    # app/services/order_service.py
     async def get_order(self, order_id: str):
         try:
             order = await self.collection.find_one({
@@ -159,22 +183,76 @@ class OrderService:
         if not order:
             return None
 
-        order["_id"] = str(order["_id"])
-        order["user_id"] = str(order["user_id"])
-
-        for item in order.get("items", []):
-            item["product_id"] = str(item["product_id"])
-            item["shop_id"] = str(item["shop_id"])
-            if item.get("variant_id"):
-                item["variant_id"] = str(item["variant_id"])
-
-        return order
+        # Tạo dict mới để tránh lỗi ObjectId
+        result = {
+            "_id": str(order["_id"]),
+            "user_id": str(order["user_id"]),
+            "total_amount": order.get("total_amount", 0),
+            "total_price": order.get("total_amount", 0),
+            "subtotal": order.get("subtotal", 0),
+            "discount": order.get("discount", 0),
+            "shipping_fee": order.get("shipping_fee", 0),
+            "status": order.get("status", "pending"),
+            "payment_status": order.get("payment_status", "unpaid"),
+            "payment_method": order.get("payment_method", "cod"),
+            "shipping_address": order.get("shipping_address", ""),
+            "shipping_address_details": order.get("shipping_address_details", {}),
+            "note": order.get("note", ""),
+            "created_at": order.get("created_at")
+        }
+        
+        # Xử lý items
+        items = []
+        for idx, item in enumerate(order.get("items", [])):
+            items.append({
+                "_id": f"{result['_id']}_item_{idx}",
+                "product_id": str(item.get("product_id")),
+                "shop_id": str(item.get("shop_id")),
+                "quantity": item.get("quantity", 0),
+                "price": item.get("price", 0),
+                "variant_id": str(item.get("variant_id")) if item.get("variant_id") else None,
+                "variant_name": item.get("variant_name", "")
+            })
+        
+        result["items"] = items
+        
+        # Xử lý voucher
+        if order.get("voucher"):
+            voucher = order["voucher"]
+            result["voucher"] = {
+                "id": str(voucher.get("id")) if voucher.get("id") else None,
+                "code": voucher.get("code", ""),
+                "discount": voucher.get("discount", 0)
+            }
+        
+        # Xử lý shipping unit
+        if order.get("shipping_unit"):
+            result["shipping_unit"] = order.get("shipping_unit")
+        
+        if order.get("shipping_unit_id"):
+            result["shipping_unit_id"] = str(order["shipping_unit_id"])
+        
+        return result
 
     async def update_order_status(self, order_id: str, status: OrderStatus):
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
             {"$set": {"status": status.value}}
         )
+        
+        # Nếu chuyển sang trạng thái shipped, có thể gửi thông báo
+        if status == OrderStatus.shipped:
+            order = await self.get_order(order_id)
+            if order:
+                # Thông báo cho khách hàng
+                await self.notification_service.create_notification(
+                    user_id=order["user_id"],
+                    type="order",
+                    title="Đơn hàng đã giao",
+                    message=f"Đơn hàng #{order_id[-8:].upper()} đã được giao cho đơn vị vận chuyển",
+                    reference_id=order_id
+                )
+        
         return await self.get_order(order_id)
     
     async def update_payment_status(self, order_id: str, status: str):

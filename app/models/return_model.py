@@ -1,23 +1,23 @@
 # app/models/return_model.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
 class ReturnStatus(str, Enum):
-    pending = "pending"        # Chờ xử lý
-    approved = "approved"      # Đã duyệt
-    rejected = "rejected"      # Từ chối
-    completed = "completed"    # Hoàn thành
-    cancelled = "cancelled"    # Đã hủy
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    completed = "completed"
+    cancelled = "cancelled"
 
 class ReturnReason(str, Enum):
-    wrong_product = "wrong_product"       # Sai sản phẩm
-    damaged = "damaged"                    # Hư hỏng
-    expired = "expired"                    # Hết hạn
-    quality = "quality"                     # Chất lượng kém
-    change_mind = "change_mind"             # Đổi ý
-    other = "other"                          # Lý do khác
+    wrong_product = "wrong_product"
+    damaged = "damaged"
+    expired = "expired"
+    quality = "quality"
+    change_mind = "change_mind"
+    other = "other"
 
 class ReturnItem(BaseModel):
     order_item_id: str
@@ -26,30 +26,48 @@ class ReturnItem(BaseModel):
     variant_id: Optional[str] = None
     variant_name: Optional[str] = None
     quantity: int = Field(..., gt=0)
-    price: float
+    price: float = Field(..., gt=0)
     reason: ReturnReason
     reason_note: Optional[str] = None
-    images: List[str] = []  # URL ảnh chứng minh
+    images: List[str] = Field(default_factory=list)
+
+    @field_validator('quantity')
+    def quantity_positive(cls, v):
+        if v <= 0:
+            raise ValueError('Số lượng phải lớn hơn 0')
+        return v
+
+    @field_validator('price')
+    def price_positive(cls, v):
+        if v <= 0:
+            raise ValueError('Giá phải lớn hơn 0')
+        return v
 
 class ReturnCreate(BaseModel):
     order_id: str
-    items: List[ReturnItem]
+    items: List[ReturnItem] = Field(..., min_length=1)
     notes: Optional[str] = None
     bank_name: Optional[str] = None
     bank_account: Optional[str] = None
     bank_holder: Optional[str] = None
 
+    @field_validator('items')
+    def items_not_empty(cls, v):
+        if not v:
+            raise ValueError('Phải có ít nhất 1 sản phẩm để hoàn trả')
+        return v
+
 class ReturnUpdate(BaseModel):
     status: Optional[ReturnStatus] = None
     admin_note: Optional[str] = None
-    approved_items: Optional[List[str]] = None  # List các item_id được duyệt
+    approved_items: Optional[List[str]] = None
     rejected_reason: Optional[str] = None
     refund_amount: Optional[float] = None
     completed_at: Optional[datetime] = None
 
 class ReturnResponse(BaseModel):
     id: str = Field(alias="_id")
-    return_code: str  # Mã yêu cầu đổi trả (RT + datetime)
+    return_code: str
     user_id: str
     user_name: Optional[str]
     user_phone: Optional[str]
