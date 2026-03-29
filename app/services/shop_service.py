@@ -231,3 +231,9 @@ class ShopService:
         """Admin xóa shop - XÓA HẲN (HARD DELETE) khỏi database"""
         result = await self.collection.delete_one({"_id": ObjectId(shop_id)})
         return result.deleted_count > 0
+    
+    async def increment_shop_view(self, shop_id: str):
+        await self.collection.update_one(
+            {"_id": ObjectId(shop_id)},
+            {"$inc": {"view_count": 1}}
+        )

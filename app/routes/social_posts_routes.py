@@ -63,13 +63,17 @@ async def get_social_feed(
 @router.get("/{post_id}", response_model=SocialPostResponse)
 async def get_post_by_id(
     post_id: str,
-    db = Depends(get_database)
+    db = Depends(get_database),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional)  # có thể không cần đăng nhập
 ):
-    """Lấy bài viết theo ID"""
     service = SocialPostService(db)
     post = await service.get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
+    
+    # Tăng view_count
+    await service.increment_view_count(post_id)
+    
     return post
 
 @router.post("/", response_model=SocialPostResponse)

@@ -78,8 +78,26 @@ async def new_users(
 
 @router.get("/new-shops")
 async def new_shops(
-        db=Depends(get_database),
-        admin=Depends(get_current_admin)
+    db = Depends(get_database),
+    admin = Depends(get_current_admin)
 ):
     service = AdminService(db)
     return await service.get_new_shops()
+
+@router.get("/visit-stats")
+async def visit_stats(
+    days: int = 7,
+    db = Depends(get_database),
+    admin = Depends(get_current_admin)
+):
+    service = AdminService(db)
+    return await service.get_visit_stats(days)
+
+@router.get("/interaction-stats")
+async def interaction_stats(
+    days: int = 7,
+    db = Depends(get_database),
+    admin = Depends(get_current_admin)
+):
+    service = AdminService(db)
+    return await service.get_total_interactions(days)

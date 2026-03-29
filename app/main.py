@@ -14,6 +14,7 @@ from app.routes import (
     admin_notification_router,
     admin_posts_router,
     admin_profile_router,
+    admin_settings_router,
     admin_shops_router,
     auth_routes,
     cart_router,
@@ -95,6 +96,7 @@ app = FastAPI(
 
 # CORS Configuration
 # Update your CORS configuration in main.py
+# main.py - phần CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -102,12 +104,11 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "http://localhost:8000",  # Add this
-        "*"  # Temporarily allow all origins for testing
+        "http://localhost:8000",
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,
 )
@@ -144,6 +145,7 @@ app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
 app.include_router(shipping_unit_router.router, prefix=API_PREFIX)
 app.include_router(shop_settings_router.router, prefix=API_PREFIX)
+app.include_router(admin_settings_router.router, prefix=API_PREFIX)
 
 # Products
 app.include_router(product_router.router, prefix=API_PREFIX)

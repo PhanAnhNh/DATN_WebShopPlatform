@@ -20,11 +20,6 @@ def get_shop_service(db=Depends(get_database)):
 def get_product_service(db=Depends(get_database)):
     return ProductService(db)
 
-
-# =========================
-# CÁC ROUTE CỤ THỂ PHẢI ĐẶT TRƯỚC ROUTE ĐỘNG
-# =========================
-
 @router.get("/info")
 async def get_shop_info(
     db = Depends(get_database),
@@ -49,7 +44,6 @@ async def get_shop_info(
     # Lấy thông tin từ shop_settings để có dữ liệu cập nhật nhất
     settings = await db["shop_settings"].find_one({"shop_id": ObjectId(current_user.shop_id)})
     
-    # Ưu tiên dữ liệu từ settings nếu có
     shop_name = settings.get("general", {}).get("shop_name") if settings else None
     shop_email = settings.get("general", {}).get("shop_email") if settings else None
     shop_phone = settings.get("general", {}).get("shop_phone") if settings else None
@@ -141,8 +135,11 @@ async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service
     shop = await service.get_shop_by_id(shop_id)
     if not shop:
         raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Tăng view_count
+    await service.increment_shop_view(shop_id)
+    
     return shop
-
 
 @router.get("/{shop_id}/products", response_model=list[ProductResponse])
 async def get_shop_products(

@@ -517,3 +517,9 @@ class SocialPostService:
         """
         result = await self.collection.delete_one({"_id": ObjectId(post_id)})
         return result.deleted_count > 0
+    
+    async def increment_view_count(self, post_id: str):
+        await self.collection.update_one(
+            {"_id": ObjectId(post_id)},
+            {"$inc": {"stats.view_count": 1}}
+        )
