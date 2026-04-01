@@ -28,6 +28,22 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+def verify_token(token: str) -> Optional[dict]:
+    """Verify JWT token and return user data"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        
+        # Trả về thông tin user từ token
+        return {
+            "user_id": user_id,
+            "exp": payload.get("exp")
+        }
+    except JWTError:
+        return None
+
 # Tạo class User đơn giản để trả về
 class CurrentUser:
     def __init__(self, user_data: dict):

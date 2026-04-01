@@ -191,7 +191,6 @@ async def get_shop_products(
     
     return products
 
-
 @router.get("/{shop_id}/reviews")
 async def get_shop_reviews(
     shop_id: str,
@@ -222,7 +221,6 @@ async def get_shop_reviews(
         reviews.append(review)
     
     return reviews
-
 
 @router.post("/{shop_id}/reviews", status_code=status.HTTP_201_CREATED)
 async def create_shop_review(
@@ -291,7 +289,6 @@ async def create_shop_review(
     
     return created_review
 
-
 @router.post("/{shop_id}/follow")
 async def follow_shop(
     shop_id: str,
@@ -338,7 +335,6 @@ async def follow_shop(
         )
         return {"message": "Followed shop", "following": True}
 
-
 @router.put("/{shop_id}")
 async def update_shop(
     shop_id: str,
@@ -358,7 +354,6 @@ async def update_shop(
 
     return await service.update_shop(shop_id, shop_in)
 
-
 @router.get("/{shop_id}/dashboard")
 async def shop_dashboard(
     shop_id: str, 
@@ -376,7 +371,6 @@ async def shop_dashboard(
         raise HTTPException(status_code=403, detail="Không có quyền xem báo cáo của shop này")
 
     return await service.get_shop_dashboard(shop_id)
-
 
 @router.get("/{shop_id}/follow-status")
 async def get_follow_status(
@@ -401,3 +395,4 @@ async def get_follow_status(
     })
     
     return {"isFollowing": existing is not None}
+

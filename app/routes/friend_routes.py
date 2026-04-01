@@ -59,9 +59,11 @@ async def get_friends(
     current_user: CurrentUser = Depends(get_current_user),
     db = Depends(get_database)
 ):
-    """Lấy danh sách bạn bè"""
+    """Lấy danh sách bạn bè CÓ THÔNG TIN CHI TIẾT"""
     service = FriendService(db)
-    friends = await service.get_friends(str(current_user.id), limit, skip)
+    friends = await service.get_friends_with_details(
+        str(current_user.id), limit=limit, skip=skip
+    )
     return friends
 
 @router.get("/requests/pending")

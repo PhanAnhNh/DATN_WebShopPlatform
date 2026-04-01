@@ -1,13 +1,19 @@
-# main.py
 from datetime import datetime
-
+import socketio
 import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Import database
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
+
+# Import models
+from app.models.message_model import MessageCreate
+
+# Import routers
 from app.routes import (
     address_router,
     admin_dashboard_router,
@@ -19,6 +25,7 @@ from app.routes import (
     auth_routes,
     cart_router,
     category_router,
+    chat_routes,
     follow_router,
     friend_routes,
     like_router,
@@ -32,6 +39,7 @@ from app.routes import (
     return_router,
     review_shop_router,
     reviews_router,
+    save_router,
     share_router,
     shipping_unit_router,
     shipping_voucher_router,
@@ -50,53 +58,64 @@ from app.routes import (
     user_routes,
     voucher_router
 )
-from app.services.cleanup_service import cleanup_expired_posts  # Thêm import
+
+# Import services
+from app.services.chat_service import ChatService
+from app.services.cleanup_service import cleanup_expired_posts
 
 API_PREFIX = "/api/v1"
 
+# ====================== SOCKET.IO SETUP ======================
+sio = socketio.AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://localhost:5175"  # thêm nếu bạn dùng port khác
+    ]
+)
 
+
+# ====================== LIFESPAN ======================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Quản lý vòng đời ứng dụng"""
-    # Khởi tạo kết nối database
+    """Quản lý khởi tạo và đóng server"""
     await connect_to_mongo()
     print("--- SERVER ĐÃ SẴN SÀNG VÀ KẾT NỐI MONGODB ---")
-    
-    # Khởi tạo background task để xóa bài viết hết hạn
+
+    # Background task dọn dẹp
     async def cleanup_task():
-        """Chạy mỗi ngày để xóa bài viết đã bị xóa tạm thời quá 10 ngày"""
         while True:
             try:
-                # Chờ 24 giờ
-                await asyncio.sleep(86400)
+                await asyncio.sleep(86400)  # 24 giờ
                 db = get_database()
                 deleted_count = await cleanup_expired_posts(db)
                 if deleted_count > 0:
                     print(f"Đã xóa {deleted_count} bài viết hết hạn")
             except Exception as e:
-                print(f"Lỗi khi xóa bài viết hết hạn: {e}")
-    
-    # Chạy background task
+                print(f"Lỗi cleanup task: {e}")
+
     task = asyncio.create_task(cleanup_task())
-    
+
     yield
-    
+
     # Dọn dẹp khi tắt server
     task.cancel()
     await close_mongo_connection()
     print("--- SERVER ĐÃ ĐÓNG ---")
 
 
+# ====================== FASTAPI APP ======================
 app = FastAPI(
-    title="Đồ Án Tốt Nghiệp API",
+    title="Đặc Sản Quê Tôi API",
     version="1.0.0",
     description="API cho ứng dụng Đặc Sản Quê Tôi",
     lifespan=lifespan
 )
 
-# CORS Configuration
-# Update your CORS configuration in main.py
-# main.py - phần CORS
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -104,112 +123,144 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "http://localhost:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
 )
 
 
-# ========================
-# Đăng ký các Router
-# ========================
+# ====================== SOCKET.IO EVENTS ======================
+@sio.event
+async def connect(sid, environ):
+    print(f"Client connected: {sid}")
 
-# User & Auth
+
+@sio.event
+async def disconnect(sid):
+    print(f"Client disconnected: {sid}")
+
+
+@sio.event
+async def send_chat_message(sid, data):
+    """Nhận tin nhắn từ client và phát realtime"""
+    try:
+        db = get_database()
+        chat_service = ChatService(db)
+
+        message_create = MessageCreate(
+            receiver_id=data['receiver_id'],
+            content=data['content']
+        )
+
+        # Lưu tin nhắn vào database
+        saved_msg = await chat_service.send_message(data['sender_id'], message_create)
+
+        # Chuẩn bị dữ liệu gửi realtime
+        message_data = {
+            "id": str(saved_msg.get("_id")),
+            "sender_id": data['sender_id'],
+            "receiver_id": data['receiver_id'],
+            "content": data['content'],
+            "message_type": "text",
+            "created_at": saved_msg["created_at"].isoformat()
+        }
+
+        # Gửi cho người nhận
+        await sio.emit('new_message', message_data, room=data['receiver_id'])
+
+        # Xác nhận đã gửi cho người gửi
+        await sio.emit('message_sent', message_data, room=data['sender_id'])
+
+        print(f"Tin nhắn từ {data['sender_id']} → {data['receiver_id']}")
+
+    except Exception as e:
+        print(f"Socket send_chat_message error: {e}")
+        await sio.emit('error', {"message": str(e)}, room=data.get('sender_id'))
+
+
+# ====================== INCLUDE ROUTERS ======================
 app.include_router(user_routes.router, prefix=API_PREFIX)
 app.include_router(auth_routes.router, prefix=API_PREFIX)
 
-# Social Posts & Comments
+# Social & Chat
 app.include_router(social_posts_routes.router, prefix=API_PREFIX)
 app.include_router(post_comments_routes.router, prefix=API_PREFIX)
 app.include_router(like_router.router, prefix=API_PREFIX)
 app.include_router(follow_router.router, prefix=API_PREFIX)
-app.include_router(share_router.router, prefix=API_PREFIX)
 app.include_router(friend_routes.router, prefix=API_PREFIX)
-app.include_router(follow_router.router, prefix=API_PREFIX)
+app.include_router(save_router.router, prefix=API_PREFIX)
+app.include_router(share_router.router, prefix=API_PREFIX)
+app.include_router(chat_routes.router, prefix=API_PREFIX)
 
-# Shop
+# Shop & Product
 app.include_router(shop_router.router, prefix=API_PREFIX)
 app.include_router(shop_auth.router, prefix=API_PREFIX)
 app.include_router(shop_profile.router, prefix=API_PREFIX)
 app.include_router(shop_customers_router.router, prefix=API_PREFIX)
 app.include_router(shop_products_router.router, prefix=API_PREFIX)
-app.include_router(shop_orders_router.router, prefix=API_PREFIX)
-app.include_router(shop_dashboard.router, prefix=API_PREFIX)
-app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
-app.include_router(shop_returns_router.router, prefix=API_PREFIX)
-app.include_router(shop_settings_router.router, prefix=API_PREFIX)
-app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
-app.include_router(shipping_unit_router.router, prefix=API_PREFIX)
-app.include_router(shop_settings_router.router, prefix=API_PREFIX)
-app.include_router(admin_settings_router.router, prefix=API_PREFIX)
-
-# Products
 app.include_router(product_router.router, prefix=API_PREFIX)
-app.include_router(product_variants_router.router, prefix=API_PREFIX)
 app.include_router(category_router.router, prefix=API_PREFIX)
-app.include_router(return_router.router, prefix=API_PREFIX)
+app.include_router(product_variants_router.router, prefix=API_PREFIX)
 
-# Cart & Orders
+# Cart, Order, Payment
 app.include_router(cart_router.router, prefix=API_PREFIX)
 app.include_router(order_router.router, prefix=API_PREFIX)
 app.include_router(payment_router.router, prefix=API_PREFIX)
 
-# Reviews
+# Others
+app.include_router(address_router.router, prefix=API_PREFIX)
 app.include_router(reviews_router.router, prefix=API_PREFIX)
 app.include_router(review_shop_router.router, prefix=API_PREFIX)
-
-# Vouchers
 app.include_router(voucher_router.router, prefix=API_PREFIX)
+app.include_router(shipping_unit_router.router, prefix=API_PREFIX)
 app.include_router(shipping_voucher_router.router, prefix=API_PREFIX)
-
-# Address
-app.include_router(address_router.router, prefix=API_PREFIX)
-
-# Reports
+app.include_router(return_router.router, prefix=API_PREFIX)
 app.include_router(report_router.router, prefix=API_PREFIX)
-
-# Notifications
-app.include_router(notification_router.router, prefix=API_PREFIX)
-app.include_router(admin_notification_router.router, prefix=API_PREFIX)
 
 # Admin
 app.include_router(admin_dashboard_router.router, prefix=API_PREFIX)
+app.include_router(admin_notification_router.router, prefix=API_PREFIX)
 app.include_router(admin_posts_router.router, prefix=API_PREFIX)
 app.include_router(admin_shops_router.router, prefix=API_PREFIX)
 app.include_router(admin_profile_router.router, prefix=API_PREFIX)
+app.include_router(admin_settings_router.router, prefix=API_PREFIX)
+
+# Notification
+app.include_router(notification_router.router, prefix=API_PREFIX)
+
+# Shop Management
+app.include_router(shop_dashboard.router, prefix=API_PREFIX)
+app.include_router(shop_orders_router.router, prefix=API_PREFIX)
+app.include_router(shop_returns_router.router, prefix=API_PREFIX)
+app.include_router(shop_settings_router.router, prefix=API_PREFIX)
+app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
+app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
 
 
+# ====================== MOUNT SOCKET.IO ======================
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
+app.mount("/socket.io", socket_app)
+
+
+# ====================== ROOT ENDPOINTS ======================
 @app.get("/")
 async def root():
-    """Endpoint kiểm tra server hoạt động"""
     return {
         "status": "success",
-        "message": "API đang hoạt động ổn định",
+        "message": "API Đặc Sản Quê Tôi đang hoạt động",
         "version": "1.0.0"
     }
 
 
 @app.get("/health")
 async def health_check():
-    """Kiểm tra sức khỏe server"""
     try:
         db = get_database()
         await db.command("ping")
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-            "error": str(e)
-        }
+        return {"status": "unhealthy", "error": str(e)}
 
 
 if __name__ == "__main__":
