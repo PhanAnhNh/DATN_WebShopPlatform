@@ -145,3 +145,4 @@ class SocialPostResponse(SocialPostInDB):
 
     product_name: Optional[str] = None
     shop_name: Optional[str] = None
+    shared_post: Optional[dict] = None

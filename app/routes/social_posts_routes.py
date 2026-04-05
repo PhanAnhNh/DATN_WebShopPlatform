@@ -1,5 +1,5 @@
 # app/routes/social_posts_routes.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 
 from app.models.social_posts_model import (
@@ -14,51 +14,47 @@ from app.core.security import get_current_admin, get_current_user, CurrentUser, 
 
 router = APIRouter(prefix="/posts", tags=["Social Posts"])
 
-
-@router.get("/user/{user_id}", response_model=List[SocialPostResponse])
-async def get_posts_by_user(
-    user_id: str,
-    limit: int = 10,
-    skip: int = 0,
-    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),  # Thêm current_user
+@router.get("/search", response_model=List[SocialPostResponse])
+async def search_posts(
+    keyword: str = Query(..., min_length=1, description="Từ khóa tìm kiếm"),
+    limit: int = Query(20, ge=1, le=50, description="Số lượng kết quả tối đa"),
+    current_user: CurrentUser = Depends(get_current_user),
     db = Depends(get_database)
 ):
     """
-    Lấy danh sách bài viết của một user cụ thể
-    Có kiểm tra quyền truy cập dựa trên visibility
+    Tìm kiếm bài viết theo nội dung và tags
     """
-    print(f"=== GET /posts/user/{user_id} ===")
     service = SocialPostService(db)
-    try:
-        current_user_id = str(current_user.id) if current_user else None
-        posts = await service.get_user_posts(
-            user_id=user_id, 
-            limit=limit, 
-            skip=skip,
-            current_user_id=current_user_id
-        )
-        print(f"Found {len(posts)} posts for user {user_id}")
-        return posts
-    except Exception as e:
-        print(f"Error fetching posts for user {user_id}: {e}")
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy bài viết cho user: {user_id}")
-    
+    results = await service.search_posts(
+        keyword=keyword,
+        limit=limit,
+        current_user_id=str(current_user.id)
+    )
+    return results
+
 @router.get("/feed", response_model=List[SocialPostResponse])
 async def get_social_feed(
     category: Optional[CategoryType] = None,
     limit: int = 10,
     skip: int = 0,
-    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),  # Sử dụng optional
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
     db = Depends(get_database)
 ):
     service = SocialPostService(db)
     user_id = str(current_user.id) if current_user else None
-    return await service.get_feed(
+    result = await service.get_feed(
         limit=limit, 
         skip=skip, 
         category=category,
         current_user_id=user_id
     )
+    
+    # Debug log để kiểm tra shared_post
+    for post in result:
+        if post.get("post_type") == "share":
+            print(f"Post ID: {post.get('_id')}, shared_post_id: {post.get('shared_post_id')}, has_shared_post: {post.get('shared_post') is not None}")
+    
+    return result
 
 @router.get("/{post_id}", response_model=SocialPostResponse)
 async def get_post_by_id(
@@ -127,3 +123,23 @@ async def permanently_delete_post(
     if not deleted:
         raise HTTPException(status_code=404, detail="Không tìm thấy bài viết")
     return {"message": "Đã xóa vĩnh viễn bài viết"}
+
+@router.get("/user/{user_id}", response_model=List[SocialPostResponse])
+async def get_user_posts_endpoint(
+    user_id: str,
+    limit: int = Query(10, ge=1, le=50),
+    skip: int = Query(0, ge=0),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+    db = Depends(get_database)
+):
+    service = SocialPostService(db)
+    current_user_id = str(current_user.id) if current_user else None
+    
+    posts = await service.get_user_posts(
+        user_id=user_id,
+        limit=limit,
+        skip=skip,
+        current_user_id=current_user_id
+    )
+    return posts
+
