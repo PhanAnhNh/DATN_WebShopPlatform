@@ -191,9 +191,13 @@ class SocialPostService:
         try:
             # Xây dựng query cơ bản
             match_query = {
-                "is_active": True,
+                "is_active": True,  # Chỉ lấy bài viết đang active
                 "is_permanently_deleted": False,
-                "author_type": {"$in": ["user", "admin"]}  # Cho phép cả user và admin
+                "author_type": {"$in": ["user", "admin"]},
+                "$or": [
+                    {"hidden_by_report": {"$ne": True}},  # Không bị ẩn do báo cáo
+                    {"hidden_by_report": {"$exists": False}}  # Hoặc field không tồn tại
+                ]
             }
             
             # Lọc theo category

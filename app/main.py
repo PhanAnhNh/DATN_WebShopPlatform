@@ -68,15 +68,10 @@ API_PREFIX = "/api/v1"
 # ====================== SOCKET.IO SETUP ======================
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://localhost:5175"  # thêm nếu bạn dùng port khác
-    ]
+    cors_allowed_origins=[],  # ← KHÔNG duplicate
+    ping_timeout=60,
+    ping_interval=25
 )
-
 
 # ====================== LIFESPAN ======================
 @asynccontextmanager
@@ -115,15 +110,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+# CORS Middleware (chỉ cho HTTP routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -141,20 +131,37 @@ async def disconnect(sid):
     print(f"Client disconnected: {sid}")
 
 
+# ==================== JOIN ROOM (BẮT BUỘC) ====================
+@sio.event
+async def join(sid, data):
+    """User join room theo user_id"""
+    if data and isinstance(data, dict) and data.get('user_id'):
+        await sio.enter_room(sid, data['user_id'])
+        print(f"✅ User {data['user_id']} joined room")
+
+
+@sio.event
+async def join_shop_room(sid, data):
+    """Shop join room theo shop_id"""
+    if data and isinstance(data, dict) and data.get('shop_id'):
+        await sio.enter_room(sid, data['shop_id'])
+        print(f"✅ Shop {data['shop_id']} joined room")
+
+
+# ==================== SEND CHAT MESSAGE ====================
 @sio.event
 async def send_chat_message(sid, data):
-    """Nhận tin nhắn từ client và phát realtime"""
+    """Nhận tin nhắn từ client (user hoặc shop) và phát realtime"""
     try:
         db = get_database()
         chat_service = ChatService(db)
 
-        message_create = MessageCreate(
+        # Gọi hàm đã sửa trong ChatService (không kiểm tra friend)
+        saved_msg = await chat_service.send_message(
+            sender_id=data['sender_id'],
             receiver_id=data['receiver_id'],
             content=data['content']
         )
-
-        # Lưu tin nhắn vào database
-        saved_msg = await chat_service.send_message(data['sender_id'], message_create)
 
         # Chuẩn bị dữ liệu gửi realtime
         message_data = {
@@ -166,13 +173,11 @@ async def send_chat_message(sid, data):
             "created_at": saved_msg["created_at"].isoformat()
         }
 
-        # Gửi cho người nhận
+        # Phát tin nhắn cho cả 2 bên (room của sender và receiver)
         await sio.emit('new_message', message_data, room=data['receiver_id'])
+        await sio.emit('new_message', message_data, room=data['sender_id'])
 
-        # Xác nhận đã gửi cho người gửi
-        await sio.emit('message_sent', message_data, room=data['sender_id'])
-
-        print(f"Tin nhắn từ {data['sender_id']} → {data['receiver_id']}")
+        print(f"📨 Tin nhắn từ {data['sender_id']} → {data['receiver_id']}")
 
     except Exception as e:
         print(f"Socket send_chat_message error: {e}")
@@ -239,7 +244,11 @@ app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
 
 
 # ====================== MOUNT SOCKET.IO ======================
-socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
+socket_app = socketio.ASGIApp(
+    sio,
+    other_asgi_app=app,
+    socketio_path="/socket.io"
+)
 app.mount("/socket.io", socket_app)
 
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.models.message_model import MessageCreate
 from app.services.chat_service import ChatService
-from app.core.security import CurrentUser, get_current_user
+from app.core.security import CurrentUser, get_current_user, get_current_shop_owner
 from app.db.mongodb import get_database
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
