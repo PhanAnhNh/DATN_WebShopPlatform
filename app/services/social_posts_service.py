@@ -182,36 +182,36 @@ class SocialPostService:
         return posts
 
     async def get_feed(
-        self,
-        limit: int = 10,
-        skip: int = 0,
-        category: Optional[str] = None,
-        current_user_id: Optional[str] = None
-    ) -> List[dict]:
+    self,
+    limit: int = 10,
+    skip: int = 0,
+    category: Optional[str] = None,
+    current_user_id: Optional[str] = None
+) -> List[dict]:
         try:
             # Xây dựng query cơ bản
             match_query = {
-                "is_active": True,  # Chỉ lấy bài viết đang active
+                "is_active": True,
                 "is_permanently_deleted": False,
                 "author_type": {"$in": ["user", "admin"]},
                 "$or": [
-                    {"hidden_by_report": {"$ne": True}},  # Không bị ẩn do báo cáo
-                    {"hidden_by_report": {"$exists": False}}  # Hoặc field không tồn tại
+                    {"hidden_by_report": {"$ne": True}},
+                    {"hidden_by_report": {"$exists": False}}
                 ]
             }
             
-            # Lọc theo category
+            # 🔧 Lọc theo category
             if category and category != "general":
                 match_query["product_category"] = category
+            
+            # 🔧 Tạo visibility conditions RIÊNG
+            visibility_conditions = []
             
             # Xử lý visibility dựa trên user hiện tại
             if current_user_id:
                 try:
                     user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
-                    if not user_exists:
-                        # Fallback: chỉ hiển thị public
-                        match_query["visibility"] = "public"
-                    else:
+                    if user_exists:
                         # Lấy danh sách bạn bè
                         following = await self.db["follows"].find({
                             "user_id": ObjectId(current_user_id),
@@ -220,27 +220,41 @@ class SocialPostService:
                         friend_ids = [ObjectId(f["target_id"]) for f in following]
                         friend_ids.append(ObjectId(current_user_id))
                         
-                        # QUAN TRỌNG: Đảm bảo visibility logic hoạt động đúng
-                        match_query["$or"] = [
-                            {"visibility": "public"},  # Bài viết công khai (bao gồm của admin)
-                            {"author_id": ObjectId(current_user_id)},  # Bài viết của chính user
+                        # Visibility conditions
+                        visibility_conditions = [
+                            {"visibility": "public"},
+                            {"author_id": ObjectId(current_user_id)},
                             {
                                 "visibility": "friends",
                                 "author_id": {"$in": friend_ids}
                             }
                         ]
+                    else:
+                        visibility_conditions = [{"visibility": "public"}]
                 except Exception as e:
                     print(f"Error processing friends: {e}")
-                    match_query["visibility"] = "public"
+                    visibility_conditions = [{"visibility": "public"}]
             else:
-                # Không có user, chỉ hiển thị public
-                match_query["visibility"] = "public"
-
-            print(f"Final match query: {match_query}")
-
+                visibility_conditions = [{"visibility": "public"}]
+            
+            # 🔧 QUAN TRỌNG: Kết hợp category filter và visibility conditions
+            # Dùng $and để kết hợp
+            if visibility_conditions:
+                final_match = {
+                    "$and": [
+                        match_query,
+                        {"$or": visibility_conditions}
+                    ]
+                }
+            else:
+                final_match = match_query
+            
+            print(f"🔍 Category: {category}")
+            print(f"🔍 Final match: {final_match}")
+            
             # Thực hiện aggregation
             pipeline = [
-                {"$match": match_query},
+                {"$match": final_match},
                 {"$sort": {"created_at": -1}},
                 {"$skip": skip},
                 {"$limit": limit},
@@ -311,15 +325,14 @@ class SocialPostService:
                 if "author_type" not in doc or not doc["author_type"]:
                     doc["author_type"] = "user"
                 
-                print(f"Processing post: {doc.get('_id')}, post_type: {doc.get('post_type')}, shared_post_id: {doc.get('shared_post_id')}")
                 post = await self.get_post_with_shared_info(doc)
                 posts.append(post)
 
-            print(f"Found {len(posts)} posts in feed")
+            print(f"✅ Found {len(posts)} posts for category: {category}")
             
-            # Debug: In ra danh sách author_id để kiểm tra
+            # Debug: In ra product_category của từng post
             for post in posts:
-                print(f"Post ID: {post['_id']}, Author ID: {post['author_id']}, Author Type: {post['author_type']}")
+                print(f"Post: {post.get('_id')}, product_category: {post.get('product_category')}")
             
             return posts
             

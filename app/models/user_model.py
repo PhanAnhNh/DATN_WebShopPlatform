@@ -8,7 +8,6 @@ class UserRole(str, Enum):
     shop_owner = "shop_owner"
     admin = "admin"
 
-
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3)
     email: EmailStr

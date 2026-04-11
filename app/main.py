@@ -31,6 +31,7 @@ from app.routes import (
     like_router,
     notification_router,
     order_router,
+    password_routes,
     payment_router,
     post_comments_routes,
     product_router,
@@ -187,6 +188,7 @@ async def send_chat_message(sid, data):
 # ====================== INCLUDE ROUTERS ======================
 app.include_router(user_routes.router, prefix=API_PREFIX)
 app.include_router(auth_routes.router, prefix=API_PREFIX)
+app.include_router(password_routes.router, prefix=API_PREFIX)
 
 # Social & Chat
 app.include_router(social_posts_routes.router, prefix=API_PREFIX)
