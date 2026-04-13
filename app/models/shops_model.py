@@ -71,3 +71,17 @@ class ShopInDB(ShopBase):
 
     created_at: datetime
     updated_at: datetime
+
+class ShopBankInfo(BaseModel):
+    """Thông tin ngân hàng của shop"""
+    bank_name: str = Field(..., description="Tên ngân hàng")
+    bank_code: str = Field(..., description="Mã ngân hàng (BIDV, VCB, etc)")
+    account_number: str = Field(..., description="Số tài khoản")
+    account_name: str = Field(..., description="Chủ tài khoản")
+    branch: Optional[str] = Field(None, description="Chi nhánh")
+    qr_code_url: Optional[str] = Field(None, description="URL QR code thanh toán")
+
+class ShopPaymentSettings(BaseModel):
+    """Cài đặt thanh toán của shop"""
+    bank_info: Optional[ShopBankInfo] = None
+    enable_bank_transfer: bool = True

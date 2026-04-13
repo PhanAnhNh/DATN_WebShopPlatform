@@ -29,6 +29,7 @@ from app.routes import (
     follow_router,
     friend_routes,
     like_router,
+    locations_router,
     notification_router,
     order_router,
     password_routes,
@@ -209,6 +210,7 @@ app.include_router(shop_products_router.router, prefix=API_PREFIX)
 app.include_router(product_router.router, prefix=API_PREFIX)
 app.include_router(category_router.router, prefix=API_PREFIX)
 app.include_router(product_variants_router.router, prefix=API_PREFIX)
+app.include_router(locations_router.router, prefix=API_PREFIX)
 
 # Cart, Order, Payment
 app.include_router(cart_router.router, prefix=API_PREFIX)

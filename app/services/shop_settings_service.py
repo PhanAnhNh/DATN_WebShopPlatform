@@ -1,4 +1,7 @@
 # app/services/shop_settings_service.py
+import os
+import uuid
+
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional, Dict
@@ -162,7 +165,6 @@ class ShopSettingsService:
         
         return await self.get_settings(shop_id)
 
-    # Các method khác giữ nguyên...
     async def update_notification_settings(self, shop_id: str, data: dict) -> Dict:
         """Cập nhật cài đặt thông báo"""
         await self.collection.update_one(
@@ -239,3 +241,107 @@ class ShopSettingsService:
             }}
         )
         return await self.get_settings(shop_id)
+    
+    async def add_bank_account(self, shop_id: str, account_data: dict) -> Dict:
+        """Thêm tài khoản ngân hàng mới"""
+        # Tạo ID cho tài khoản
+        account_id = str(uuid.uuid4())
+        
+        new_account = {
+            "id": account_id,
+            "bank_name": account_data.get("bank_name"),
+            "bank_code": account_data.get("bank_code"),
+            "account_number": account_data.get("account_number"),
+            "account_name": account_data.get("account_name"),
+            "branch": account_data.get("branch"),
+            "qr_code_url": account_data.get("qr_code_url"),
+            "is_active": account_data.get("is_active", True),
+            "created_at": datetime.utcnow()
+        }
+        
+        await self.collection.update_one(
+            {"shop_id": ObjectId(shop_id)},
+            {
+                "$push": {"payment.bank_accounts": new_account},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+        
+        return new_account
+
+    async def update_bank_account(self, shop_id: str, account_id: str, data: dict) -> Dict:
+        """Cập nhật tài khoản ngân hàng"""
+        # Xây dựng update object
+        update_fields = {}
+        for key in ["bank_name", "bank_code", "account_number", "account_name", "branch", "is_active"]:
+            if key in data:
+                update_fields[f"payment.bank_accounts.$.{key}"] = data[key]
+        
+        if data.get("qr_code_url"):
+            update_fields["payment.bank_accounts.$.qr_code_url"] = data["qr_code_url"]
+        
+        update_fields["payment.bank_accounts.$.updated_at"] = datetime.utcnow()
+        
+        await self.collection.update_one(
+            {
+                "shop_id": ObjectId(shop_id),
+                "payment.bank_accounts.id": account_id
+            },
+            {"$set": update_fields}
+        )
+        
+        return await self.get_bank_account(shop_id, account_id)
+
+    async def delete_bank_account(self, shop_id: str, account_id: str) -> Dict:
+        """Xóa tài khoản ngân hàng"""
+        await self.collection.update_one(
+            {"shop_id": ObjectId(shop_id)},
+            {"$pull": {"payment.bank_accounts": {"id": account_id}}}
+        )
+        
+        return {"message": "Xóa tài khoản thành công"}
+
+    async def get_bank_account(self, shop_id: str, account_id: str) -> Optional[Dict]:
+        """Lấy thông tin một tài khoản ngân hàng"""
+        settings = await self.collection.find_one(
+            {"shop_id": ObjectId(shop_id)},
+            {"payment.bank_accounts": {"$elemMatch": {"id": account_id}}}
+        )
+        
+        if settings and settings.get("payment", {}).get("bank_accounts"):
+            return settings["payment"]["bank_accounts"][0]
+        return None
+
+    async def upload_qr_code(self, shop_id: str, account_id: str, file) -> Dict:
+        """Upload QR code cho tài khoản ngân hàng"""
+        # Tạo thư mục nếu chưa có
+        upload_dir = "static/qr_codes"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Tạo tên file
+        file_extension = file.filename.split('.')[-1]
+        filename = f"{shop_id}_{account_id}.{file_extension}"
+        filepath = os.path.join(upload_dir, filename)
+        
+        # Lưu file
+        content = await file.read()
+        with open(filepath, "wb") as f:
+            f.write(content)
+        
+        qr_url = f"/static/qr_codes/{filename}"
+        
+        # Cập nhật URL vào database
+        await self.collection.update_one(
+            {
+                "shop_id": ObjectId(shop_id),
+                "payment.bank_accounts.id": account_id
+            },
+            {
+                "$set": {
+                    "payment.bank_accounts.$.qr_code_url": qr_url,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {"qr_code_url": qr_url}

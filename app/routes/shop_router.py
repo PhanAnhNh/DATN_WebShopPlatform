@@ -62,7 +62,6 @@ async def get_shop_info(
         "general_settings": settings.get("general") if settings else None
     }
 
-
 @router.get("/stats")
 async def get_shops_stats(
     db = Depends(get_database),
@@ -84,7 +83,6 @@ async def get_shops_stats(
         "verified": verified_shops
     }
 
-
 @router.get("/")
 async def list_shops(
     skip: int = 0,
@@ -92,7 +90,6 @@ async def list_shops(
     service: ShopService = Depends(get_shop_service)
 ):
     return await service.list_shops(skip, limit)
-
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_shop(
@@ -105,7 +102,6 @@ async def create_shop(
     shop_data["owner_id"] = str(current_user.id)
     
     return await service.create_shop(shop_data, shop_data)  # Sửa lại tham số
-
 
 @router.post("/with-owner", status_code=status.HTTP_201_CREATED)
 async def create_shop_with_owner(
@@ -124,11 +120,6 @@ async def create_shop_with_owner(
         "message": "Tạo cửa hàng và tài khoản chủ shop thành công",
         "data": result
     }
-
-
-# =========================
-# ROUTE ĐỘNG (CÓ THAM SỐ) PHẢI ĐẶT SAU CÁC ROUTE CỤ THỂ
-# =========================
 
 @router.get("/{shop_id}")
 async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service)):
@@ -396,3 +387,45 @@ async def get_follow_status(
     
     return {"isFollowing": existing is not None}
 
+@router.get("/{shop_id}/payment-info")
+async def get_shop_payment_info(
+    shop_id: str,
+    db = Depends(get_database)
+):
+    """
+    Lấy thông tin thanh toán của shop (tài khoản ngân hàng, QR code)
+    Dùng cho trang thanh toán sau khi đặt hàng
+    """
+    # Lấy thông tin shop
+    shop = await db["shops"].find_one({"_id": ObjectId(shop_id)})
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    # Lấy thông tin thanh toán từ shop_settings
+    settings = await db["shop_settings"].find_one({"shop_id": ObjectId(shop_id)})
+    
+    # Thông tin ngân hàng mặc định (có thể lấy từ settings hoặc từ shop)
+    payment_info = {
+        "shop_id": str(shop["_id"]),
+        "shop_name": shop.get("name", ""),
+        "bank_info": {
+            "bank_name": "Vietcombank",
+            "bank_code": "VCB",
+            "account_number": "123456789",
+            "account_name": shop.get("name", "CỬA HÀNG"),
+            "branch": "Chi nhánh Hà Nội"
+        }
+    }
+    
+    # Nếu có settings, ghi đè
+    if settings and settings.get("payment_settings"):
+        payment_settings = settings.get("payment_settings", {})
+        if payment_settings.get("bank_info"):
+            payment_info["bank_info"] = payment_settings["bank_info"]
+    
+    # Tạo QR code URL nếu có
+    if payment_info["bank_info"].get("account_number"):
+        # Có thể generate QR code động ở đây
+        payment_info["qr_code_url"] = f"/static/qr/shop_{shop_id}.png"
+    
+    return payment_info

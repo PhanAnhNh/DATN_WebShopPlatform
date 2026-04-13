@@ -22,7 +22,6 @@ async def create_order(
         order.model_dump()
     )
 
-
 @router.get("/my")
 async def my_orders(
     db = Depends(get_database),
@@ -187,7 +186,6 @@ async def get_order_stats(
     
     return stats
 
-
 @router.get("/{order_id}")
 async def get_order(
     order_id: str,
@@ -306,7 +304,6 @@ async def update_status(
     service = OrderService(db)
     return await service.update_order_status(order_id, status)
 
-
 @router.post("/{order_id}/cancel")
 async def cancel_order(
     order_id: str,
@@ -318,3 +315,30 @@ async def cancel_order(
         return await service.cancel_order(order_id, str(current_user.id))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/{order_id}/resend-email")
+async def resend_order_email(
+    order_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Gửi lại email xác nhận đơn hàng (nếu cần)"""
+    service = OrderService(db)
+    order = await service.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Kiểm tra quyền
+    if order["user_id"] != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    
+    # Gửi lại email
+    await service._send_customer_order_email(
+        current_user.email,
+        current_user.full_name or current_user.username,
+        order_id,
+        order_id[-8:].upper(),
+        order
+    )
+    
+    return {"message": "Email đã được gửi lại"}
