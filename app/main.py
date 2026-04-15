@@ -26,6 +26,7 @@ from app.routes import (
     cart_router,
     category_router,
     chat_routes,
+    favorite_router,
     follow_router,
     friend_routes,
     like_router,
@@ -57,6 +58,7 @@ from app.routes import (
     shop_statistics_router,
     shop_vouchers_router,
     social_posts_routes,
+    traceability_router,
     user_routes,
     voucher_router
 )
@@ -211,6 +213,7 @@ app.include_router(product_router.router, prefix=API_PREFIX)
 app.include_router(category_router.router, prefix=API_PREFIX)
 app.include_router(product_variants_router.router, prefix=API_PREFIX)
 app.include_router(locations_router.router, prefix=API_PREFIX)
+app.include_router(favorite_router.router, prefix=API_PREFIX)
 
 # Cart, Order, Payment
 app.include_router(cart_router.router, prefix=API_PREFIX)
@@ -245,7 +248,7 @@ app.include_router(shop_returns_router.router, prefix=API_PREFIX)
 app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
-
+app.include_router(traceability_router.router, prefix=API_PREFIX)
 
 # ====================== MOUNT SOCKET.IO ======================
 socket_app = socketio.ASGIApp(

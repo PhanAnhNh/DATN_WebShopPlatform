@@ -10,11 +10,11 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     category_id: str
     origin: Optional[str] = None
-    certification: Optional[str] = None
-    image_url: Optional[str] = None  
+    image_url: Optional[str] = None
+    has_traceability: bool = Field(default=False)
+    traceability_id: Optional[str] = None
 
 class ProductCreate(ProductBase):
-    # Dùng model không yêu cầu product_id
     variants: List[ProductVariantCreateWithProduct] = Field(default_factory=list)
     price: Optional[float] = None  
     stock: Optional[int] = 0       
@@ -24,7 +24,6 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
     category_id: Optional[str] = None
     origin: Optional[str] = None
-    certification: Optional[str] = None
     image_url: Optional[str] = None
     price: Optional[float] = None
     stock: Optional[int] = None

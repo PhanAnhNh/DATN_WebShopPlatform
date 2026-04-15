@@ -88,20 +88,51 @@ async def delete_product(
 
     return await service.delete_product(product_id)
 
+# app/api/v1/endpoints/products.py (thêm endpoint trace)
 @router.get("/{product_id}/trace")
 async def trace_product(
     product_id: str,
     db = Depends(get_database)
 ):
-
-    service = ProductService(db)
-
-    product = await service.get_product(product_id)
-
+    """Lấy thông tin truy xuất nguồn gốc đầy đủ"""
+    from app.services.traceability_service import TraceabilityService
+    
+    product_service = ProductService(db)
+    trace_service = TraceabilityService(db)
+    
+    product = await product_service.get_product(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
+    
+    trace = await trace_service.get_traceability_by_product(product_id)
+    
+    # Gom nhóm các event theo stage
+    stages = {
+        "cultivation": {"name": "Nuôi trồng", "icon": "🌱", "events": []},
+        "production": {"name": "Sản xuất", "icon": "🏭", "events": []},
+        "processing": {"name": "Chế biến", "icon": "⚙️", "events": []},
+        "transportation": {"name": "Vận chuyển", "icon": "🚚", "events": []},
+        "distribution": {"name": "Phân phối", "icon": "🏪", "events": []},
+        "certification": {"name": "Chứng nhận", "icon": "📜", "events": []}
+    }
+    
+    if trace and trace.get("trace_events"):
+        for event in trace["trace_events"]:
+            stage = event.get("stage", "production")
+            if stage in stages:
+                stages[stage]["events"].append(event)
+    
     return {
-        "product_name": product["name"],
-        "origin": product.get("origin"),
-        "certification": product.get("certification"),
-        "description": product.get("description"),
-        "image": product.get("image_url")
+        "product": {
+            "id": product["id"],
+            "name": product["name"],
+            "description": product.get("description"),
+            "image_url": product.get("image_url"),
+            "origin": product.get("origin"),
+            "certification": product.get("certification"),
+            "has_traceability": product.get("has_traceability", False)
+        },
+        "stages": stages,
+        "trace_events": trace.get("trace_events", []) if trace else [],
+        "qr_code_data": f"/product/{product_id}/trace" if trace else None
     }
