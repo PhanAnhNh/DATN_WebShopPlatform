@@ -98,7 +98,7 @@ class SocialPostService:
         is_own_profile = current_user_id and str(current_user_id) == user_id
         
         if not is_own_profile and current_user_id:
-            # Lấy danh sách bạn bè từ collection FRIENDS (không phải follows)
+            
             friend_ids = []
             try:
                 # Tìm các mối quan hệ bạn bè đã được chấp nhận
@@ -212,12 +212,23 @@ class SocialPostService:
                 try:
                     user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
                     if user_exists:
-                        # Lấy danh sách bạn bè
-                        following = await self.db["follows"].find({
-                            "user_id": ObjectId(current_user_id),
-                            "status": "accepted"
-                        }).to_list(length=None)
-                        friend_ids = [ObjectId(f["target_id"]) for f in following]
+                        friend_ids = []
+                        # Tìm tất cả các mối quan hệ "accepted" mà current_user tham gia
+                        friends_cursor = self.db["friends"].find({
+                            "$or": [
+                                {"user_id": current_user_id, "status": "accepted"},
+                                {"friend_id": current_user_id, "status": "accepted"}
+                            ]
+                        })
+                        async for friendship in friends_cursor:
+                            # Xác định ID của người bạn
+                            if friendship["user_id"] == current_user_id:
+                                friend_ids.append(friendship["friend_id"])
+                            else:
+                                friend_ids.append(friendship["user_id"])
+
+                        # Chuyển đổi sang ObjectId và thêm chính user hiện tại
+                        friend_ids = [ObjectId(fid) for fid in friend_ids]
                         friend_ids.append(ObjectId(current_user_id))
                         
                         # Visibility conditions

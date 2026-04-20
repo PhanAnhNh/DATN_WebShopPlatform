@@ -1,4 +1,5 @@
 # app/routes/admin_shops_router.py
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from app.db.mongodb import get_database
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/admin/shops", tags=["Admin Shops"])
 def get_shop_service(db = Depends(get_database)):
     return ShopService(db)
 
-@router.get("/", response_model=List[ShopInDB])
+@router.get("/")  # ← Bỏ response_model=List[ShopInDB]
 async def admin_get_all_shops(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -22,7 +23,8 @@ async def admin_get_all_shops(
     if getattr(current_user, "role", "") != "admin":
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
     
-    return await service.list_shops(skip, limit)
+    shops = await service.list_shops(skip, limit)
+    return shops
 
 @router.put("/{shop_id}")
 async def admin_update_shop(
@@ -35,7 +37,17 @@ async def admin_update_shop(
     if getattr(current_user, "role", "") != "admin":
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
     
-    updated_shop = await service.update_shop_admin(shop_id, shop_in)
+    # Chuyển đổi dữ liệu
+    update_dict = shop_in.model_dump(exclude_unset=True)
+    
+    # ✅ Nếu có location_id và là string, convert sang ObjectId
+    if "location_id" in update_dict and update_dict["location_id"]:
+        try:
+            update_dict["location_id"] = ObjectId(update_dict["location_id"])
+        except:
+            pass
+    
+    updated_shop = await service.update_shop_admin(shop_id, update_dict)
     if not updated_shop:
         raise HTTPException(status_code=404, detail="Shop not found")
     

@@ -1,11 +1,13 @@
 # app/routes/shops_router.py (hoặc shop_router.py tùy tên file)
 from datetime import datetime
+import math
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
 from app.models.user_model import UserInDB
+from app.services.distance_service import distance_service
 from app.services.shop_service import ShopService
 from app.services.product_service import ProductService
 from app.models.shops_model import ShopCreate, ShopUpdate, ShopWithOwnerCreate
@@ -120,6 +122,85 @@ async def create_shop_with_owner(
         "message": "Tạo cửa hàng và tài khoản chủ shop thành công",
         "data": result
     }
+
+# app/routes/shops_router.py - SỬA LẠI hàm get_nearby_shops
+
+@router.get("/nearby")
+async def get_nearby_shops(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    radius_km: float = Query(10),
+    limit: int = Query(20),
+    db = Depends(get_database)
+):
+    shops_collection = db["shops"]
+    locations_collection = db["locations"]
+    
+    shops = []
+    cursor = shops_collection.find({"status": "active"})
+    
+    shop_service = ShopService(db)
+    
+    async for shop in cursor:
+        location_id = shop.get("location_id")
+        if not location_id:
+            continue
+        
+        if isinstance(location_id, ObjectId):
+            location_obj_id = location_id
+        else:
+            try:
+                location_obj_id = ObjectId(location_id)
+            except:
+                continue
+        
+        location = await locations_collection.find_one({"_id": location_obj_id})
+        if not location:
+            continue
+        
+        shop_lat = location.get("lat")
+        shop_lng = location.get("lng")
+        
+        if shop_lat is None or shop_lng is None:
+            continue
+        
+        # ✅ Dùng API đường đi thay vì Haversine
+        road_distance = await distance_service.get_road_distance(lat, lng, shop_lat, shop_lng)
+        
+        if road_distance and road_distance["distance_km"] <= radius_km:
+            shop = shop_service._convert_objectids(shop)
+            shop["distance_km"] = road_distance["distance_km"]
+            shop["duration_min"] = road_distance["duration_min"]
+            shops.append(shop)
+        elif not road_distance:
+            # Fallback to Haversine nếu API lỗi
+            distance = calculate_distance(lat, lng, shop_lat, shop_lng) * 1.3
+            if distance <= radius_km:
+                shop = shop_service._convert_objectids(shop)
+                shop["distance_km"] = distance
+                shop["duration_min"] = round(distance * 2, 1)  # Ước lượng 2 phút/km
+                shops.append(shop)
+    
+    shops.sort(key=lambda x: x["distance_km"])
+    
+    return {
+        "data": shops[:limit],
+        "user_location": {"lat": lat, "lng": lng},
+        "total": len(shops[:limit])
+    }
+
+def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Tính khoảng cách Haversine (km)"""
+    R = 6371
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+    
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return round(R * c, 2)
 
 @router.get("/{shop_id}")
 async def get_shop(shop_id: str, service: ShopService = Depends(get_shop_service)):

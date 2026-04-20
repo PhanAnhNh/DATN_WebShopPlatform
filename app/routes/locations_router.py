@@ -1,6 +1,7 @@
-# app/api/v1/endpoints/locations.py
+# app/routes/locations_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
+from app.db.mongodb import get_database
 from app.schemas.locations import (
     LocationCreate, LocationUpdate,
     ProvinceCreate, ProvinceUpdate,
@@ -11,6 +12,29 @@ from app.core.security import get_current_admin, get_current_user, CurrentUser
 router = APIRouter(prefix="/locations", tags=["Locations"])
 
 # ========== Location Endpoints ==========
+
+# ✅ THÊM ENDPOINT GET ALL LOCATIONS - ĐẶT LÊN TRƯỚC
+@router.get("/")
+async def get_all_locations(
+    limit: int = Query(200, ge=1, le=1000),
+    skip: int = Query(0, ge=0),
+    db = Depends(get_database)
+):
+    """Lấy tất cả địa điểm (cho admin)"""
+    locations_collection = db["locations"]
+    
+    cursor = locations_collection.find({"status": "active"}).skip(skip).limit(limit)
+    locations = []
+    async for loc in cursor:
+        loc["_id"] = str(loc["_id"])
+        locations.append(loc)
+    
+    return {
+        "data": locations,
+        "total": len(locations),
+        "limit": limit,
+        "skip": skip
+    }
 
 @router.get("/nearby")
 async def get_nearby_locations(
@@ -30,7 +54,7 @@ async def get_nearby_locations(
 @router.get("/province/{province_id}")
 async def get_locations_by_province(
     province_id: str,
-    limit: int = Query(500, ge=1, le=1000),   # ← Tăng lên
+    limit: int = Query(500, ge=1, le=1000),
     page: int = Query(1, ge=1)
 ):
     """Lấy danh sách địa điểm theo tỉnh (dùng cho Admin)"""

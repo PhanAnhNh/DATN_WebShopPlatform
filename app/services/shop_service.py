@@ -1,4 +1,5 @@
 from datetime import datetime
+from annotated_types import doc
 from bson import ObjectId
 from app.models.shops_model import ShopCreate, ShopUpdate
 from app.models.user_model import UserCreate
@@ -18,6 +19,10 @@ class ShopService:
         # Convert owner_id sang ObjectId
         if "owner_id" in shop_dict and shop_dict["owner_id"]:
             shop_dict["owner_id"] = ObjectId(shop_dict["owner_id"])
+
+        if "location_id" in shop_dict and shop_dict["location_id"]:
+            if isinstance(shop_dict["location_id"], str):
+                shop_dict["location_id"] = ObjectId(shop_dict["location_id"])
 
         shop_dict.update({
             "status": "active",
@@ -56,7 +61,8 @@ class ShopService:
         return shop
     
         # =========================
-    # CREATE SHOP WITH OWNER
+    # app/services/shop_service.py
+
     async def create_shop_with_owner(self, shop_owner_data: dict):
         """
         Tạo đồng thời shop và tài khoản chủ shop
@@ -91,6 +97,7 @@ class ShopService:
             "ward": shop_owner_data.get("shop_ward"),
             "logo_url": shop_owner_data.get("shop_logo_url"),
             "banner_url": shop_owner_data.get("shop_banner_url"),
+            "location_id": shop_owner_data.get("location_id"),  # ✅ THÊM DÒNG NÀY
             "owner_id": ObjectId(user_id),
             "status": "active",
             "is_verified": False,
@@ -103,6 +110,13 @@ class ShopService:
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
+        
+        # ✅ Xử lý location_id: nếu có và là string, convert sang ObjectId
+        if shop_dict.get("location_id") and isinstance(shop_dict["location_id"], str):
+            try:
+                shop_dict["location_id"] = ObjectId(shop_dict["location_id"])
+            except:
+                shop_dict["location_id"] = None
         
         result = await self.collection.insert_one(shop_dict)
         
@@ -117,6 +131,9 @@ class ShopService:
         if shop:
             shop["_id"] = str(shop["_id"])
             shop["owner_id"] = str(shop["owner_id"])
+            # ✅ Convert location_id từ ObjectId sang string để trả về
+            if "location_id" in shop and isinstance(shop["location_id"], ObjectId):
+                shop["location_id"] = str(shop["location_id"])
         
         # 5. Lấy thông tin user vừa tạo
         user = await self.user_service.get_user_by_id(user_id)
@@ -126,18 +143,16 @@ class ShopService:
             "owner": user,
             "login_info": {
                 "username": shop_owner_data["owner_username"],
-                "password": shop_owner_data["owner_password"],  # Chỉ trả về khi tạo
+                "password": shop_owner_data["owner_password"],
                 "message": "Tài khoản đăng nhập đã được tạo"
             }
         }, None
 
-    # GET SHOP BY ID
     async def get_shop_by_id(self, shop_id: str):
         shop = await self.collection.find_one({"_id": ObjectId(shop_id)})
         if shop:
-            shop["_id"] = str(shop["_id"])
-            if "owner_id" in shop:
-                shop["owner_id"] = str(shop["owner_id"])
+            # Convert tất cả ObjectId trong document
+            shop = self._convert_objectids(shop)
         return shop
 
     async def update_shop(self, shop_id: str, shop_in: ShopUpdate):
@@ -155,16 +170,14 @@ class ShopService:
     async def list_shops(self, skip: int = 0, limit: int = 20):
         cursor = self.collection.find().skip(skip).limit(limit)
         shops = []
-        async for shop in cursor:  # SỬA: dùng async for thay vì to_list
-            shop["_id"] = str(shop["_id"])
-            if "owner_id" in shop:
-                shop["owner_id"] = str(shop["owner_id"])
+        async for shop in cursor:
+            shop = self._convert_objectids(shop)
             shops.append(shop)
         return shops
 
-    # =========================
-    # DASHBOARD STATS
-    # =========================
+        # =========================
+        # DASHBOARD STATS
+        # =========================
     async def get_shop_dashboard(self, shop_id: str):
         shop = await self.get_shop_by_id(shop_id)
         if not shop:
@@ -179,7 +192,26 @@ class ShopService:
             "views": shop["view_count"],
         }
 
-    # app/services/shop_service.py
+    def _convert_objectids(self, doc):
+        """Đệ quy convert tất cả ObjectId trong document sang string"""
+        if isinstance(doc, dict):
+            new_doc = {}
+            for key, value in doc.items():
+                if isinstance(value, ObjectId):
+                    new_doc[key] = str(value)
+                elif isinstance(value, dict):
+                    new_doc[key] = self._convert_objectids(value)
+                elif isinstance(value, list):
+                    new_doc[key] = [self._convert_objectids(item) for item in value]
+                else:
+                    new_doc[key] = value
+            return new_doc
+        elif isinstance(doc, list):
+            return [self._convert_objectids(item) for item in doc]
+        elif isinstance(doc, ObjectId):
+            return str(doc)
+        else:
+            return doc
 
     async def update_shop_admin(self, shop_id: str, update_data):
         """Admin cập nhật shop - nhận cả model hoặc dict"""
