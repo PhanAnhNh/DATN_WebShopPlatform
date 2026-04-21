@@ -554,6 +554,7 @@ class SocialPostService:
         return posts
 
     async def update_post_admin(self, post_id: str, update_data: dict):
+        """Admin cập nhật bài viết"""
         update_data["updated_at"] = datetime.utcnow()
         
         updated_post = await self.collection.find_one_and_update(

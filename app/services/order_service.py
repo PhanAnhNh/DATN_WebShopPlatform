@@ -164,7 +164,8 @@ class OrderService:
             item["shop_id"] = str(item["shop_id"])
             if item.get("variant_id"):
                 item["variant_id"] = str(item["variant_id"])
-        
+        await self._update_product_sold_quantity(items_to_save, operation="increase")
+
         return order
 
     async def _send_customer_order_email(self, customer_email: str, customer_name: str, order_id: str, order_code: str, order_data: dict):
@@ -472,6 +473,30 @@ class OrderService:
         )
         return await self.get_order(order_id)
 
+    async def _update_product_sold_quantity(self, items: list, operation: str = "increase"):
+        """
+        Cập nhật sold_quantity cho sản phẩm.
+        operation: "increase" (khi đặt hàng) hoặc "decrease" (khi hủy hàng)
+        """
+        for item in items:
+            product_id = item["product_id"]
+            quantity = item["quantity"]
+            change = quantity if operation == "increase" else -quantity
+
+            # Cập nhật sold_quantity cho sản phẩm chính
+            await self.db["products"].update_one(
+                {"_id": ObjectId(product_id)},
+                {"$inc": {"sold_quantity": change}}
+            )
+
+            # Nếu có variant, cũng cập nhật sold_quantity cho variant (tùy chọn, nếu muốn theo dõi chi tiết)
+            if item.get("variant_id"):
+                await self.db["product_variants"].update_one(
+                    {"_id": ObjectId(item["variant_id"])},
+                    {"$inc": {"sold_quantity": change}}  # Nhớ thêm trường này trong model variant nếu cần
+                )
+            print(f"✅ Updated sold_quantity for product {product_id}: {change}")
+
     async def cancel_order(self, order_id: str, user_id: str):
         try:
             order = await self.collection.find_one({
@@ -514,5 +539,6 @@ class OrderService:
             {"_id": ObjectId(order_id)},
             {"$set": {"status": OrderStatus.cancelled.value, "cancelled_at": datetime.utcnow()}}
         )
+        await self._update_product_sold_quantity(order.get("items", []), operation="decrease")
 
         return {"status": "success", "message": "Đơn hàng đã được hủy và hoàn kho"}

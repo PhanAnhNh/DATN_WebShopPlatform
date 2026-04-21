@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+# app/routes/product_router.py
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.db.mongodb import get_database
 from app.models.products import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product_service import ProductService
@@ -6,89 +9,86 @@ from app.core.security import get_current_user
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
-
 @router.post("/", response_model=ProductResponse)
 async def create_product(
-    product_in: ProductCreate, # Tự động validate dữ liệu
+    product_in: ProductCreate,
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):
     service = ProductService(db)
-    
-    # Chuyển Model thành dict để xử lý
     product_data = product_in.model_dump()
     product_data["shop_id"] = str(current_user.id)
-    
     return await service.create_product(product_data)
-
 
 @router.get("/", response_model=list[ProductResponse])
 async def get_products(
+    sort: Optional[str] = Query(None, regex="^(hot|new|price_asc|price_desc)$"),
     db = Depends(get_database)
 ):
-
     service = ProductService(db)
+    return await service.get_products(sort=sort)
 
-    return await service.get_products()
+# ✅ ĐẶT ROUTE NÀY TRƯỚC route /{product_id}
+@router.get("/hot", response_model=list[ProductResponse])
+async def get_hot_products(
+    limit: int = Query(10, ge=1, le=50, description="Số lượng sản phẩm hot cần lấy"),
+    db = Depends(get_database)
+):
+    """
+    Lấy danh sách sản phẩm 'hot' dựa trên số lượng đã bán (sold_quantity).
+    Sản phẩm có sold_quantity cao nhất sẽ được trả về.
+    """
+    service = ProductService(db)
+    hot_products = await service.get_hot_products(limit=limit)
+    return hot_products
 
-
+# ⚠️ ĐỂ ROUTE NÀY Ở CUỐI CÙNG
 @router.get("/{product_id}")
 async def get_product(
     product_id: str,
     db = Depends(get_database)
 ):
-
     service = ProductService(db)
-
     return await service.get_product(product_id)
-
 
 @router.put("/{product_id}")
 async def update_product(
     product_id: str,
     product_update: ProductUpdate,
     db = Depends(get_database),
-    current_user = Depends(get_current_user) # Bắt buộc đăng nhập
+    current_user = Depends(get_current_user)
 ):
     service = ProductService(db)
 
-    # 1. Lấy thông tin sản phẩm hiện tại
     product = await service.get_product(product_id)
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sản phẩm không tồn tại")
 
-    # 2. Ràng buộc quyền: Chỉ chủ shop hoặc Admin mới được sửa
-    # (Giả định current_user có thuộc tính role, nếu không có bạn có thể bỏ phần check admin đi)
     is_admin = getattr(current_user, "role", "") == "admin"
     if product["shop_id"] != str(current_user.id) and not is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền chỉnh sửa sản phẩm này")
 
-    # 3. Thực hiện update
     data = product_update.model_dump(exclude_unset=True)
     return await service.update_product(product_id, data)
-
 
 @router.delete("/{product_id}")
 async def delete_product(
     product_id: str,
     db = Depends(get_database),
-    current_user = Depends(get_current_user) # Bắt buộc đăng nhập
+    current_user = Depends(get_current_user)
 ):
     service = ProductService(db)
 
-    # 1. Lấy thông tin sản phẩm hiện tại
     product = await service.get_product(product_id)
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sản phẩm không tồn tại")
 
-    # 2. Ràng buộc quyền: Chỉ chủ shop hoặc Admin mới được xóa
     is_admin = getattr(current_user, "role", "") == "admin"
     if product["shop_id"] != str(current_user.id) and not is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền xóa sản phẩm này")
 
     return await service.delete_product(product_id)
 
-# app/api/v1/endpoints/products.py (thêm endpoint trace)
 @router.get("/{product_id}/trace")
 async def trace_product(
     product_id: str,
@@ -106,7 +106,6 @@ async def trace_product(
     
     trace = await trace_service.get_traceability_by_product(product_id)
     
-    # Gom nhóm các event theo stage
     stages = {
         "cultivation": {"name": "Nuôi trồng", "icon": "🌱", "events": []},
         "production": {"name": "Sản xuất", "icon": "🏭", "events": []},

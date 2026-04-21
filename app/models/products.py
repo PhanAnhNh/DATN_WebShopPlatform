@@ -13,6 +13,7 @@ class ProductBase(BaseModel):
     image_url: Optional[str] = None
     has_traceability: bool = Field(default=False)
     traceability_id: Optional[str] = None
+    sold_quantity: int = Field(default=0, ge=0, description="Tổng số lượng đã bán")
 
 class ProductCreate(ProductBase):
     variants: List[ProductVariantCreateWithProduct] = Field(default_factory=list)
@@ -37,6 +38,6 @@ class ProductResponse(ProductBase):
     price: Optional[float] = None
     stock: Optional[int] = 0
 
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
+class Config:
+    populate_by_name = True
+    arbitrary_types_allowed = True

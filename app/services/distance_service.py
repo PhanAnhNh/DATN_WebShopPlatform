@@ -3,10 +3,11 @@ import httpx
 from typing import Optional, Dict
 import json
 import os
+from app.core.config import settings
 
 class DistanceService:
     def __init__(self):
-        self.access_token = os.getenv("MAPBOX_ACCESS_TOKEN")
+        self.access_token = settings.MAPBOX_ACCESS_TOKEN
         if not self.access_token:
             print("⚠️ Warning: MAPBOX_ACCESS_TOKEN not found in environment")
         self.base_url = "https://api.mapbox.com/directions/v5/mapbox/driving"

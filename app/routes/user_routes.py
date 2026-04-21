@@ -51,9 +51,6 @@ async def remove_user(
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     return {"message": "Xóa người dùng thành công"}
 
-# app/routes/user_routes.py
-# Cập nhật get_user_profile
-
 @router.get("/{user_id}")
 async def get_user_profile(
     user_id: str,

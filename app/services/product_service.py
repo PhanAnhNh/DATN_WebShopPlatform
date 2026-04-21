@@ -23,7 +23,7 @@ class ProductService:
         product_data["shop_id"] = ObjectId(product_data["shop_id"])
         product_data["created_at"] = datetime.utcnow()
         product_data["category_id"] = ObjectId(product_data["category_id"])
-        
+        product_data["sold_quantity"] = 0
         # Nếu có variants, tính tổng stock và bỏ qua price/stock riêng
         if variants_data:
             total_stock = sum(v.get("stock", 0) for v in variants_data)
@@ -84,10 +84,20 @@ class ProductService:
         product["variants"] = created_variants
         product["qr_code_url"] = qr_path
         
+        
         return product
 
-    async def get_products(self, limit=20, skip=0):
-        """Lấy danh sách sản phẩm kèm variants"""
+    async def get_products(self, limit=20, skip=0, sort: str = None):
+        query = self.collection.find()
+        if sort == "hot":
+            query = query.sort("sold_quantity", -1)
+        elif sort == "new":
+            query = query.sort("created_at", -1)
+        # ... thêm các trường hợp sort khác
+        else:
+            query = query.sort("created_at", -1) # Mặc định sắp xếp theo mới nhất
+
+        
         cursor = self.collection.find().skip(skip).limit(limit)
         products = []
         
@@ -162,6 +172,35 @@ class ProductService:
             product["stock"] = sum(v["stock"] for v in variants)
         
         return product
+
+    async def get_hot_products(self, limit: int = 10):
+        """Lấy top sản phẩm có sold_quantity cao nhất"""
+        # Sắp xếp giảm dần theo sold_quantity, lấy limit sản phẩm
+        cursor = self.collection.find().sort("sold_quantity", -1).limit(limit)
+        products = []
+        async for doc in cursor:
+            # Chuyển đổi dữ liệu giống như trong hàm get_products
+            product_id = str(doc["_id"])
+            doc["id"] = product_id
+            doc["_id"] = product_id
+            doc["shop_id"] = str(doc["shop_id"])
+            doc["category_id"] = str(doc["category_id"])
+
+            # Lấy variants (nếu cần)
+            variants = []
+            variant_cursor = self.variant_collection.find({"product_id": ObjectId(product_id)})
+            async for v in variant_cursor:
+                v["id"] = str(v["_id"])
+                v["_id"] = str(v["_id"])
+                v["product_id"] = str(v["product_id"])
+                variants.append(v)
+            doc["variants"] = variants
+
+            if variants:
+                doc["price"] = min(v["price"] for v in variants)
+                doc["stock"] = sum(v["stock"] for v in variants)
+            products.append(doc)
+        return products
 
     async def delete_product(self, product_id):
         # Xóa cả variants của sản phẩm

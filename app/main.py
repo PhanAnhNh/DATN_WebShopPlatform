@@ -59,6 +59,7 @@ from app.routes import (
     shop_vouchers_router,
     social_posts_routes,
     traceability_router,
+    upload_router,
     user_routes,
     voucher_router
 )
@@ -249,7 +250,7 @@ app.include_router(shop_settings_router.router, prefix=API_PREFIX)
 app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
 app.include_router(traceability_router.router, prefix=API_PREFIX)
-
+app.include_router(upload_router.router, prefix=API_PREFIX)
 # ====================== MOUNT SOCKET.IO ======================
 socket_app = socketio.ASGIApp(
     sio,

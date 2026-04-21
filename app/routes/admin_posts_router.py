@@ -18,14 +18,12 @@ async def admin_get_all_posts(
     visibility: Optional[str] = None,
     post_type: Optional[str] = None,
     service: SocialPostService = Depends(get_post_service),
-    current_user = Depends(get_current_user)  # Yêu cầu đăng nhập
+    current_user = Depends(get_current_user)
 ):
     """Admin lấy tất cả bài viết (có filter)"""
-    # Kiểm tra quyền admin
     if getattr(current_user, "role", "") != "admin":
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
     
-    # Xây dựng filter
     filter_query = {}
     if visibility:
         filter_query["visibility"] = visibility
@@ -51,6 +49,27 @@ async def admin_toggle_post_status(
     
     return {"message": "Cập nhật trạng thái thành công"}
 
+@router.put("/{post_id}")
+async def admin_update_post(
+    post_id: str,
+    update_data: SocialPostUpdate,
+    service: SocialPostService = Depends(get_post_service),
+    current_user = Depends(get_current_user)
+):
+    """Admin cập nhật bài viết (nội dung, images, videos, tags, ...)"""
+    if getattr(current_user, "role", "") != "admin":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    # Lọc bỏ các field None
+    update_dict = update_data.dict(exclude_unset=True)
+    
+    updated_post = await service.update_post_admin(post_id, update_dict)
+    
+    if not updated_post:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết")
+    
+    return updated_post
+
 @router.delete("/{post_id}")
 async def admin_delete_post(
     post_id: str,
@@ -66,22 +85,3 @@ async def admin_delete_post(
         raise HTTPException(status_code=404, detail="Không tìm thấy bài viết")
     
     return {"message": "Xóa bài viết thành công"}
-
-@router.put("/{post_id}")
-async def admin_update_post(
-    post_id: str,
-    update_data: SocialPostUpdate,
-    service: SocialPostService = Depends(get_post_service),
-    current_user = Depends(get_current_user)
-):
-    """Admin cập nhật bài viết"""
-    if getattr(current_user, "role", "") != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
-    
-    # Lấy kết quả đã được convert từ service
-    updated_post = await service.update_post_admin(post_id, update_data.dict(exclude_unset=True))
-    
-    if not updated_post:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết")
-    
-    return updated_post
