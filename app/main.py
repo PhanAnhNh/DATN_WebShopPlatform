@@ -119,16 +119,8 @@ app = FastAPI(
 # CORS Middleware (chỉ cho HTTP routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "https://datn-fe-web-shop-platform.vercel.app",
-        "https://datn-fe-web-shop-platform-r999qhrwz-anh-nhats-projects-14889626.vercel.app",
-        "https://dacsanvietplatform.shop",
-        "https://datn-fe-web-shop-platform.vercel.app"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Phải là False
     allow_methods=["*"],
     allow_headers=["*"],
 )
