@@ -119,12 +119,19 @@ app = FastAPI(
 # CORS Middleware (chỉ cho HTTP routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "https://datn-fe-web-shop-platform.vercel.app",
+        "https://datn-fe-web-shop-platform-r999qhrwz-anh-nhats-projects-14889626.vercel.app",
+        "https://dacsanvietplatform.shop",
+        "https://datn-fe-web-shop-platform.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ====================== SOCKET.IO EVENTS ======================
 @sio.event
