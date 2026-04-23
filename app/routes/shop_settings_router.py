@@ -1,6 +1,6 @@
 # app/routes/shop_settings_router.py
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
 from app.models.user_model import UserInDB
@@ -338,3 +338,63 @@ async def get_public_shop_settings(
     except Exception as e:
         print(f"Error getting public settings: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/payment/upload-qr")
+async def upload_qr_code(
+    account_id: str = Form(...),
+    file: UploadFile = File(...),
+    service: ShopSettingsService = Depends(get_settings_service),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Upload QR code từ file lên Cloudflare R2"""
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    if not file:
+        raise HTTPException(status_code=400, detail="Không có file được upload")
+    
+    return await service.upload_qr_code(current_user.shop_id, account_id, file)
+
+
+@router.post("/payment/save-qr-url")
+async def save_qr_url(
+    data: dict,
+    service: ShopSettingsService = Depends(get_settings_service),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Lưu URL QR code (nhập tay) cho tài khoản ngân hàng"""
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    account_id = data.get("account_id")
+    qr_code_url = data.get("qr_code_url")
+    
+    if not account_id:
+        raise HTTPException(status_code=400, detail="Thiếu account_id")
+    
+    if not qr_code_url:
+        raise HTTPException(status_code=400, detail="Thiếu qr_code_url")
+    
+    return await service.save_qr_url(current_user.shop_id, account_id, qr_code_url)
+
+
+@router.delete("/payment/delete-qr/{account_id}")
+async def delete_qr_code(
+    account_id: str,
+    service: ShopSettingsService = Depends(get_settings_service),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Xóa QR code của tài khoản ngân hàng"""
+    if current_user.role != "shop_owner":
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    return await service.delete_qr_code(current_user.shop_id, account_id)

@@ -1,16 +1,69 @@
 # app/services/shop_settings_service.py
 import os
 import uuid
-
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError, NoCredentialsError
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional, Dict
+from app.core.r2_config import R2Config
 
 class ShopSettingsService:
     def __init__(self, db):
         self.db = db
         self.collection = db["shop_settings"]
         self.shops_collection = db["shops"]
+
+    def get_r2_client(self):
+        """Khởi tạo S3 client cho R2"""
+        if not R2Config.ACCESS_KEY_ID or not R2Config.SECRET_ACCESS_KEY:
+            raise ValueError("R2 credentials not configured! Check .env file")
+        
+        return boto3.client(
+            "s3",
+            endpoint_url=R2Config.ENDPOINT_URL,
+            aws_access_key_id=R2Config.ACCESS_KEY_ID,
+            aws_secret_access_key=R2Config.SECRET_ACCESS_KEY,
+            config=Config(signature_version="s3v4"),
+            region_name="auto"
+        )
+
+    async def upload_image_to_r2(self, file) -> Optional[str]:
+        """Upload ảnh lên Cloudflare R2 và trả về URL công khai"""
+        if not file:
+            return None
+
+        try:
+            # Kiểm tra file có phải ảnh không
+            if not file.content_type or not file.content_type.startswith("image/"):
+                return None
+
+            # Đọc nội dung file
+            content = await file.read()
+            
+            # Tạo tên file unique
+            file_extension = file.filename.split(".")[-1].lower()
+            unique_filename = f"qr_codes/{uuid.uuid4()}.{file_extension}"
+            
+            # Upload lên R2
+            s3 = self.get_r2_client()
+            s3.put_object(
+                Bucket=R2Config.BUCKET_NAME,
+                Key=unique_filename,
+                Body=content,
+                ContentType=file.content_type,
+                CacheControl="public, max-age=31536000"
+            )
+            
+            # Tạo URL công khai
+            public_url = f"{R2Config.PUBLIC_URL_BASE}/{unique_filename}"
+            
+            return public_url
+            
+        except Exception as e:
+            print(f"Error uploading to R2: {e}")
+            return None
 
     async def get_settings(self, shop_id: str) -> Optional[Dict]:
         """Lấy toàn bộ cài đặt của shop"""
@@ -313,22 +366,12 @@ class ShopSettingsService:
         return None
 
     async def upload_qr_code(self, shop_id: str, account_id: str, file) -> Dict:
-        """Upload QR code cho tài khoản ngân hàng"""
-        # Tạo thư mục nếu chưa có
-        upload_dir = "static/qr_codes"
-        os.makedirs(upload_dir, exist_ok=True)
+        """Upload QR code lên Cloudflare R2 cho tài khoản ngân hàng"""
         
-        # Tạo tên file
-        file_extension = file.filename.split('.')[-1]
-        filename = f"{shop_id}_{account_id}.{file_extension}"
-        filepath = os.path.join(upload_dir, filename)
-        
-        # Lưu file
-        content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
-        
-        qr_url = f"/static/qr_codes/{filename}"
+        # Upload ảnh lên R2
+        uploaded_url = await self.upload_image_to_r2(file)
+        if not uploaded_url:
+            return {"error": "Không thể upload ảnh lên Cloudflare R2"}
         
         # Cập nhật URL vào database
         await self.collection.update_one(
@@ -338,10 +381,46 @@ class ShopSettingsService:
             },
             {
                 "$set": {
-                    "payment.bank_accounts.$.qr_code_url": qr_url,
+                    "payment.bank_accounts.$.qr_code_url": uploaded_url,
                     "updated_at": datetime.utcnow()
                 }
             }
         )
         
-        return {"qr_code_url": qr_url}
+        return {"qr_code_url": uploaded_url}
+
+    async def save_qr_url(self, shop_id: str, account_id: str, qr_code_url: str) -> Dict:
+        """Lưu URL QR code (nhập tay) cho tài khoản ngân hàng"""
+        
+        # Cập nhật URL vào database
+        await self.collection.update_one(
+            {
+                "shop_id": ObjectId(shop_id),
+                "payment.bank_accounts.id": account_id
+            },
+            {
+                "$set": {
+                    "payment.bank_accounts.$.qr_code_url": qr_code_url,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {"qr_code_url": qr_code_url}
+
+    async def delete_qr_code(self, shop_id: str, account_id: str) -> Dict:
+        """Xóa QR code khỏi database"""
+        await self.collection.update_one(
+            {
+                "shop_id": ObjectId(shop_id),
+                "payment.bank_accounts.id": account_id
+            },
+            {
+                "$set": {
+                    "payment.bank_accounts.$.qr_code_url": None,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {"message": "Xóa mã QR thành công"}

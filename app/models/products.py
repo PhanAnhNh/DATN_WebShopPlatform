@@ -37,6 +37,8 @@ class ProductResponse(ProductBase):
     created_at: datetime
     price: Optional[float] = None
     stock: Optional[int] = 0
+    average_rating: float = 0  # Thêm dòng này
+    total_reviews: int = 0 
 
 class Config:
     populate_by_name = True

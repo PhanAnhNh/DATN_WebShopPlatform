@@ -129,6 +129,11 @@ class ProductService:
                 doc["stock"] = sum(v["stock"] for v in variants)
             
             products.append(doc)
+
+            if "average_rating" not in doc:
+                doc["average_rating"] = 0
+            if "total_reviews" not in doc:
+                doc["total_reviews"] = 0
         
         return products
 

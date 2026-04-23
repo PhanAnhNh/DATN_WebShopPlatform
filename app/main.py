@@ -40,6 +40,7 @@ from app.routes import (
     product_variants_router,
     report_router,
     return_router,
+    review_router,
     review_shop_router,
     reviews_router,
     save_router,
@@ -215,6 +216,7 @@ app.include_router(category_router.router, prefix=API_PREFIX)
 app.include_router(product_variants_router.router, prefix=API_PREFIX)
 app.include_router(locations_router.router, prefix=API_PREFIX)
 app.include_router(favorite_router.router, prefix=API_PREFIX)
+app.include_router(review_router.router, prefix=API_PREFIX)
 
 # Cart, Order, Payment
 app.include_router(cart_router.router, prefix=API_PREFIX)
