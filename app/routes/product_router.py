@@ -20,6 +20,15 @@ async def create_product(
     product_data["shop_id"] = str(current_user.id)
     return await service.create_product(product_data)
 
+@router.get("/hot", response_model=list[ProductResponse])
+async def get_hot_products(
+    limit: int = Query(10, ge=1, le=50),
+    db = Depends(get_database)
+):
+    """Lấy sản phẩm bán chạy"""
+    service = ProductService(db)
+    return await service.get_hot_products(limit=limit)
+
 @router.get("/", response_model=list[ProductResponse])
 async def get_products(
     sort: Optional[str] = Query(None, regex="^(hot|new|price_asc|price_desc)$"),
@@ -27,20 +36,6 @@ async def get_products(
 ):
     service = ProductService(db)
     return await service.get_products(sort=sort)
-
-# ✅ ĐẶT ROUTE NÀY TRƯỚC route /{product_id}
-@router.get("/hot", response_model=list[ProductResponse])
-async def get_hot_products(
-    limit: int = Query(10, ge=1, le=50, description="Số lượng sản phẩm hot cần lấy"),
-    db = Depends(get_database)
-):
-    """
-    Lấy danh sách sản phẩm 'hot' dựa trên số lượng đã bán (sold_quantity).
-    Sản phẩm có sold_quantity cao nhất sẽ được trả về.
-    """
-    service = ProductService(db)
-    hot_products = await service.get_hot_products(limit=limit)
-    return hot_products
 
 # ⚠️ ĐỂ ROUTE NÀY Ở CUỐI CÙNG
 @router.get("/{product_id}")
