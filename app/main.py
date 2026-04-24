@@ -116,20 +116,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS Middleware (chỉ cho HTTP routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[  # ⚠️ THAY " * " BẰNG LIST CỤ THỂ
-        "https://datn-fe-web-shop-platform.vercel.app",
-        "https://datn-fe-web-shop-platform-r999ghwz-anh-nhats-projects-14889626.vercel.app",
-        "https://dacsanvietplatform.shop",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8000"
-    ],
-    allow_credentials=True,  # ✅ CHUYỂN THÀNH True
+    allow_origins=["*"],
+    allow_credentials=False,  # Phải là False
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # ====================== SOCKET.IO EVENTS ======================
 @sio.event
 async def connect(sid, environ):
