@@ -4,7 +4,7 @@ import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import database
@@ -12,7 +12,7 @@ from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_databas
 
 # Import models
 from app.models.message_model import MessageCreate
-from starlette.middleware.base import BaseHTTPMiddleware
+
 # Import routers
 from app.routes import (
     address_router,
@@ -108,16 +108,6 @@ async def lifespan(app: FastAPI):
     print("--- SERVER ĐÃ ĐÓNG ---")
 
 
-class ForceHTTPSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Kiểm tra nếu request là HTTP và không phải localhost
-        if request.url.scheme == "http" and "localhost" not in request.url.hostname:
-            # Tạo URL mới với HTTPS
-            https_url = str(request.url).replace("http://", "https://", 1)
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(https_url, status_code=301)
-        return await call_next(request)
-
 # ====================== FASTAPI APP ======================
 app = FastAPI(
     title="Đặc Sản Quê Tôi API",
@@ -125,8 +115,6 @@ app = FastAPI(
     description="API cho ứng dụng Đặc Sản Quê Tôi",
     lifespan=lifespan
 )
-
-app.add_middleware(ForceHTTPSMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
