@@ -5,7 +5,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
 from app.core.config import settings
-import ssl
 
 class EmailService:
     def __init__(self):
@@ -17,35 +16,40 @@ class EmailService:
         self.from_name = settings.FROM_NAME  # ✅ Thêm dòng này
 
     async def send_email(self, to_email: str, subject: str, html_content: str):
+        """Gửi email với nội dung HTML"""
         try:
+            # Tạo message
             message = MIMEMultipart()
-            message["From"] = f"{self.from_name} <{self.from_email}>"
+            message["From"] = f"{self.from_name} <{self.from_email}>"  # ✅ Sửa ở đây
             message["To"] = to_email
             message["Subject"] = subject
+
+            # Thêm nội dung HTML
             message.attach(MIMEText(html_content, "html"))
 
+            # Kết nối và gửi email - THÊM TIMEOUT
             print(f"📧 Đang gửi email đến {to_email}...")
+            print(f"📧 SMTP Server: {self.smtp_server}:{self.smtp_port}")
+            print(f"📧 Username: {self.smtp_username}")
             
-            # ✅ Dùng SSL context cho port 465
-            if self.smtp_port == 465:
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context, timeout=30)
-            else:
-                # Port 587 với TLS
-                server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30)
-                server.starttls()
-            
-            # Loại bỏ khoảng trắng trong password nếu có
-            password = self.smtp_password.replace(" ", "")
-            server.login(self.smtp_username, password)
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30)
+            server.starttls()
+            server.login(self.smtp_username, self.smtp_password)
             server.send_message(message)
             server.quit()
             
             print(f"✅ Email sent successfully to {to_email}")
             return True
-        
+            
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"❌ Lỗi xác thực SMTP: {e}")
+            print(f"   Kiểm tra lại SMTP_USERNAME và SMTP_PASSWORD")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ Lỗi SMTP: {e}")
+            return False
         except Exception as e:
-            print(f"❌ Lỗi: {e}")
+            print(f"❌ Lỗi không xác định: {e}")
             return False
 
     async def send_forgot_password_email(self, to_email: str, otp_code: str):
