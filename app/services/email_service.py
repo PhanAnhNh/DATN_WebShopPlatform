@@ -13,28 +13,43 @@ class EmailService:
         self.smtp_username = settings.SMTP_USERNAME
         self.smtp_password = settings.SMTP_PASSWORD
         self.from_email = settings.FROM_EMAIL
+        self.from_name = settings.FROM_NAME  # ✅ Thêm dòng này
 
     async def send_email(self, to_email: str, subject: str, html_content: str):
         """Gửi email với nội dung HTML"""
         try:
             # Tạo message
             message = MIMEMultipart()
-            message["From"] = self.from_email
+            message["From"] = f"{self.from_name} <{self.from_email}>"  # ✅ Sửa ở đây
             message["To"] = to_email
             message["Subject"] = subject
 
             # Thêm nội dung HTML
             message.attach(MIMEText(html_content, "html"))
 
-            # Kết nối và gửi email
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_username, self.smtp_password)
-                server.send_message(message)
-
+            # Kết nối và gửi email - THÊM TIMEOUT
+            print(f"📧 Đang gửi email đến {to_email}...")
+            print(f"📧 SMTP Server: {self.smtp_server}:{self.smtp_port}")
+            print(f"📧 Username: {self.smtp_username}")
+            
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30)
+            server.starttls()
+            server.login(self.smtp_username, self.smtp_password)
+            server.send_message(message)
+            server.quit()
+            
+            print(f"✅ Email sent successfully to {to_email}")
             return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"❌ Lỗi xác thực SMTP: {e}")
+            print(f"   Kiểm tra lại SMTP_USERNAME và SMTP_PASSWORD")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ Lỗi SMTP: {e}")
+            return False
         except Exception as e:
-            print(f"Error sending email: {e}")
+            print(f"❌ Lỗi không xác định: {e}")
             return False
 
     async def send_forgot_password_email(self, to_email: str, otp_code: str):
@@ -122,4 +137,11 @@ class EmailService:
         </html>
         """
         
-        await self.send_email(to_email, subject, html_content)
+        # ✅ Thêm debug
+        print(f"📧 Gửi OTP {otp_code} đến {to_email}")
+        result = await self.send_email(to_email, subject, html_content)
+        if result:
+            print("✅ Email OTP gửi thành công")
+        else:
+            print("❌ Email OTP gửi thất bại")
+        return result
