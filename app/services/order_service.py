@@ -4,6 +4,7 @@ from app.models.orders_model import OrderStatus
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
 from app.services.shipping_unit_service import ShippingUnitService
+import os
 
 
 class OrderService:
@@ -19,6 +20,11 @@ class OrderService:
         self.notification_service = NotificationService(db)
         self.shipping_unit_service = ShippingUnitService(db)
         self.email_service = EmailService()  # Thêm email service
+        
+        # 👈 Lấy base URL từ environment variable hoặc dùng mặc định
+        self.frontend_url = os.getenv('FRONTEND_URL', 'https://datnwebshopplatform-production.up.railway.app')
+        # Hoặc nếu có frontend riêng:
+        # self.frontend_url = os.getenv('FRONTEND_URL', 'https://your-frontend-domain.com')
 
     async def create_order(self, user_id: str, order_data: dict):
         total_price = 0
@@ -192,6 +198,9 @@ class OrderService:
             "zalopay": "ZaloPay"
         }.get(order_data.get("payment_method"), order_data.get("payment_method"))
         
+        # 👈 SỬA LINK: Dùng frontend_url thay vì localhost
+        order_detail_url = f"{self.frontend_url}/orders/{order_id}"
+        
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -249,10 +258,10 @@ class OrderService:
                     
                     <p style="margin-top: 30px;">Bạn có thể theo dõi đơn hàng tại đây:</p>
                     <p style="text-align: center;">
-                        <a href="http://localhost:5173/orders/{order_id}" class="btn">Xem chi tiết đơn hàng</a>
+                        <a href="{order_detail_url}" class="btn">Xem chi tiết đơn hàng</a>
                     </p>
                     
-                    <p style="margin-top: 20px;">Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900xxxx</strong> hoặc email: <strong>support@dacsanqueto i.com</strong></p>
+                    <p style="margin-top: 20px;">Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900xxxx</strong> hoặc email: <strong>support@dacsanque toi.com</strong></p>
                 </div>
                 <div class="footer">
                     <p>© 2024 Đặc Sản Quê Tôi - Tất cả các quyền được bảo lưu</p>
@@ -291,6 +300,9 @@ class OrderService:
         shop_total = sum(item.get('price', 0) * item.get('quantity', 1) for item in shop_items)
         
         subject = f"[ĐƠN HÀNG MỚI] #{order_code} - Đặc Sản Quê Tôi"
+        
+        # 👈 SỬA LINK: Dùng frontend_url cho shop orders
+        shop_orders_url = f"{self.frontend_url}/shop/orders"
         
         html_content = f"""
         <!DOCTYPE html>
@@ -344,7 +356,7 @@ class OrderService:
                     
                     <p style="margin-top: 30px;">Vui lòng xác nhận và xử lý đơn hàng sớm nhất:</p>
                     <p style="text-align: center;">
-                        <a href="http://localhost:5173/shop/orders" class="btn">Quản lý đơn hàng</a>
+                        <a href="{shop_orders_url}" class="btn">Quản lý đơn hàng</a>
                     </p>
                 </div>
                 <div class="footer">
