@@ -249,7 +249,7 @@ class OrderService:
                     
                     <p style="margin-top: 30px;">Bạn có thể theo dõi đơn hàng tại đây:</p>
                     <p style="text-align: center;">
-                        <a href="https://www.dacsanvietplatform.shop//orders/{order_id}" class="btn">Xem chi tiết đơn hàng</a>
+                        <a href="https://www.dacsanvietplatform.shop/orders/{order_id}" class="btn">Xem chi tiết đơn hàng</a>
                     </p>
                     
                     <p style="margin-top: 20px;">Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900xxxx</strong> hoặc email: <strong>support@dacsanqueto i.com</strong></p>
@@ -344,7 +344,7 @@ class OrderService:
                     
                     <p style="margin-top: 30px;">Vui lòng xác nhận và xử lý đơn hàng sớm nhất:</p>
                     <p style="text-align: center;">
-                        <a href="https://www.dacsanvietplatform.shop//shop/orders" class="btn">Quản lý đơn hàng</a>
+                        <a href="https://www.dacsanvietplatform.shop/shop/orders" class="btn">Quản lý đơn hàng</a>
                     </p>
                 </div>
                 <div class="footer">
