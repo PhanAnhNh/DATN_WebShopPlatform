@@ -113,7 +113,7 @@ class UserService:
         if not verify_password(password, user["hashed_password"]):
             return None
         return user
-
+    
     async def update_user(self, user_id: str, user_update: UserUpdate):
         update_data = {k: v for k, v in user_update.model_dump().items() if v is not None}
         
@@ -122,6 +122,9 @@ class UserService:
             
         if "password" in update_data:
             update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
+        
+        # Không cho phép cập nhật username (có thể thêm nếu muốn)
+        update_data.pop("username", None)
         
         update_data["updated_at"] = datetime.utcnow()
         

@@ -110,7 +110,7 @@ async def get_my_profile(
 async def update_profile(
     profile_data: dict,
     db = Depends(get_database),
-    current_user: CurrentUser = Depends(get_current_user)  # SỬA: thêm type hint CurrentUser
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Cập nhật thông tin người dùng (không bao gồm địa chỉ)
@@ -118,12 +118,18 @@ async def update_profile(
     from app.models.user_model import UserUpdate
     user_service = UserService(db)
     
-    # Chỉ cho phép cập nhật các trường nhất định
-    allowed_fields = ["full_name", "phone", "gender", "dob", "avatar_url", "cover_url"]
+    # THÊM "email" vào allowed_fields
+    allowed_fields = ["full_name", "phone", "gender", "dob", "avatar_url", "cover_url", "email", "address"]
     update_dict = {k: v for k, v in profile_data.items() if k in allowed_fields and v is not None}
     
     if not update_dict:
         raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    # Kiểm tra email không bị trùng với người dùng khác
+    if "email" in update_dict:
+        existing_user = await user_service.get_user_by_email(update_dict["email"])
+        if existing_user and existing_user["id"] != current_user.id:
+            raise HTTPException(status_code=400, detail="Email đã được sử dụng bởi tài khoản khác")
     
     user_update = UserUpdate(**update_dict)
     success = await user_service.update_user(current_user.id, user_update)
@@ -135,5 +141,8 @@ async def update_profile(
     updated_user = await user_service.get_user_by_id(current_user.id)
     if updated_user:
         updated_user.pop("hashed_password", None)
+        # Đảm bảo có id
+        if "_id" in updated_user:
+            updated_user["id"] = str(updated_user["_id"])
     
     return {"message": "Profile updated successfully", "user": updated_user}
