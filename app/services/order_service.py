@@ -166,7 +166,7 @@ class OrderService:
         order_code = order_id[-8:].upper()
         
         # Clear cart (fire and forget)
-        asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
+        await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
         
         # Prepare response
         response_order = self._prepare_response(order, order_id, order_code)
