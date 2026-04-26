@@ -111,3 +111,17 @@ async def get_payment_instructions(
         "bank_info": bank_settings.get("value", {}) if bank_settings else {},
         "qr_code_url": f"/static/qr/{order_id}.png"  # Tạo QR code động nếu có
     }
+
+@router.post("/bank-transfer/webhook")
+async def bank_transfer_webhook(
+    request: Request,
+    db = Depends(get_database)
+):
+    """
+    Webhook nhận dữ liệu từ SEPAY khi có giao dịch mới.
+    SEPAY gửi JSON: { "transaction_id": "...", "amount": 65000, "description": "#ABC123", "account_number": "10688120730", ... }
+    """
+    data = await request.json()
+    service = PaymentService(db)
+    result = await service.process_bank_transfer_webhook(data)
+    return result
