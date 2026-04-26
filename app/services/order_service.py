@@ -603,8 +603,7 @@ class OrderService:
         if order["status"] not in [OrderStatus.pending.value, OrderStatus.paid.value]:
             raise Exception("Không thể hủy đơn hàng ở trạng thái này")
         
-        # Batch restore stock
-        bulk_ops = []
+        # Batch restore stock - DÙNG UPDATE_ONE
         for item in order.get("items", []):
             if item.get("variant_id"):
                 await self.db["product_variants"].update_one(
@@ -615,7 +614,7 @@ class OrderService:
                 await self.db["products"].update_one(
                     {"_id": item["product_id"]},
                     {"$inc": {"stock": item["quantity"]}}
-        )
+                )
         
         # Update order status
         await self.collection.update_one(
