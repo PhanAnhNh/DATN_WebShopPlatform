@@ -59,14 +59,15 @@ class OrderService:
             "message": "Đặt hàng thành công"
         }
 
+    # app/services/order_service.py
+
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         """
         Tạo đơn hàng - Tối ưu cho tốc độ < 2 giây
         """
-        # === BƯỚC 1: Chuẩn bị dữ liệu nhanh nhất ===
         start_time = datetime.utcnow()
         
-        # 1.1 Lấy thông tin user (chỉ email và name)
+        # Lấy thông tin user
         customer = await self.user_collection.find_one(
             {"_id": ObjectId(user_id)},
             {"email": 1, "full_name": 1, "username": 1}
@@ -74,33 +75,43 @@ class OrderService:
         customer_email = customer.get("email") if customer else None
         customer_name = customer.get("full_name") or customer.get("username", "Khách hàng")
         
-        # 1.2 Batch validate và update stock
         shop_ids = set()
         items_to_save = []
         total_price = 0
-        bulk_ops = []
         
-        # Chuẩn bị bulk operations
+        # ===== CÁCH SỬA: Dùng update_one thay vì findAndModify =====
         for item in order_data["items"]:
             shop_ids.add(item["shop_id"])
             
             if item.get("variant_id"):
                 variant_id = ObjectId(item["variant_id"])
-                bulk_ops.append({
-                    "update_one": {
-                        "filter": {"_id": variant_id, "stock": {"$gte": item["quantity"]}},
-                        "update": {"$inc": {"stock": -item["quantity"]}}
-                    }
-                })
+                # Kiểm tra stock trước
+                variant = await self.variant_collection.find_one(
+                    {"_id": variant_id, "stock": {"$gte": item["quantity"]}}
+                )
+                if not variant:
+                    raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
+                
+                # Update stock
+                await self.variant_collection.update_one(
+                    {"_id": variant_id},
+                    {"$inc": {"stock": -item["quantity"]}}
+                )
                 price = item.get("price", 0)
             else:
                 product_id = ObjectId(item["product_id"])
-                bulk_ops.append({
-                    "update_one": {
-                        "filter": {"_id": product_id, "stock": {"$gte": item["quantity"]}},
-                        "update": {"$inc": {"stock": -item["quantity"]}}
-                    }
-                })
+                # Kiểm tra stock trước
+                product = await self.product_collection.find_one(
+                    {"_id": product_id, "stock": {"$gte": item["quantity"]}}
+                )
+                if not product:
+                    raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
+                
+                # Update stock
+                await self.product_collection.update_one(
+                    {"_id": product_id},
+                    {"$inc": {"stock": -item["quantity"]}}
+                )
                 price = item.get("price", 0)
             
             total_price += price * item["quantity"]
@@ -111,25 +122,15 @@ class OrderService:
                 "quantity": item["quantity"],
                 "price": price,
                 "variant_name": item.get("variant_name", ""),
-                "product_name": item.get("product_name", "")  # Thêm product_name cho email
+                "product_name": item.get("product_name", "")
             })
         
-        # 1.3 Execute bulk update stock
-        for op in bulk_ops:
-            try:
-                result = await self.db.command("findAndModify", **op["update_one"])
-                if not result.get("value"):
-                    raise Exception("Sản phẩm không đủ hàng hoặc không tồn tại")
-            except Exception as e:
-                # Rollback nếu lỗi
-                raise Exception(f"Lỗi cập nhật stock: {str(e)}")
-        
-        # 1.4 Format shipping address
+        # Format shipping address
         shipping_addr = order_data["shipping_address"]
         formatted_address = shipping_addr.get("full_address") or \
             f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
-        # 1.5 Tạo order object
+        # Tạo order object
         order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
@@ -167,43 +168,39 @@ class OrderService:
                 "discount": order_data["voucher"]["discount"]
             }
         
-        # === BƯỚC 2: Insert order ===
+        # Insert order
         result = await self.collection.insert_one(order)
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # Clear cart (async, không block)
+        # Clear cart (async)
         asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
         
-        # === BƯỚC 3: Response ngay cho client ===
+        # Response
         response_order = self._prepare_response(order, order_id, order_code)
         
-        # === BƯỚC 4: Background tasks ===
-        # 4.1 Tạo thông báo
+        # Background tasks
         asyncio.create_task(self._create_notifications_background(
             user_id, customer_name, order_id, order_code, shop_ids
         ))
         
-        # 4.2 Gửi email customer
         if customer_email:
             asyncio.create_task(self._send_customer_email_background(
                 customer_email, customer_name, order_id, order_code, order_data, items_to_save
             ))
         
-        # 4.3 Gửi email shops
         asyncio.create_task(self._send_shop_emails_background(
             shop_ids, order_id, order_code, order_data, items_to_save
         ))
         
-        # 4.4 Update sold quantity
         asyncio.create_task(self._update_product_sold_quantity_background(items_to_save, "increase"))
         
-        # Log thời gian xử lý
         elapsed = (datetime.utcnow() - start_time).total_seconds()
-        logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
+        logger.info(f"Order {order_code} created in {elapsed:.3f}s")
         
         return response_order
-    
+
+
     async def _send_customer_email_background(
         self, customer_email: str, customer_name: str, order_id: str, 
         order_code: str, order_data: dict, items: list
@@ -610,23 +607,15 @@ class OrderService:
         bulk_ops = []
         for item in order.get("items", []):
             if item.get("variant_id"):
-                bulk_ops.append({
-                    "update_one": {
-                        "filter": {"_id": item["variant_id"]},
-                        "update": {"$inc": {"stock": item["quantity"]}}
-                    }
-                })
+                await self.db["product_variants"].update_one(
+                    {"_id": item["variant_id"]},
+                    {"$inc": {"stock": item["quantity"]}}
+                )
             else:
-                bulk_ops.append({
-                    "update_one": {
-                        "filter": {"_id": item["product_id"]},
-                        "update": {"$inc": {"stock": item["quantity"]}}
-                    }
-                })
-        
-        # Execute bulk updates
-        for op in bulk_ops:
-            await self.db.command("findAndModify", **op["update_one"])
+                await self.db["products"].update_one(
+                    {"_id": item["product_id"]},
+                    {"$inc": {"stock": item["quantity"]}}
+        )
         
         # Update order status
         await self.collection.update_one(
