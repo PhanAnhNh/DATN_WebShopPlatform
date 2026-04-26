@@ -1,10 +1,10 @@
-# app/core/cache.py
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Awaitable
 from functools import wraps
 import hashlib
 import json
 from datetime import datetime, timedelta
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -16,23 +16,26 @@ def cache_response(ttl: int = 60, key_prefix: str = ""):
     """
     Cache decorator for FastAPI endpoints
     """
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Generate cache key
+        async def wrapper(*args, **kwargs) -> Any:
+            # Generate cache key từ arguments
             cache_key = _generate_cache_key(func.__name__, kwargs, key_prefix)
             
-            # Check cache
+            # Kiểm tra cache
             if cache_key in _cache:
                 cached = _cache[cache_key]
                 if datetime.utcnow() < cached["expires_at"]:
                     logger.debug(f"Cache hit for {func.__name__}")
                     return cached["data"]
             
-            # Execute function - ĐÃ SỬA: await đúng cách
-            result = await func(*args, **kwargs)
+            # GỌI HÀM GỐC - QUAN TRỌNG: kiểm tra xem func có phải async không
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
             
-            # Store in cache
+            # Lưu vào cache
             _cache[cache_key] = {
                 "data": result,
                 "expires_at": datetime.utcnow() + timedelta(seconds=ttl)
@@ -68,11 +71,11 @@ async def clear_cache():
 
 
 def _generate_cache_key(func_name: str, kwargs: dict, prefix: str = "") -> str:
-    """Generate cache key from function arguments"""
+    """Generate cache key from function arguments - loại bỏ các object không hashable"""
     filtered_kwargs = {}
     
     for k, v in kwargs.items():
-        # Skip non-hashable objects
+        # Bỏ qua các tham số không thể hash
         if k in ["db", "request", "background_tasks", "self", "cls"]:
             continue
         

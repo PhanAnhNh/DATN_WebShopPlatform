@@ -59,7 +59,6 @@ class OrderService:
             "message": "Đặt hàng thành công"
         }
 
-    # app/services/order_service.py
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         """
         Tạo đơn hàng - Tối ưu cho tốc độ < 2 giây
