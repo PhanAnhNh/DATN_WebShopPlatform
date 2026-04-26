@@ -1,23 +1,20 @@
 # app/routes/orders_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, status
-from fastapi.responses import JSONResponse
-from app.core.cache import cache_response, invalidate_cache
+from app.core.cache import invalidate_cache
 from app.db.mongodb import get_database
-
 from app.models.orders_model import OrderCreate, OrderStatus, OrderUpdate
 from app.core.security import get_current_user
-
 from bson import ObjectId
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 import logging
-import asyncio
 
 from app.services.order_service import OrderService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orders", tags=["Orders"])
+
 
 # ==================== MODELS ====================
 
@@ -26,6 +23,7 @@ class OrderListResponse(BaseModel):
     data: List[Dict[str, Any]]
     pagination: Dict[str, int]
     filters: Dict[str, Any]
+
 
 class OrderStatsResponse(BaseModel):
     """Response model for order statistics"""
@@ -39,11 +37,13 @@ class OrderStatsResponse(BaseModel):
     processing: int = Field(0, description="Đang xử lý")
     last_30_days: Optional[int] = Field(None, description="Đơn hàng 30 ngày qua")
 
+
 class CancelOrderResponse(BaseModel):
     """Response model for cancel order"""
     status: str
     message: str
     refund_amount: Optional[float] = None
+
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -52,13 +52,13 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     if not date_str:
         return None
     try:
-        # Handle ISO format with Z
         if date_str.endswith('Z'):
             date_str = date_str.replace('Z', '+00:00')
         return datetime.fromisoformat(date_str)
     except (ValueError, TypeError):
         logger.warning(f"Invalid date format: {date_str}")
         return None
+
 
 def build_order_query(
     user_id: str,
@@ -73,27 +73,22 @@ def build_order_query(
     """Build MongoDB query with all filters"""
     query = {"user_id": ObjectId(user_id)}
     
-    # Status filter
     if status:
         query["status"] = status
     
-    # Payment status filter
     if payment_status:
         query["payment_status"] = payment_status
     
-    # Date range filter
     if from_date or to_date:
         date_filter = {}
         if from_date:
             date_filter["$gte"] = from_date
         if to_date:
-            # Add one day to include the end date
             to_date_end = to_date + timedelta(days=1) if to_date else None
             date_filter["$lte"] = to_date_end or to_date
         if date_filter:
             query["created_at"] = date_filter
     
-    # Amount range filter
     if min_amount is not None or max_amount is not None:
         amount_filter = {}
         if min_amount is not None:
@@ -103,21 +98,19 @@ def build_order_query(
         if amount_filter:
             query["total_amount"] = amount_filter
     
-    # Search by order ID or code
     if search:
-        # Check if search is a valid ObjectId (24 hex chars)
         if len(search) == 24 and all(c in '0123456789abcdefABCDEF' for c in search):
             try:
                 query["_id"] = ObjectId(search)
             except:
                 pass
         else:
-            # Search by order code (last 8 chars of ID)
             query["_id"] = {"$regex": f".*{search}.*", "$options": "i"}
     
     return query
 
-# ==================== MAIN ENDPOINTS ====================
+
+# ==================== CREATE ORDER - NO CACHE ====================
 
 @router.post("/", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 async def create_order(
@@ -130,26 +123,24 @@ async def create_order(
     Tạo đơn hàng mới
     
     - **Tối ưu response time < 2 giây**
-    - **Xử lý email và notification trong background**
+    - **Xử lý notification trước, email sau trong background**
     - **Tự động validate stock và cập nhật số lượng**
     """
     service = OrderService(db)
     
     try:
-        # Validate order data before processing
         if not order.items:
             raise HTTPException(status_code=400, detail="Đơn hàng không có sản phẩm")
         
         if order.total_amount <= 0:
             raise HTTPException(status_code=400, detail="Tổng tiền đơn hàng không hợp lệ")
         
-        # Create order (optimized for speed)
         result = await service.create_order(
             str(current_user.id),
             order.model_dump()
         )
         
-        # Invalidate cache for user orders
+        # Invalidate cache cho user orders
         await invalidate_cache(f"user_orders:{current_user.id}:*")
         await invalidate_cache(f"order_stats:{current_user.id}")
         
@@ -164,8 +155,9 @@ async def create_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# ==================== GET ORDERS - WITH CACHE (KEEP CACHE FOR GET) ====================
+
 @router.get("/my", response_model=OrderListResponse)
-@cache_response(ttl=30)  # Cache for 30 seconds
 async def get_my_orders(
     db = Depends(get_database),
     current_user = Depends(get_current_user),
@@ -183,16 +175,10 @@ async def get_my_orders(
 ):
     """
     Lấy danh sách đơn hàng của user hiện tại với phân trang và filter
-    
-    - **Hỗ trợ cache để tăng tốc độ**
-    - **Tối ưu query với indexing**
-    - **Phân trang và filter linh hoạt**
     """
-    # Parse dates
     from_date_parsed = parse_date(from_date)
     to_date_parsed = parse_date(to_date)
     
-    # Build query
     query = build_order_query(
         user_id=str(current_user.id),
         status=status,
@@ -204,7 +190,6 @@ async def get_my_orders(
         max_amount=max_amount
     )
     
-    # Validate sort field (prevent injection)
     allowed_sort_fields = ["created_at", "total_amount", "status", "updated_at"]
     if sort_by not in allowed_sort_fields:
         sort_by = "created_at"
@@ -212,12 +197,7 @@ async def get_my_orders(
     sort_direction = -1 if sort_order == "desc" else 1
     
     try:
-        # Get total count (using estimated count for large collections)
-        if page == 1 and not any([status, payment_status, search, from_date, to_date]):
-            # Use estimated count for better performance on first page without filters
-            total = await db["orders"].estimated_document_count()
-        else:
-            total = await db["orders"].count_documents(query)
+        total = await db["orders"].count_documents(query)
         
         if total == 0:
             return OrderListResponse(
@@ -226,26 +206,21 @@ async def get_my_orders(
                 filters={"status": status, "payment_status": payment_status}
             )
         
-        # Calculate pagination
         skip = (page - 1) * limit
         total_pages = (total + limit - 1) // limit
         
-        # Fetch orders with projection (only needed fields)
         cursor = db["orders"].find(
             query,
             {
-                # Project only needed fields for list view
                 "_id": 1, "user_id": 1, "total_amount": 1, "status": 1,
                 "payment_status": 1, "payment_method": 1, "created_at": 1,
-                "items": {"$slice": 2},  # Only first 2 items for preview
+                "items": {"$slice": 2},
                 "subtotal": 1, "discount": 1, "shipping_fee": 1
             }
         ).sort(sort_by, sort_direction).skip(skip).limit(limit)
         
-        # Process orders
         orders = []
         async for order in cursor:
-            # Convert ObjectId to string
             order_dict = {
                 "_id": str(order["_id"]),
                 "order_code": str(order["_id"])[-8:].upper(),
@@ -261,7 +236,7 @@ async def get_my_orders(
                 "item_count": len(order.get("items", [])),
                 "items_preview": [
                     {
-                        "product_name": item.get("variant_name") or "Sản phẩm",
+                        "product_name": item.get("variant_name") or item.get("product_name", "Sản phẩm"),
                         "quantity": item.get("quantity", 0),
                         "price": item.get("price", 0)
                     }
@@ -294,7 +269,6 @@ async def get_my_orders(
 
 
 @router.get("/stats", response_model=OrderStatsResponse)
-@cache_response(ttl=300)  # Cache for 5 minutes
 async def get_order_stats(
     db = Depends(get_database),
     current_user = Depends(get_current_user),
@@ -302,18 +276,11 @@ async def get_order_stats(
 ):
     """
     Lấy thống kê đơn hàng của user
-    
-    - **Cache 5 phút**
-    - **Thống kê chi tiết theo trạng thái**
-    - **Đơn hàng trong N ngày gần nhất**
     """
     user_id = ObjectId(current_user.id)
-    
-    # Calculate date range for last N days
     days_ago = datetime.utcnow() - timedelta(days=days)
     
     try:
-        # Use aggregation pipeline for better performance
         pipeline = [
             {"$match": {"user_id": user_id}},
             {"$group": {
@@ -324,7 +291,6 @@ async def get_order_stats(
         
         status_stats = await db["orders"].aggregate(pipeline).to_list(length=None)
         
-        # Get orders in last N days
         recent_pipeline = [
             {"$match": {
                 "user_id": user_id,
@@ -336,7 +302,6 @@ async def get_order_stats(
         recent_result = await db["orders"].aggregate(recent_pipeline).to_list(length=None)
         last_30_days = recent_result[0]["total"] if recent_result else 0
         
-        # Initialize stats
         stats = {
             "total": 0,
             "pending": 0,
@@ -349,7 +314,6 @@ async def get_order_stats(
             "last_30_days": last_30_days
         }
         
-        # Map status to stats
         status_mapping = {
             "pending": "pending",
             "paid": "paid",
@@ -374,7 +338,6 @@ async def get_order_stats(
 
 
 @router.get("/{order_id}")
-@cache_response(ttl=60)  # Cache for 1 minute
 async def get_order(
     order_id: str,
     db = Depends(get_database),
@@ -383,22 +346,18 @@ async def get_order(
 ):
     """
     Lấy chi tiết đơn hàng của user hiện tại
-    
-    - **Cache 1 phút**
-    - **Tùy chọn lấy thêm chi tiết sản phẩm**
     """
-    # Validate order_id format
     if not ObjectId.is_valid(order_id):
         raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
     
     try:
-        # Fetch order with projection
         projection = {
             "_id": 1, "user_id": 1, "total_amount": 1, "subtotal": 1,
             "discount": 1, "shipping_fee": 1, "status": 1, "payment_status": 1,
             "payment_method": 1, "shipping_address": 1, "shipping_address_details": 1,
             "note": 1, "created_at": 1, "items": 1, "voucher": 1,
-            "shipping_unit": 1, "shipping_unit_id": 1, "tracking_code": 1
+            "shipping_unit": 1, "shipping_unit_id": 1, "tracking_code": 1,
+            "notification_sent": 1, "email_sent": 1
         }
         
         order = await db["orders"].find_one(
@@ -409,7 +368,6 @@ async def get_order(
         if not order:
             raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
         
-        # Build response
         result = {
             "_id": str(order["_id"]),
             "order_id": str(order["_id"]),
@@ -427,15 +385,15 @@ async def get_order(
             "note": order.get("note", ""),
             "created_at": order.get("created_at"),
             "tracking_code": order.get("tracking_code"),
+            "notification_sent": order.get("notification_sent", False),
+            "email_sent": order.get("email_sent", False),
             "estimated_delivery": None
         }
         
-        # Add estimated delivery date
         if order.get("shipping_unit", {}).get("estimated_delivery_days"):
             days = order["shipping_unit"]["estimated_delivery_days"]
             result["estimated_delivery"] = order["created_at"] + timedelta(days=days)
         
-        # Process items
         items = []
         for idx, item in enumerate(order.get("items", [])):
             item_result = {
@@ -449,7 +407,6 @@ async def get_order(
                 "total": item.get("price", 0) * item.get("quantity", 0)
             }
             
-            # Include full product details if requested
             if include_product_details:
                 try:
                     product = await db["products"].find_one(
@@ -465,14 +422,13 @@ async def get_order(
                 except:
                     item_result["product_name"] = "Sản phẩm"
             else:
-                item_result["product_name"] = item.get("variant_name") or "Sản phẩm"
+                item_result["product_name"] = item.get("variant_name") or item.get("product_name", "Sản phẩm")
             
             items.append(item_result)
         
         result["items"] = items
         result["item_count"] = len(items)
         
-        # Process voucher
         if order.get("voucher"):
             voucher = order["voucher"]
             result["voucher"] = {
@@ -482,14 +438,12 @@ async def get_order(
                 "discount_type": voucher.get("type", "fixed")
             }
         
-        # Process shipping unit
         if order.get("shipping_unit"):
             result["shipping_unit"] = order["shipping_unit"]
         
         if order.get("shipping_unit_id"):
             result["shipping_unit_id"] = str(order["shipping_unit_id"])
         
-        # Get customer info (from user collection)
         try:
             user = await db["users"].find_one(
                 {"_id": ObjectId(current_user.id)},
@@ -504,7 +458,6 @@ async def get_order(
             result["customer_phone"] = ""
             result["customer_email"] = ""
         
-        # Add timeline
         result["timeline"] = await _get_order_timeline(db, order)
         
         return result
@@ -516,6 +469,8 @@ async def get_order(
         raise HTTPException(status_code=500, detail="Lỗi khi lấy chi tiết đơn hàng")
 
 
+# ==================== UPDATE ENDPOINTS ====================
+
 @router.put("/{order_id}/status")
 async def update_order_status(
     order_id: str,
@@ -526,7 +481,6 @@ async def update_order_status(
     """
     Cập nhật trạng thái đơn hàng (Admin/Shop only)
     """
-    # Check if user has permission (admin or shop owner)
     user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
     if not user or user.get("role") not in ["admin", "shop"]:
         raise HTTPException(status_code=403, detail="Không có quyền cập nhật đơn hàng")
@@ -536,7 +490,6 @@ async def update_order_status(
     try:
         result = await service.update_order_status(order_id, status_update.status)
         
-        # Invalidate cache
         await invalidate_cache(f"order:{order_id}")
         await invalidate_cache(f"user_orders:{current_user.id}:*")
         await invalidate_cache(f"order_stats:{current_user.id}")
@@ -562,9 +515,7 @@ async def cancel_order(
     
     - **Hoàn lại số lượng sản phẩm trong kho**
     - **Cập nhật trạng thái đơn hàng**
-    - **Gửi thông báo hủy**
     """
-    # Validate order_id
     if not ObjectId.is_valid(order_id):
         raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
     
@@ -573,7 +524,6 @@ async def cancel_order(
     try:
         result = await service.cancel_order(order_id, str(current_user.id), cancel_reason)
         
-        # Invalidate cache
         await invalidate_cache(f"order:{order_id}")
         await invalidate_cache(f"user_orders:{current_user.id}:*")
         await invalidate_cache(f"order_stats:{current_user.id}")
@@ -605,13 +555,11 @@ async def resend_order_email(
     if not order:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
     
-    # Check permission
     if order["user_id"] != str(current_user.id):
         user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
         if not user or user.get("role") not in ["admin"]:
             raise HTTPException(status_code=403, detail="Không có quyền")
     
-    # Send email in background
     background_tasks = BackgroundTasks()
     background_tasks.add_task(
         service._send_customer_order_email,
@@ -687,7 +635,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
     """Generate order timeline"""
     timeline = []
     
-    # Order created
     if order.get("created_at"):
         timeline.append({
             "status": "created",
@@ -697,7 +644,26 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
             "icon": "check_circle"
         })
     
-    # Payment confirmed (if paid)
+    # Notification sent
+    if order.get("notification_sent"):
+        timeline.append({
+            "status": "notification_sent",
+            "title": "Đã gửi thông báo",
+            "description": "Thông báo đã được gửi đến khách hàng và shop",
+            "timestamp": order.get("notification_sent_at") or order.get("created_at"),
+            "icon": "notifications"
+        })
+    
+    # Email sent
+    if order.get("email_sent"):
+        timeline.append({
+            "status": "email_sent",
+            "title": "Đã gửi email",
+            "description": "Email xác nhận đã được gửi đến khách hàng",
+            "timestamp": order.get("email_sent_at") or order.get("created_at"),
+            "icon": "email"
+        })
+    
     if order.get("payment_status") == "paid":
         timeline.append({
             "status": "paid",
@@ -707,7 +673,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
             "icon": "payment"
         })
     
-    # Shipped
     if order.get("status") == "shipped":
         timeline.append({
             "status": "shipped",
@@ -717,7 +682,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
             "icon": "local_shipping"
         })
     
-    # Completed
     if order.get("status") == "completed":
         timeline.append({
             "status": "completed",
@@ -727,7 +691,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
             "icon": "check_circle"
         })
     
-    # Cancelled
     if order.get("status") == "cancelled":
         timeline.append({
             "status": "cancelled",

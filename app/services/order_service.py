@@ -1,9 +1,8 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Set
 import asyncio
 import logging
 from bson import ObjectId
 from datetime import datetime
-from app import db
 from app.models.orders_model import OrderStatus
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
@@ -26,18 +25,14 @@ class OrderService:
         self.shipping_unit_service = ShippingUnitService(db)
         self.email_service = EmailService()
         
-        # Cache cho shipping unit
+        # Cache for shipping unit
         self._shipping_unit_cache = {}
-        
-        # Queue cho background tasks
-        self._background_tasks = set()
 
     async def _get_shipping_unit_cached(self, shipping_unit_id: str):
-        """Lấy thông tin shipping unit với cache"""
+        """Get shipping unit with cache"""
         if shipping_unit_id in self._shipping_unit_cache:
             return self._shipping_unit_cache[shipping_unit_id]
         
-        # Giả sử có collection shipping_units
         shipping_unit = await self.db["shipping_units"].find_one(
             {"_id": ObjectId(shipping_unit_id)}
         )
@@ -48,7 +43,7 @@ class OrderService:
         return shipping_unit
 
     def _prepare_response(self, order: dict, order_id: str, order_code: str) -> dict:
-        """Chuẩn bị response nhanh cho client"""
+        """Prepare fast response for client"""
         return {
             "_id": order_id,
             "order_code": order_code,
@@ -61,11 +56,12 @@ class OrderService:
 
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         """
-        Tạo đơn hàng - Tối ưu cho tốc độ < 2 giây
+        Create order - Optimized for speed < 2 seconds
+        Flow: Create order → Return response → Notifications → Emails
         """
         start_time = datetime.utcnow()
         
-        # Lấy thông tin user
+        # Get user info (only what's needed)
         customer = await self.user_collection.find_one(
             {"_id": ObjectId(user_id)},
             {"email": 1, "full_name": 1, "username": 1}
@@ -73,22 +69,23 @@ class OrderService:
         customer_email = customer.get("email") if customer else None
         customer_name = customer.get("full_name") or customer.get("username", "Khách hàng")
         
-        shop_ids = set()
-        items_to_save = []
-        total_price = 0
+        shop_ids: Set[str] = set()
+        items_to_save: List[dict] = []
         
-        # Kiểm tra và update stock
+        # === CRITICAL PATH: Stock check and update ===
         for item in order_data["items"]:
             shop_ids.add(item["shop_id"])
             
             if item.get("variant_id"):
                 variant_id = ObjectId(item["variant_id"])
+                # Check stock
                 variant = await self.variant_collection.find_one(
                     {"_id": variant_id, "stock": {"$gte": item["quantity"]}}
                 )
                 if not variant:
                     raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
                 
+                # Update stock
                 await self.variant_collection.update_one(
                     {"_id": variant_id},
                     {"$inc": {"stock": -item["quantity"]}}
@@ -108,7 +105,6 @@ class OrderService:
                 )
                 price = item.get("price", 0)
             
-            total_price += price * item["quantity"]
             items_to_save.append({
                 "product_id": ObjectId(item["product_id"]),
                 "variant_id": ObjectId(item["variant_id"]) if item.get("variant_id") else None,
@@ -124,8 +120,8 @@ class OrderService:
         formatted_address = shipping_addr.get("full_address") or \
             f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
-        # Tạo order object
-        order = {
+        # Build order document
+        order: dict = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
             "total_amount": order_data["total_amount"],
@@ -138,10 +134,12 @@ class OrderService:
             "payment_method": order_data["payment_method"],
             "payment_status": "unpaid",
             "status": OrderStatus.pending.value,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "notification_sent": False,  # Track notification status
+            "email_sent": False          # Track email status
         }
         
-        # Thêm shipping unit nếu có
+        # Add shipping unit if exists
         if order_data.get("shipping_unit_id"):
             shipping_unit = await self._get_shipping_unit_cached(order_data["shipping_unit_id"])
             if shipping_unit:
@@ -154,7 +152,7 @@ class OrderService:
                 }
                 order["shipping_unit_id"] = ObjectId(order_data["shipping_unit_id"])
         
-        # Thêm voucher
+        # Add voucher if exists
         if order_data.get("voucher"):
             order["voucher"] = {
                 "id": ObjectId(order_data["voucher"]["id"]),
@@ -162,58 +160,49 @@ class OrderService:
                 "discount": order_data["voucher"]["discount"]
             }
         
-        # Insert order
+        # === INSERT ORDER (CRITICAL PATH) ===
         result = await self.collection.insert_one(order)
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # ====== QUAN TRỌNG: BỎ AWAIT TRƯỚC create_task ======
-        # Clear cart (async, không block)
+        # Clear cart (fire and forget)
         asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
         
-        # Response
+        # Prepare response
         response_order = self._prepare_response(order, order_id, order_code)
         
-        # Background tasks - KHÔNG await
-        asyncio.create_task(self._create_notifications_background(
+        elapsed = (datetime.utcnow() - start_time).total_seconds()
+        logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
+        
+        # === BACKGROUND TASKS (Order: Notifications FIRST, then Emails) ===
+        # 1. Send NOTIFICATIONS first (faster)
+        asyncio.create_task(self._send_notifications_async(
             user_id, customer_name, order_id, order_code, shop_ids
         ))
         
+        # 2. Send EMAILS after (slower, can wait)
         if customer_email:
-            asyncio.create_task(self._send_customer_email_background(
-                customer_email, customer_name, order_id, order_code, order_data, items_to_save
+            asyncio.create_task(self._send_emails_async(
+                customer_email, customer_name, order_id, order_code, 
+                order_data, items_to_save, shop_ids
             ))
         
-        asyncio.create_task(self._send_shop_emails_background(
-            shop_ids, order_id, order_code, order_data, items_to_save
-        ))
-        
-        asyncio.create_task(self._update_product_sold_quantity_background(items_to_save, "increase"))
-        
-        elapsed = (datetime.utcnow() - start_time).total_seconds()
-        logger.info(f"Order {order_code} created in {elapsed:.3f}s")
+        # 3. Update sold quantity (fire and forget)
+        asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
         
         return response_order
 
-    async def _send_customer_email_background(
-        self, customer_email: str, customer_name: str, order_id: str, 
-        order_code: str, order_data: dict, items: list
+    async def _send_notifications_async(
+        self, 
+        user_id: str, 
+        customer_name: str, 
+        order_id: str, 
+        order_code: str, 
+        shop_ids: Set[str]
     ):
-        """Gửi email customer trong background"""
+        """Send notifications in background - PRIORITY 1"""
         try:
-            await self._send_customer_order_email(
-                customer_email, customer_name, order_id, order_code, order_data, items
-            )
-            logger.info(f"✅ Customer email sent for order {order_code}")
-        except Exception as e:
-            logger.error(f"❌ Failed to send customer email: {e}")
-
-    async def _create_notifications_background(
-        self, user_id: str, customer_name: str, order_id: str, order_code: str, shop_ids: set
-    ):
-        """Tạo thông báo trong background"""
-        try:
-            # Thông báo cho customer
+            # Send to customer
             await self.notification_service.create_notification(
                 user_id=user_id,
                 type="order",
@@ -222,7 +211,7 @@ class OrderService:
                 reference_id=order_id
             )
             
-            # Thông báo cho các shop
+            # Send to shops
             for shop_id in shop_ids:
                 await self.notification_service.create_notification(
                     user_id=shop_id,
@@ -231,23 +220,50 @@ class OrderService:
                     message=f"Có đơn hàng mới #{order_code} cần xử lý",
                     reference_id=order_id
                 )
-            logger.info(f"✅ Notifications created for order {order_code}")
+            
+            # Update order with notification status
+            await self.collection.update_one(
+                {"_id": ObjectId(order_id)},
+                {"$set": {"notification_sent": True, "notification_sent_at": datetime.utcnow()}}
+            )
+            
+            logger.info(f"✅ Notifications sent for order {order_code}")
         except Exception as e:
-            logger.error(f"❌ Failed to create notifications: {e}")
+            logger.error(f"❌ Failed to send notifications for order {order_code}: {e}")
 
-    async def _send_shop_emails_background(
-        self, shop_ids: set, order_id: str, order_code: str, order_data: dict, all_items: list
+    async def _send_emails_async(
+        self,
+        customer_email: str,
+        customer_name: str,
+        order_id: str,
+        order_code: str,
+        order_data: dict,
+        items: list,
+        shop_ids: Set[str]
     ):
-        """Gửi email shops trong background"""
+        """Send emails in background - PRIORITY 2 (after notifications)"""
         try:
+            # Send customer email
+            await self._send_customer_order_email(
+                customer_email, customer_name, order_id, order_code, order_data, items
+            )
+            
+            # Send shop emails
             for shop_id in shop_ids:
-                await self._send_shop_order_email(shop_id, order_id, order_code, order_data, all_items)
-            logger.info(f"✅ Shop emails sent for order {order_code}")
+                await self._send_shop_order_email(shop_id, order_id, order_code, order_data, items)
+            
+            # Update order with email status
+            await self.collection.update_one(
+                {"_id": ObjectId(order_id)},
+                {"$set": {"email_sent": True, "email_sent_at": datetime.utcnow()}}
+            )
+            
+            logger.info(f"✅ Emails sent for order {order_code}")
         except Exception as e:
-            logger.error(f"❌ Failed to send shop emails: {e}")
+            logger.error(f"❌ Failed to send emails for order {order_code}: {e}")
 
-    async def _update_product_sold_quantity_background(self, items: list, operation: str = "increase"):
-        """Update sold quantity trong background"""
+    async def _update_sold_quantity_async(self, items: list, operation: str = "increase"):
+        """Update sold quantity in background"""
         try:
             change = 1 if operation == "increase" else -1
             for item in items:
@@ -269,13 +285,18 @@ class OrderService:
             logger.error(f"❌ Failed to update sold quantity: {e}")
 
     async def _send_customer_order_email(
-        self, customer_email: str, customer_name: str, order_id: str, 
-        order_code: str, order_data: dict, items: list
+        self, 
+        customer_email: str, 
+        customer_name: str, 
+        order_id: str, 
+        order_code: str, 
+        order_data: dict, 
+        items: list
     ):
-        """Gửi email xác nhận đơn hàng cho khách hàng"""
+        """Send customer order confirmation email"""
         subject = f"Xác nhận đơn hàng #{order_code} - Đặc Sản Quê Tôi"
         
-        # Tạo danh sách sản phẩm trong email
+        # Build items HTML
         items_html = ""
         for item in items:
             items_html += f"""
@@ -308,12 +329,10 @@ class OrderService:
                 .header {{ background: #2e7d32; color: white; padding: 20px; text-align: center; }}
                 .content {{ background: white; padding: 30px; }}
                 .order-info {{ background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }}
-                .order-info p {{ margin: 5px 0; }}
                 table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
                 th {{ background: #2e7d32; color: white; padding: 10px; text-align: left; }}
                 .total {{ font-size: 18px; font-weight: bold; text-align: right; margin-top: 15px; }}
                 .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #777; }}
-                .btn {{ display: inline-block; padding: 10px 20px; background: #2e7d32; color: white; text-decoration: none; border-radius: 5px; }}
             </style>
         </head>
         <body>
@@ -325,14 +344,12 @@ class OrderService:
                 <div class="content">
                     <h3>Xin chào {customer_name},</h3>
                     <p>Cảm ơn bạn đã đặt hàng tại <strong>Đặc Sản Quê Tôi</strong>!</p>
-                    <p>Đơn hàng của bạn đã được tiếp nhận và đang được xử lý.</p>
                     
                     <div class="order-info">
                         <p><strong>📋 Mã đơn hàng:</strong> #{order_code}</p>
                         <p><strong>📅 Ngày đặt:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
                         <p><strong>💳 Phương thức thanh toán:</strong> {payment_method_text}</p>
                         <p><strong>📍 Địa chỉ giao hàng:</strong> {shipping_addr.get('street', '')}, {shipping_addr.get('ward', '')}, {shipping_addr.get('district', '')}, {shipping_addr.get('city', '')}</p>
-                        <p><strong>👤 Người nhận:</strong> {shipping_addr.get('name', '')} - {shipping_addr.get('phone', '')}</p>
                     </div>
                     
                     <h4>Chi tiết đơn hàng:</h4>
@@ -351,16 +368,9 @@ class OrderService:
                         {f'<p>Giảm giá: -{self._format_currency(order_data["discount"])}</p>' if order_data.get('discount') else ''}
                         <p><strong>Tổng cộng: {self._format_currency(order_data['total_amount'])}</strong></p>
                     </div>
-                    
-                    <p style="margin-top: 30px;">Bạn có thể theo dõi đơn hàng tại đây:</p>
-                    <p style="text-align: center;">
-                        <a href="https://www.dacsanvietplatform.shop/orders/{order_id}" class="btn">Xem chi tiết đơn hàng</a>
-                    </p>
-                    
-                    <p style="margin-top: 20px;">Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900xxxx</strong> hoặc email: <strong>support@dacsanquetoi.com</strong></p>
                 </div>
                 <div class="footer">
-                    <p>© 2024 Đặc Sản Quê Tôi - Tất cả các quyền được bảo lưu</p>
+                    <p>© 2024 Đặc Sản Quê Tôi</p>
                 </div>
             </div>
         </body>
@@ -370,11 +380,14 @@ class OrderService:
         await self.email_service.send_email(customer_email, subject, html_content)
 
     async def _send_shop_order_email(
-        self, shop_id: str, order_id: str, order_code: str, 
-        order_data: dict, all_items: list
+        self, 
+        shop_id: str, 
+        order_id: str, 
+        order_code: str, 
+        order_data: dict, 
+        all_items: list
     ):
-        """Gửi email thông báo đơn hàng mới cho shop"""
-        # Lấy thông tin shop
+        """Send shop order notification email"""
         shop = await self.shop_collection.find_one({"_id": ObjectId(shop_id)})
         shop_email = shop.get("email") if shop else None
         shop_name = shop.get("name", "Cửa hàng") if shop else "Cửa hàng"
@@ -382,7 +395,7 @@ class OrderService:
         if not shop_email:
             return
         
-        # Lọc sản phẩm của shop này
+        # Filter items for this shop
         shop_items = [item for item in all_items if str(item["shop_id"]) == shop_id]
         
         if not shop_items:
@@ -419,7 +432,6 @@ class OrderService:
                 th {{ background: #ff9800; color: white; padding: 10px; text-align: left; }}
                 .total {{ font-size: 18px; font-weight: bold; text-align: right; margin-top: 15px; }}
                 .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #777; }}
-                .btn {{ display: inline-block; padding: 10px 20px; background: #ff9800; color: white; text-decoration: none; border-radius: 5px; }}
             </style>
         </head>
         <body>
@@ -430,17 +442,16 @@ class OrderService:
                 </div>
                 <div class="content">
                     <h3>Xin chào {shop_name},</h3>
-                    <p>Có một đơn hàng mới vừa được đặt từ khách hàng!</p>
+                    <p>Có đơn hàng mới cần xử lý!</p>
                     
                     <div class="order-info">
                         <p><strong>📋 Mã đơn hàng:</strong> #{order_code}</p>
-                        <p><strong>📅 Thời gian đặt:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
                         <p><strong>👤 Khách hàng:</strong> {shipping_addr.get('name', '')}</p>
-                        <p><strong>📞 SĐT khách hàng:</strong> {shipping_addr.get('phone', '')}</p>
-                        <p><strong>📍 Địa chỉ giao hàng:</strong> {shipping_addr.get('street', '')}, {shipping_addr.get('ward', '')}, {shipping_addr.get('district', '')}, {shipping_addr.get('city', '')}</p>
+                        <p><strong>📞 SĐT:</strong> {shipping_addr.get('phone', '')}</p>
+                        <p><strong>📍 Địa chỉ:</strong> {shipping_addr.get('street', '')}, {shipping_addr.get('ward', '')}, {shipping_addr.get('district', '')}, {shipping_addr.get('city', '')}</p>
                     </div>
                     
-                    <h4>Chi tiết sản phẩm trong đơn hàng:</h4>
+                    <h4>Sản phẩm:</h4>
                     <table>
                         <thead>
                             <tr><th>Sản phẩm</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr>
@@ -451,16 +462,11 @@ class OrderService:
                     </table>
                     
                     <div class="total">
-                        <p><strong>Tổng giá trị đơn hàng (shop): {self._format_currency(shop_total)}</strong></p>
+                        <p><strong>Tổng: {self._format_currency(shop_total)}</strong></p>
                     </div>
-                    
-                    <p style="margin-top: 30px;">Vui lòng xác nhận và xử lý đơn hàng sớm nhất:</p>
-                    <p style="text-align: center;">
-                        <a href="https://www.dacsanvietplatform.shop/shop/orders" class="btn">Quản lý đơn hàng</a>
-                    </p>
                 </div>
                 <div class="footer">
-                    <p>© 2024 Đặc Sản Quê Tôi - Hệ thống quản lý bán hàng</p>
+                    <p>© 2024 Đặc Sản Quê Tôi</p>
                 </div>
             </div>
         </body>
@@ -470,11 +476,13 @@ class OrderService:
         await self.email_service.send_email(shop_email, subject, html_content)
 
     def _format_currency(self, amount: float) -> str:
-        """Định dạng tiền tệ"""
+        """Format currency"""
         return f"{amount:,.0f}₫".replace(",", ".")
 
+    # ==================== OTHER METHODS ====================
+    
     async def get_user_orders(self, user_id: str):
-        """Lấy danh sách đơn hàng của user"""
+        """Get user orders list"""
         cursor = self.collection.find(
             {"user_id": ObjectId(user_id)},
             {
@@ -498,7 +506,7 @@ class OrderService:
         return orders
 
     async def get_order(self, order_id: str):
-        """Lấy chi tiết đơn hàng"""
+        """Get order detail"""
         try:
             order = await self.collection.find_one({"_id": ObjectId(order_id)})
             if not order:
@@ -510,7 +518,7 @@ class OrderService:
             return None
         
     def _prepare_full_response(self, order: dict) -> dict:
-        """Chuẩn bị response đầy đủ cho order detail"""
+        """Prepare full order response"""
         result = {
             "_id": str(order["_id"]),
             "user_id": str(order["user_id"]),
@@ -552,37 +560,23 @@ class OrderService:
         return result
 
     async def update_order_status(self, order_id: str, status: OrderStatus):
-        """Cập nhật status và gửi notification"""
+        """Update order status"""
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
             {"$set": {"status": status.value}}
         )
-        
-        if status == OrderStatus.shipped:
-            order = await self.get_order(order_id)
-            if order:
-                asyncio.create_task(
-                    self.notification_service.create_notification(
-                        user_id=order["user_id"],
-                        type="order",
-                        title="Đơn hàng đã giao 🚚",
-                        message=f"Đơn hàng #{order_id[-8:].upper()} đã được giao cho đơn vị vận chuyển",
-                        reference_id=order_id
-                    )
-                )
-        
         return await self.get_order(order_id)
     
     async def update_payment_status(self, order_id: str, status: str):
-        """Cập nhật payment status"""
+        """Update payment status"""
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
             {"$set": {"payment_status": status}}
         )
         return await self.get_order(order_id)
 
-    async def cancel_order(self, order_id: str, user_id: str):
-        """Hủy đơn hàng với bulk operations"""
+    async def cancel_order(self, order_id: str, user_id: str, cancel_reason: str = None):
+        """Cancel order and restore stock"""
         try:
             order = await self.collection.find_one({
                 "_id": ObjectId(order_id),
@@ -597,7 +591,7 @@ class OrderService:
         if order["status"] not in [OrderStatus.pending.value, OrderStatus.paid.value]:
             raise Exception("Không thể hủy đơn hàng ở trạng thái này")
         
-        # Batch restore stock - DÙNG UPDATE_ONE
+        # Restore stock
         for item in order.get("items", []):
             if item.get("variant_id"):
                 await self.db["product_variants"].update_one(
@@ -611,14 +605,21 @@ class OrderService:
                 )
         
         # Update order status
+        update_data = {
+            "status": OrderStatus.cancelled.value, 
+            "cancelled_at": datetime.utcnow()
+        }
+        if cancel_reason:
+            update_data["cancel_reason"] = cancel_reason
+        
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
-            {"$set": {"status": OrderStatus.cancelled.value, "cancelled_at": datetime.utcnow()}}
+            {"$set": update_data}
         )
         
         # Update sold quantity in background
-        asyncio.create_task(self._update_product_sold_quantity_background(
+        asyncio.create_task(self._update_sold_quantity_async(
             order.get("items", []), "decrease"
         ))
         
-        return {"status": "success", "message": "Đơn hàng đã được hủy và hoàn kho"}
+        return {"status": "success", "message": "Đơn hàng đã được hủy và hoàn kho", "refund_amount": order.get("total_amount", 0)}
