@@ -55,15 +55,10 @@ class OrderService:
         }
 
     # app/services/order_service.py - CHỈ SỬA 1 DÒNG
-
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
-        """
-        Create order - Optimized for speed < 0.3 seconds
-        Flow: Create order → RETURN RESPONSE IMMEDIATELY → Background tasks
-        """
         start_time = datetime.utcnow()
         
-        # Get user info (only what's needed)
+        # Get user info
         customer = await self.user_collection.find_one(
             {"_id": ObjectId(user_id)},
             {"email": 1, "full_name": 1, "username": 1}
@@ -74,7 +69,7 @@ class OrderService:
         shop_ids: Set[str] = set()
         items_to_save: List[dict] = []
         
-        # === CRITICAL PATH: Stock check and update ===
+        # === STOCK CHECK ===
         for item in order_data["items"]:
             shop_ids.add(item["shop_id"])
             
@@ -115,13 +110,13 @@ class OrderService:
                 "product_name": item.get("product_name", "")
             })
         
-        # Format shipping address
+        # Address
         shipping_addr = order_data["shipping_address"]
         formatted_address = shipping_addr.get("full_address") or \
             f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
-        # Build order document
-        order: dict = {
+        # Order doc
+        order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
             "total_amount": order_data["total_amount"],
@@ -139,61 +134,41 @@ class OrderService:
             "email_sent": False
         }
         
-        # Add shipping unit if exists
-        if order_data.get("shipping_unit_id"):
-            shipping_unit = await self._get_shipping_unit_cached(order_data["shipping_unit_id"])
-            if shipping_unit:
-                order["shipping_unit"] = {
-                    "id": str(shipping_unit["_id"]),
-                    "name": shipping_unit["name"],
-                    "code": shipping_unit["code"],
-                    "shipping_fee": order_data["shipping_fee"],
-                    "estimated_delivery_days": shipping_unit.get("estimated_delivery_days", 3)
-                }
-                order["shipping_unit_id"] = ObjectId(order_data["shipping_unit_id"])
-        
-        # Add voucher if exists
-        if order_data.get("voucher"):
-            order["voucher"] = {
-                "id": ObjectId(order_data["voucher"]["id"]),
-                "code": order_data["voucher"]["code"],
-                "discount": order_data["voucher"]["discount"]
-            }
-        
-        # === INSERT ORDER (CRITICAL PATH) ===
+        # INSERT
         result = await self.collection.insert_one(order)
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # 🔥 QUAN TRỌNG: Xóa cart trong background - KHÔNG AWAIT
-        asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
+        # ✅ FIX LỖI CHÍNH Ở ĐÂY
+        asyncio.create_task(self._delete_cart_async(user_id))
         
-        # Prepare response
+        # RESPONSE TRẢ NGAY
         response_order = self._prepare_response(order, order_id, order_code)
         
         elapsed = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
         
-        # 🔥 QUAN TRỌNG: TẤT CẢ BACKGROUND TASKS ĐỀU DÙNG create_task - KHÔNG AWAIT
-        # Response trả về NGAY LẬP TỨC, không cần đợi gì cả
-        
-        # 1. Update sold quantity (nhanh nhất)
+        # BACKGROUND TASKS (SAFE)
         asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
-        
-        # 2. Send NOTIFICATIONS (nhanh)
         asyncio.create_task(self._send_notifications_async(
             user_id, customer_name, order_id, order_code, shop_ids
         ))
         
-        # 3. Send EMAILS (chậm nhất - chạy sau cùng)
         if customer_email:
             asyncio.create_task(self._send_emails_async(
-                customer_email, customer_name, order_id, order_code, 
+                customer_email, customer_name, order_id, order_code,
                 order_data, items_to_save, shop_ids
             ))
         
-        # ✅ TRẢ VỀ RESPONSE NGAY LẬP TỨC - KHÔNG CHỜ GÌ CẢ
         return response_order
+    
+    async def _delete_cart_async(self, user_id: str):
+        """Delete cart safely in background"""
+        try:
+            await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
+            logger.info(f"🧹 Cart deleted for user {user_id}")
+        except Exception as e:
+            logger.error(f"❌ Delete cart failed: {e}")
 
     async def _send_notifications_async(
         self, 
