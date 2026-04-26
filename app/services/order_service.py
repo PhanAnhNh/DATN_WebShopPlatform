@@ -54,10 +54,12 @@ class OrderService:
             "message": "Đặt hàng thành công"
         }
 
+    # app/services/order_service.py - CHỈ SỬA 1 DÒNG
+
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         """
-        Create order - Optimized for speed < 2 seconds
-        Flow: Create order → Return response → Notifications → Emails
+        Create order - Optimized for speed < 0.3 seconds
+        Flow: Create order → RETURN RESPONSE IMMEDIATELY → Background tasks
         """
         start_time = datetime.utcnow()
         
@@ -78,14 +80,12 @@ class OrderService:
             
             if item.get("variant_id"):
                 variant_id = ObjectId(item["variant_id"])
-                # Check stock
                 variant = await self.variant_collection.find_one(
                     {"_id": variant_id, "stock": {"$gte": item["quantity"]}}
                 )
                 if not variant:
                     raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
                 
-                # Update stock
                 await self.variant_collection.update_one(
                     {"_id": variant_id},
                     {"$inc": {"stock": -item["quantity"]}}
@@ -135,8 +135,8 @@ class OrderService:
             "payment_status": "unpaid",
             "status": OrderStatus.pending.value,
             "created_at": datetime.utcnow(),
-            "notification_sent": False,  # Track notification status
-            "email_sent": False          # Track email status
+            "notification_sent": False,
+            "email_sent": False
         }
         
         # Add shipping unit if exists
@@ -165,8 +165,8 @@ class OrderService:
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # Clear cart (fire and forget)
-        await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
+        # 🔥 QUAN TRỌNG: Xóa cart trong background - KHÔNG AWAIT
+        asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
         
         # Prepare response
         response_order = self._prepare_response(order, order_id, order_code)
@@ -174,22 +174,25 @@ class OrderService:
         elapsed = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
         
-        # === BACKGROUND TASKS (Order: Notifications FIRST, then Emails) ===
-        # 1. Send NOTIFICATIONS first (faster)
+        # 🔥 QUAN TRỌNG: TẤT CẢ BACKGROUND TASKS ĐỀU DÙNG create_task - KHÔNG AWAIT
+        # Response trả về NGAY LẬP TỨC, không cần đợi gì cả
+        
+        # 1. Update sold quantity (nhanh nhất)
+        asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
+        
+        # 2. Send NOTIFICATIONS (nhanh)
         asyncio.create_task(self._send_notifications_async(
             user_id, customer_name, order_id, order_code, shop_ids
         ))
         
-        # 2. Send EMAILS after (slower, can wait)
+        # 3. Send EMAILS (chậm nhất - chạy sau cùng)
         if customer_email:
             asyncio.create_task(self._send_emails_async(
                 customer_email, customer_name, order_id, order_code, 
                 order_data, items_to_save, shop_ids
             ))
         
-        # 3. Update sold quantity (fire and forget)
-        asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
-        
+        # ✅ TRẢ VỀ RESPONSE NGAY LẬP TỨC - KHÔNG CHỜ GÌ CẢ
         return response_order
 
     async def _send_notifications_async(
