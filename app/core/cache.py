@@ -8,17 +8,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory cache (can be replaced with Redis)
+# Simple in-memory cache
 _cache: Dict[str, Dict[str, Any]] = {}
 
 
 def cache_response(ttl: int = 60, key_prefix: str = ""):
     """
     Cache decorator for FastAPI endpoints
-    
-    Args:
-        ttl: Time to live in seconds
-        key_prefix: Optional prefix for cache key
     """
     def decorator(func: Callable):
         @wraps(func)
@@ -33,7 +29,7 @@ def cache_response(ttl: int = 60, key_prefix: str = ""):
                     logger.debug(f"Cache hit for {func.__name__}")
                     return cached["data"]
             
-            # Execute function
+            # Execute function - ĐÃ SỬA: await đúng cách
             result = await func(*args, **kwargs)
             
             # Store in cache
@@ -73,7 +69,6 @@ async def clear_cache():
 
 def _generate_cache_key(func_name: str, kwargs: dict, prefix: str = "") -> str:
     """Generate cache key from function arguments"""
-    # Filter out db and request objects (not hashable)
     filtered_kwargs = {}
     
     for k, v in kwargs.items():
@@ -81,40 +76,14 @@ def _generate_cache_key(func_name: str, kwargs: dict, prefix: str = "") -> str:
         if k in ["db", "request", "background_tasks", "self", "cls"]:
             continue
         
-        # Skip callables
         if hasattr(v, "__call__"):
             continue
         
         try:
-            # Try to convert to JSON serializable
             json.dumps(v)
             filtered_kwargs[k] = v
         except (TypeError, ValueError):
-            # Convert to string if not serializable
             filtered_kwargs[k] = str(v)
     
-    # Create key string
     key_str = f"{prefix}:{func_name}:{json.dumps(filtered_kwargs, sort_keys=True, default=str)}"
-    
-    # Return MD5 hash for consistent length
     return hashlib.md5(key_str.encode()).hexdigest()
-
-
-def get_cache_stats() -> Dict[str, Any]:
-    """Get cache statistics"""
-    now = datetime.utcnow()
-    active = 0
-    expired = 0
-    
-    for key, value in _cache.items():
-        if now < value["expires_at"]:
-            active += 1
-        else:
-            expired += 1
-    
-    return {
-        "total_entries": len(_cache),
-        "active_entries": active,
-        "expired_entries": expired,
-        "memory_estimate": f"{len(str(_cache)) / 1024:.2f} KB"
-    }
