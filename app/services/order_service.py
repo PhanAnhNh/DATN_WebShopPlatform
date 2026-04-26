@@ -79,20 +79,18 @@ class OrderService:
         items_to_save = []
         total_price = 0
         
-        # ===== CÁCH SỬA: Dùng update_one thay vì findAndModify =====
+        # Kiểm tra và update stock
         for item in order_data["items"]:
             shop_ids.add(item["shop_id"])
             
             if item.get("variant_id"):
                 variant_id = ObjectId(item["variant_id"])
-                # Kiểm tra stock trước
                 variant = await self.variant_collection.find_one(
                     {"_id": variant_id, "stock": {"$gte": item["quantity"]}}
                 )
                 if not variant:
                     raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
                 
-                # Update stock
                 await self.variant_collection.update_one(
                     {"_id": variant_id},
                     {"$inc": {"stock": -item["quantity"]}}
@@ -100,14 +98,12 @@ class OrderService:
                 price = item.get("price", 0)
             else:
                 product_id = ObjectId(item["product_id"])
-                # Kiểm tra stock trước
                 product = await self.product_collection.find_one(
                     {"_id": product_id, "stock": {"$gte": item["quantity"]}}
                 )
                 if not product:
                     raise Exception(f"Sản phẩm {item.get('product_name', '')} không đủ hàng")
                 
-                # Update stock
                 await self.product_collection.update_one(
                     {"_id": product_id},
                     {"$inc": {"stock": -item["quantity"]}}
@@ -173,13 +169,14 @@ class OrderService:
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # Clear cart (async)
+        # ====== QUAN TRỌNG: BỎ AWAIT TRƯỚC create_task ======
+        # Clear cart (async, không block)
         asyncio.create_task(self.cart_collection.delete_one({"user_id": ObjectId(user_id)}))
         
         # Response
         response_order = self._prepare_response(order, order_id, order_code)
         
-        # Background tasks
+        # Background tasks - KHÔNG await
         asyncio.create_task(self._create_notifications_background(
             user_id, customer_name, order_id, order_code, shop_ids
         ))
