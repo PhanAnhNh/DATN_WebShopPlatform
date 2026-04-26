@@ -1,6 +1,5 @@
-# app/routes/orders_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, status
-from app.core.cache import invalidate_cache
+from app.core.cache import invalidate_cache, get_cached, set_cached  # Thay đổi import
 from app.db.mongodb import get_database
 from app.models.orders_model import OrderCreate, OrderStatus, OrderUpdate
 from app.core.security import get_current_user
@@ -9,6 +8,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 import logging
+import json
 
 from app.services.order_service import OrderService
 
@@ -19,73 +19,123 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 # ==================== MODELS ====================
 
 class OrderListResponse(BaseModel):
-    """Response model for order list"""
     data: List[Dict[str, Any]]
     pagination: Dict[str, int]
     filters: Dict[str, Any]
 
 
 class OrderStatsResponse(BaseModel):
-    """Response model for order statistics"""
     total: int
     pending: int
     paid: int
     shipped: int
     completed: int
     cancelled: int
-    pending_payment: int = Field(0, description="Chờ thanh toán")
-    processing: int = Field(0, description="Đang xử lý")
-    last_30_days: Optional[int] = Field(None, description="Đơn hàng 30 ngày qua")
+    pending_payment: int = Field(0)
+    processing: int = Field(0)
+    last_30_days: Optional[int] = None
 
 
 class CancelOrderResponse(BaseModel):
-    """Response model for cancel order"""
     status: str
     message: str
     refund_amount: Optional[float] = None
 
 
-# ==================== HELPER FUNCTIONS ====================
+# ==================== CREATE ORDER - NO CACHE ====================
 
-def parse_date(date_str: Optional[str]) -> Optional[datetime]:
-    """Parse date string safely"""
-    if not date_str:
-        return None
-    try:
-        if date_str.endswith('Z'):
-            date_str = date_str.replace('Z', '+00:00')
-        return datetime.fromisoformat(date_str)
-    except (ValueError, TypeError):
-        logger.warning(f"Invalid date format: {date_str}")
-        return None
-
-
-def build_order_query(
-    user_id: str,
-    status: Optional[str] = None,
-    payment_status: Optional[str] = None,
-    from_date: Optional[datetime] = None,
-    to_date: Optional[datetime] = None,
-    search: Optional[str] = None,
-    min_amount: Optional[float] = None,
-    max_amount: Optional[float] = None
-) -> Dict[str, Any]:
-    """Build MongoDB query with all filters"""
-    query = {"user_id": ObjectId(user_id)}
+@router.post("/", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+async def create_order(
+    order: OrderCreate,
+    background_tasks: BackgroundTasks,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Create new order - NO CACHE"""
+    service = OrderService(db)
     
+    try:
+        if not order.items:
+            raise HTTPException(status_code=400, detail="Đơn hàng không có sản phẩm")
+        
+        if order.total_amount <= 0:
+            raise HTTPException(status_code=400, detail="Tổng tiền đơn hàng không hợp lệ")
+        
+        result = await service.create_order(
+            str(current_user.id),
+            order.model_dump()
+        )
+        
+        # Invalidate cache
+        await invalidate_cache(f"user_orders:{current_user.id}:*")
+        await invalidate_cache(f"order_stats:{current_user.id}")
+        
+        logger.info(f"✅ Order created: {result.get('order_code')}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to create order: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ==================== GET ORDERS - WITH MANUAL CACHE ====================
+
+@router.get("/my", response_model=OrderListResponse)
+async def get_my_orders(
+    db = Depends(get_database),
+    current_user = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+    status: Optional[str] = Query(None),
+    payment_status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
+    min_amount: Optional[float] = Query(None, ge=0),
+    max_amount: Optional[float] = Query(None, ge=0),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$")
+):
+    """Get user orders with manual cache"""
+    
+    # Generate cache key from all params
+    cache_key = f"user_orders:{current_user.id}:{page}:{limit}:{status}:{payment_status}:{search}:{from_date}:{to_date}:{min_amount}:{max_amount}:{sort_by}:{sort_order}"
+    
+    # Try to get from cache
+    cached_result = await get_cached(cache_key)
+    if cached_result:
+        logger.debug(f"Cache hit for orders")
+        return OrderListResponse(**cached_result)
+    
+    # Parse dates
+    def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            if date_str.endswith('Z'):
+                date_str = date_str.replace('Z', '+00:00')
+            return datetime.fromisoformat(date_str)
+        except:
+            return None
+    
+    from_date_parsed = parse_date(from_date)
+    to_date_parsed = parse_date(to_date)
+    
+    # Build query
+    query = {"user_id": ObjectId(current_user.id)}
     if status:
         query["status"] = status
-    
     if payment_status:
         query["payment_status"] = payment_status
     
-    if from_date or to_date:
+    if from_date_parsed or to_date_parsed:
         date_filter = {}
-        if from_date:
-            date_filter["$gte"] = from_date
-        if to_date:
-            to_date_end = to_date + timedelta(days=1) if to_date else None
-            date_filter["$lte"] = to_date_end or to_date
+        if from_date_parsed:
+            date_filter["$gte"] = from_date_parsed
+        if to_date_parsed:
+            date_filter["$lte"] = to_date_parsed + timedelta(days=1)
         if date_filter:
             query["created_at"] = date_filter
     
@@ -107,104 +157,23 @@ def build_order_query(
         else:
             query["_id"] = {"$regex": f".*{search}.*", "$options": "i"}
     
-    return query
-
-
-# ==================== CREATE ORDER - NO CACHE ====================
-
-@router.post("/", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
-async def create_order(
-    order: OrderCreate,
-    background_tasks: BackgroundTasks,
-    db = Depends(get_database),
-    current_user = Depends(get_current_user)
-):
-    """
-    Tạo đơn hàng mới
-    
-    - **Tối ưu response time < 2 giây**
-    - **Xử lý notification trước, email sau trong background**
-    - **Tự động validate stock và cập nhật số lượng**
-    """
-    service = OrderService(db)
-    
-    try:
-        if not order.items:
-            raise HTTPException(status_code=400, detail="Đơn hàng không có sản phẩm")
-        
-        if order.total_amount <= 0:
-            raise HTTPException(status_code=400, detail="Tổng tiền đơn hàng không hợp lệ")
-        
-        result = await service.create_order(
-            str(current_user.id),
-            order.model_dump()
-        )
-        
-        # Invalidate cache cho user orders
-        await invalidate_cache(f"user_orders:{current_user.id}:*")
-        await invalidate_cache(f"order_stats:{current_user.id}")
-        
-        logger.info(f"✅ Order created successfully: {result.get('order_code')}")
-        
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Failed to create order: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# ==================== GET ORDERS - WITH CACHE (KEEP CACHE FOR GET) ====================
-
-@router.get("/my", response_model=OrderListResponse)
-async def get_my_orders(
-    db = Depends(get_database),
-    current_user = Depends(get_current_user),
-    page: int = Query(1, ge=1, description="Số trang"),
-    limit: int = Query(10, ge=1, le=50, description="Số lượng mỗi trang"),
-    status: Optional[str] = Query(None, description="Lọc theo trạng thái"),
-    payment_status: Optional[str] = Query(None, description="Lọc theo trạng thái thanh toán"),
-    search: Optional[str] = Query(None, description="Tìm kiếm theo mã đơn"),
-    from_date: Optional[str] = Query(None, description="Từ ngày (ISO format)"),
-    to_date: Optional[str] = Query(None, description="Đến ngày (ISO format)"),
-    min_amount: Optional[float] = Query(None, ge=0, description="Tối thiểu"),
-    max_amount: Optional[float] = Query(None, ge=0, description="Tối đa"),
-    sort_by: str = Query("created_at", description="Sắp xếp theo"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="ASC/DESC")
-):
-    """
-    Lấy danh sách đơn hàng của user hiện tại với phân trang và filter
-    """
-    from_date_parsed = parse_date(from_date)
-    to_date_parsed = parse_date(to_date)
-    
-    query = build_order_query(
-        user_id=str(current_user.id),
-        status=status,
-        payment_status=payment_status,
-        from_date=from_date_parsed,
-        to_date=to_date_parsed,
-        search=search,
-        min_amount=min_amount,
-        max_amount=max_amount
-    )
-    
+    # Validate sort
     allowed_sort_fields = ["created_at", "total_amount", "status", "updated_at"]
     if sort_by not in allowed_sort_fields:
         sort_by = "created_at"
-    
     sort_direction = -1 if sort_order == "desc" else 1
     
     try:
         total = await db["orders"].count_documents(query)
         
         if total == 0:
-            return OrderListResponse(
-                data=[],
-                pagination={"page": page, "limit": limit, "total": 0, "total_pages": 0},
-                filters={"status": status, "payment_status": payment_status}
-            )
+            result_data = {
+                "data": [],
+                "pagination": {"page": page, "limit": limit, "total": 0, "total_pages": 0},
+                "filters": {"status": status, "payment_status": payment_status}
+            }
+            await set_cached(cache_key, result_data, ttl=30)
+            return OrderListResponse(**result_data)
         
         skip = (page - 1) * limit
         total_pages = (total + limit - 1) // limit
@@ -214,8 +183,7 @@ async def get_my_orders(
             {
                 "_id": 1, "user_id": 1, "total_amount": 1, "status": 1,
                 "payment_status": 1, "payment_method": 1, "created_at": 1,
-                "items": {"$slice": 2},
-                "subtotal": 1, "discount": 1, "shipping_fee": 1
+                "items": {"$slice": 2}, "subtotal": 1, "discount": 1, "shipping_fee": 1
             }
         ).sort(sort_by, sort_direction).skip(skip).limit(limit)
         
@@ -245,15 +213,15 @@ async def get_my_orders(
             }
             orders.append(order_dict)
         
-        return OrderListResponse(
-            data=orders,
-            pagination={
+        result_data = {
+            "data": orders,
+            "pagination": {
                 "page": page,
                 "limit": limit,
                 "total": total,
                 "total_pages": total_pages
             },
-            filters={
+            "filters": {
                 "status": status,
                 "payment_status": payment_status,
                 "from_date": from_date,
@@ -261,206 +229,111 @@ async def get_my_orders(
                 "min_amount": min_amount,
                 "max_amount": max_amount
             }
-        )
+        }
+        
+        # Save to cache
+        await set_cached(cache_key, result_data, ttl=30)
+        
+        return OrderListResponse(**result_data)
         
     except Exception as e:
         logger.error(f"Error fetching orders: {str(e)}")
         raise HTTPException(status_code=500, detail="Lỗi khi lấy danh sách đơn hàng")
 
 
+# ==================== STATS - WITH MANUAL CACHE ====================
+
 @router.get("/stats", response_model=OrderStatsResponse)
 async def get_order_stats(
     db = Depends(get_database),
     current_user = Depends(get_current_user),
-    days: int = Query(30, ge=1, le=365, description="Số ngày gần nhất")
+    days: int = Query(30, ge=1, le=365)
 ):
-    """
-    Lấy thống kê đơn hàng của user
-    """
+    """Get order statistics with manual cache"""
+    
+    cache_key = f"order_stats:{current_user.id}:{days}"
+    
+    # Try cache
+    cached_result = await get_cached(cache_key)
+    if cached_result:
+        return OrderStatsResponse(**cached_result)
+    
     user_id = ObjectId(current_user.id)
     days_ago = datetime.utcnow() - timedelta(days=days)
     
     try:
         pipeline = [
             {"$match": {"user_id": user_id}},
-            {"$group": {
-                "_id": "$status",
-                "count": {"$sum": 1}
-            }}
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}}
         ]
-        
         status_stats = await db["orders"].aggregate(pipeline).to_list(length=None)
         
         recent_pipeline = [
-            {"$match": {
-                "user_id": user_id,
-                "created_at": {"$gte": days_ago}
-            }},
+            {"$match": {"user_id": user_id, "created_at": {"$gte": days_ago}}},
             {"$count": "total"}
         ]
-        
         recent_result = await db["orders"].aggregate(recent_pipeline).to_list(length=None)
         last_30_days = recent_result[0]["total"] if recent_result else 0
         
         stats = {
-            "total": 0,
-            "pending": 0,
-            "paid": 0,
-            "shipped": 0,
-            "completed": 0,
-            "cancelled": 0,
-            "pending_payment": 0,
-            "processing": 0,
-            "last_30_days": last_30_days
-        }
-        
-        status_mapping = {
-            "pending": "pending",
-            "paid": "paid",
-            "shipped": "shipped",
-            "completed": "completed",
-            "cancelled": "cancelled",
-            "pending_payment": "pending_payment",
-            "processing": "processing"
+            "total": 0, "pending": 0, "paid": 0, "shipped": 0,
+            "completed": 0, "cancelled": 0, "pending_payment": 0,
+            "processing": 0, "last_30_days": last_30_days
         }
         
         for stat in status_stats:
-            status_key = status_mapping.get(stat["_id"], stat["_id"])
+            status_key = stat["_id"]
             if status_key in stats:
                 stats[status_key] = stat["count"]
             stats["total"] += stat["count"]
         
+        # Save to cache (5 minutes)
+        await set_cached(cache_key, stats, ttl=300)
+        
         return OrderStatsResponse(**stats)
         
     except Exception as e:
-        logger.error(f"Error getting order stats: {str(e)}")
-        raise HTTPException(status_code=500, detail="Lỗi khi lấy thống kê đơn hàng")
+        logger.error(f"Error getting stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Lỗi khi lấy thống kê")
 
+
+# ==================== GET SINGLE ORDER ====================
 
 @router.get("/{order_id}")
 async def get_order(
     order_id: str,
     db = Depends(get_database),
     current_user = Depends(get_current_user),
-    include_product_details: bool = Query(False, description="Include full product details")
+    include_product_details: bool = Query(False)
 ):
-    """
-    Lấy chi tiết đơn hàng của user hiện tại
-    """
+    """Get order detail"""
+    
     if not ObjectId.is_valid(order_id):
         raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
     
     try:
-        projection = {
-            "_id": 1, "user_id": 1, "total_amount": 1, "subtotal": 1,
-            "discount": 1, "shipping_fee": 1, "status": 1, "payment_status": 1,
-            "payment_method": 1, "shipping_address": 1, "shipping_address_details": 1,
-            "note": 1, "created_at": 1, "items": 1, "voucher": 1,
-            "shipping_unit": 1, "shipping_unit_id": 1, "tracking_code": 1,
-            "notification_sent": 1, "email_sent": 1
-        }
-        
         order = await db["orders"].find_one(
-            {"_id": ObjectId(order_id), "user_id": ObjectId(current_user.id)},
-            projection
+            {"_id": ObjectId(order_id), "user_id": ObjectId(current_user.id)}
         )
         
         if not order:
             raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
         
-        result = {
-            "_id": str(order["_id"]),
-            "order_id": str(order["_id"]),
-            "order_code": str(order["_id"])[-8:].upper(),
-            "user_id": str(order["user_id"]),
-            "total_amount": order.get("total_amount", 0),
-            "subtotal": order.get("subtotal", 0),
-            "discount": order.get("discount", 0),
-            "shipping_fee": order.get("shipping_fee", 0),
-            "status": order.get("status", "pending"),
-            "payment_status": order.get("payment_status", "unpaid"),
-            "payment_method": order.get("payment_method", "cod"),
-            "shipping_address": order.get("shipping_address", ""),
-            "shipping_address_details": order.get("shipping_address_details", {}),
-            "note": order.get("note", ""),
-            "created_at": order.get("created_at"),
-            "tracking_code": order.get("tracking_code"),
-            "notification_sent": order.get("notification_sent", False),
-            "email_sent": order.get("email_sent", False),
-            "estimated_delivery": None
-        }
+        order["_id"] = str(order["_id"])
+        order["order_code"] = str(order["_id"])[-8:].upper()
+        order["user_id"] = str(order["user_id"])
         
-        if order.get("shipping_unit", {}).get("estimated_delivery_days"):
-            days = order["shipping_unit"]["estimated_delivery_days"]
-            result["estimated_delivery"] = order["created_at"] + timedelta(days=days)
+        for item in order.get("items", []):
+            item["product_id"] = str(item["product_id"])
+            if item.get("variant_id"):
+                item["variant_id"] = str(item["variant_id"])
+            if item.get("shop_id"):
+                item["shop_id"] = str(item["shop_id"])
         
-        items = []
-        for idx, item in enumerate(order.get("items", [])):
-            item_result = {
-                "_id": f"{result['_id']}_item_{idx}",
-                "product_id": str(item.get("product_id")),
-                "shop_id": str(item.get("shop_id")),
-                "quantity": item.get("quantity", 0),
-                "price": item.get("price", 0),
-                "variant_id": str(item.get("variant_id")) if item.get("variant_id") else None,
-                "variant_name": item.get("variant_name", ""),
-                "total": item.get("price", 0) * item.get("quantity", 0)
-            }
-            
-            if include_product_details:
-                try:
-                    product = await db["products"].find_one(
-                        {"_id": ObjectId(item["product_id"])},
-                        {"name": 1, "images": 1, "sku": 1}
-                    )
-                    if product:
-                        item_result["product_name"] = product.get("name", "Sản phẩm")
-                        item_result["product_image"] = product.get("images", [None])[0] if product.get("images") else None
-                        item_result["product_sku"] = product.get("sku")
-                    else:
-                        item_result["product_name"] = "Sản phẩm"
-                except:
-                    item_result["product_name"] = "Sản phẩm"
-            else:
-                item_result["product_name"] = item.get("variant_name") or item.get("product_name", "Sản phẩm")
-            
-            items.append(item_result)
+        # Add timeline
+        order["timeline"] = await _get_order_timeline(db, order)
         
-        result["items"] = items
-        result["item_count"] = len(items)
-        
-        if order.get("voucher"):
-            voucher = order["voucher"]
-            result["voucher"] = {
-                "id": str(voucher.get("id")) if isinstance(voucher.get("id"), ObjectId) else voucher.get("id"),
-                "code": voucher.get("code", ""),
-                "discount": voucher.get("discount", 0),
-                "discount_type": voucher.get("type", "fixed")
-            }
-        
-        if order.get("shipping_unit"):
-            result["shipping_unit"] = order["shipping_unit"]
-        
-        if order.get("shipping_unit_id"):
-            result["shipping_unit_id"] = str(order["shipping_unit_id"])
-        
-        try:
-            user = await db["users"].find_one(
-                {"_id": ObjectId(current_user.id)},
-                {"full_name": 1, "username": 1, "phone": 1, "email": 1}
-            )
-            if user:
-                result["customer_name"] = user.get("full_name") or user.get("username", "")
-                result["customer_phone"] = user.get("phone", "")
-                result["customer_email"] = user.get("email", "")
-        except:
-            result["customer_name"] = ""
-            result["customer_phone"] = ""
-            result["customer_email"] = ""
-        
-        result["timeline"] = await _get_order_timeline(db, order)
-        
-        return result
+        return order
         
     except HTTPException:
         raise
@@ -469,7 +342,7 @@ async def get_order(
         raise HTTPException(status_code=500, detail="Lỗi khi lấy chi tiết đơn hàng")
 
 
-# ==================== UPDATE ENDPOINTS ====================
+# ==================== OTHER ENDPOINTS ====================
 
 @router.put("/{order_id}/status")
 async def update_order_status(
@@ -478,27 +351,19 @@ async def update_order_status(
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):
-    """
-    Cập nhật trạng thái đơn hàng (Admin/Shop only)
-    """
+    """Update order status"""
     user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
     if not user or user.get("role") not in ["admin", "shop"]:
-        raise HTTPException(status_code=403, detail="Không có quyền cập nhật đơn hàng")
+        raise HTTPException(status_code=403, detail="Không có quyền")
     
     service = OrderService(db)
     
     try:
         result = await service.update_order_status(order_id, status_update.status)
-        
-        await invalidate_cache(f"order:{order_id}")
         await invalidate_cache(f"user_orders:{current_user.id}:*")
         await invalidate_cache(f"order_stats:{current_user.id}")
         
-        return {
-            "status": "success",
-            "message": f"Đã cập nhật trạng thái đơn hàng thành {status_update.status.value}",
-            "data": result
-        }
+        return {"status": "success", "message": "Đã cập nhật trạng thái", "data": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -506,16 +371,11 @@ async def update_order_status(
 @router.post("/{order_id}/cancel", response_model=CancelOrderResponse)
 async def cancel_order(
     order_id: str,
-    cancel_reason: Optional[str] = Query(None, description="Lý do hủy"),
+    cancel_reason: Optional[str] = Query(None),
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):
-    """
-    Hủy đơn hàng
-    
-    - **Hoàn lại số lượng sản phẩm trong kho**
-    - **Cập nhật trạng thái đơn hàng**
-    """
+    """Cancel order"""
     if not ObjectId.is_valid(order_id):
         raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
     
@@ -523,14 +383,12 @@ async def cancel_order(
     
     try:
         result = await service.cancel_order(order_id, str(current_user.id), cancel_reason)
-        
-        await invalidate_cache(f"order:{order_id}")
         await invalidate_cache(f"user_orders:{current_user.id}:*")
         await invalidate_cache(f"order_stats:{current_user.id}")
         
         return CancelOrderResponse(
             status="success",
-            message="Đơn hàng đã được hủy thành công",
+            message="Đơn hàng đã được hủy",
             refund_amount=result.get("refund_amount")
         )
     except Exception as e:
@@ -543,9 +401,7 @@ async def resend_order_email(
     db = Depends(get_database),
     current_user = Depends(get_current_user)
 ):
-    """
-    Gửi lại email xác nhận đơn hàng
-    """
+    """Resend order email"""
     if not ObjectId.is_valid(order_id):
         raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
     
@@ -570,10 +426,7 @@ async def resend_order_email(
         order
     )
     
-    return {
-        "status": "success",
-        "message": "Email xác nhận đã được gửi lại"
-    }
+    return {"status": "success", "message": "Email xác nhận đã được gửi lại"}
 
 
 @router.get("/export/my")
@@ -584,17 +437,11 @@ async def export_my_orders(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None
 ):
-    """
-    Xuất danh sách đơn hàng của user (JSON hoặc CSV)
-    """
-    from_date_parsed = parse_date(from_date)
-    to_date_parsed = parse_date(to_date)
+    """Export orders"""
+    from_date_parsed = parse_date(from_date) if 'parse_date' in dir() else None
+    to_date_parsed = parse_date(to_date) if 'parse_date' in dir() else None
     
-    query = build_order_query(
-        user_id=str(current_user.id),
-        from_date=from_date_parsed,
-        to_date=to_date_parsed
-    )
+    query = {"user_id": ObjectId(current_user.id)}
     
     orders = []
     cursor = db["orders"].find(query).sort("created_at", -1)
@@ -619,10 +466,7 @@ async def export_my_orders(
         writer.writeheader()
         writer.writerows(orders)
         
-        response = StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv"
-        )
+        response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
         response.headers["Content-Disposition"] = "attachment; filename=orders.csv"
         return response
     
@@ -630,6 +474,19 @@ async def export_my_orders(
 
 
 # ==================== HELPER FUNCTIONS ====================
+
+def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+    """Parse date string safely"""
+    if not date_str:
+        return None
+    try:
+        if date_str.endswith('Z'):
+            date_str = date_str.replace('Z', '+00:00')
+        return datetime.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid date format: {date_str}")
+        return None
+
 
 async def _get_order_timeline(db, order: Dict) -> List[Dict]:
     """Generate order timeline"""
@@ -639,36 +496,14 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
         timeline.append({
             "status": "created",
             "title": "Đơn hàng được tạo",
-            "description": "Đơn hàng đã được đặt thành công",
             "timestamp": order["created_at"],
             "icon": "check_circle"
-        })
-    
-    # Notification sent
-    if order.get("notification_sent"):
-        timeline.append({
-            "status": "notification_sent",
-            "title": "Đã gửi thông báo",
-            "description": "Thông báo đã được gửi đến khách hàng và shop",
-            "timestamp": order.get("notification_sent_at") or order.get("created_at"),
-            "icon": "notifications"
-        })
-    
-    # Email sent
-    if order.get("email_sent"):
-        timeline.append({
-            "status": "email_sent",
-            "title": "Đã gửi email",
-            "description": "Email xác nhận đã được gửi đến khách hàng",
-            "timestamp": order.get("email_sent_at") or order.get("created_at"),
-            "icon": "email"
         })
     
     if order.get("payment_status") == "paid":
         timeline.append({
             "status": "paid",
             "title": "Đã thanh toán",
-            "description": "Đơn hàng đã được thanh toán",
             "timestamp": order.get("paid_at") or order.get("updated_at"),
             "icon": "payment"
         })
@@ -677,7 +512,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
         timeline.append({
             "status": "shipped",
             "title": "Đang giao hàng",
-            "description": f"Đơn hàng đã được giao cho {order.get('shipping_unit', {}).get('name', 'đơn vị vận chuyển')}",
             "timestamp": order.get("shipped_at") or order.get("updated_at"),
             "icon": "local_shipping"
         })
@@ -686,7 +520,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
         timeline.append({
             "status": "completed",
             "title": "Giao hàng thành công",
-            "description": "Đơn hàng đã được giao thành công",
             "timestamp": order.get("completed_at") or order.get("updated_at"),
             "icon": "check_circle"
         })
@@ -695,7 +528,6 @@ async def _get_order_timeline(db, order: Dict) -> List[Dict]:
         timeline.append({
             "status": "cancelled",
             "title": "Đơn hàng bị hủy",
-            "description": order.get("cancel_reason", "Đơn hàng đã bị hủy"),
             "timestamp": order.get("cancelled_at") or order.get("updated_at"),
             "icon": "cancel"
         })
