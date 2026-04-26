@@ -1,0 +1,120 @@
+# app/core/cache.py
+from typing import Dict, Any, Optional, Callable
+from functools import wraps
+import hashlib
+import json
+from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Simple in-memory cache (can be replaced with Redis)
+_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def cache_response(ttl: int = 60, key_prefix: str = ""):
+    """
+    Cache decorator for FastAPI endpoints
+    
+    Args:
+        ttl: Time to live in seconds
+        key_prefix: Optional prefix for cache key
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Generate cache key
+            cache_key = _generate_cache_key(func.__name__, kwargs, key_prefix)
+            
+            # Check cache
+            if cache_key in _cache:
+                cached = _cache[cache_key]
+                if datetime.utcnow() < cached["expires_at"]:
+                    logger.debug(f"Cache hit for {func.__name__}")
+                    return cached["data"]
+            
+            # Execute function
+            result = await func(*args, **kwargs)
+            
+            # Store in cache
+            _cache[cache_key] = {
+                "data": result,
+                "expires_at": datetime.utcnow() + timedelta(seconds=ttl)
+            }
+            
+            logger.debug(f"Cached {func.__name__} for {ttl}s")
+            return result
+        return wrapper
+    return decorator
+
+
+async def invalidate_cache(pattern: str = "*"):
+    """Invalidate cache by pattern"""
+    global _cache
+    keys_to_delete = []
+    
+    for key in _cache.keys():
+        if pattern == "*" or pattern in key:
+            keys_to_delete.append(key)
+    
+    for key in keys_to_delete:
+        del _cache[key]
+    
+    if keys_to_delete:
+        logger.info(f"Invalidated {len(keys_to_delete)} cache entries matching '{pattern}'")
+
+
+async def clear_cache():
+    """Clear all cache"""
+    global _cache
+    _cache.clear()
+    logger.info("Cache cleared completely")
+
+
+def _generate_cache_key(func_name: str, kwargs: dict, prefix: str = "") -> str:
+    """Generate cache key from function arguments"""
+    # Filter out db and request objects (not hashable)
+    filtered_kwargs = {}
+    
+    for k, v in kwargs.items():
+        # Skip non-hashable objects
+        if k in ["db", "request", "background_tasks", "self", "cls"]:
+            continue
+        
+        # Skip callables
+        if hasattr(v, "__call__"):
+            continue
+        
+        try:
+            # Try to convert to JSON serializable
+            json.dumps(v)
+            filtered_kwargs[k] = v
+        except (TypeError, ValueError):
+            # Convert to string if not serializable
+            filtered_kwargs[k] = str(v)
+    
+    # Create key string
+    key_str = f"{prefix}:{func_name}:{json.dumps(filtered_kwargs, sort_keys=True, default=str)}"
+    
+    # Return MD5 hash for consistent length
+    return hashlib.md5(key_str.encode()).hexdigest()
+
+
+def get_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics"""
+    now = datetime.utcnow()
+    active = 0
+    expired = 0
+    
+    for key, value in _cache.items():
+        if now < value["expires_at"]:
+            active += 1
+        else:
+            expired += 1
+    
+    return {
+        "total_entries": len(_cache),
+        "active_entries": active,
+        "expired_entries": expired,
+        "memory_estimate": f"{len(str(_cache)) / 1024:.2f} KB"
+    }

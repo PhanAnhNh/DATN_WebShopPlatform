@@ -1,14 +1,19 @@
+# main.py
 from datetime import datetime
 import socketio
 import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import logging
 
 # Import database
-from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
+from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database, MongoDB
+
+# Import config
+from app.core.config import settings
 
 # Import models
 from app.models.message_model import MessageCreate
@@ -69,22 +74,47 @@ from app.routes import (
 from app.services.chat_service import ChatService
 from app.services.cleanup_service import cleanup_expired_posts
 
-API_PREFIX = "/api/v1"
+# Setup logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format=settings.LOG_FORMAT,
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(settings.LOG_FILE) if settings.LOG_FILE else logging.NullHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+API_PREFIX = settings.API_V1_STR
 
 # ====================== SOCKET.IO SETUP ======================
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=[],  # ← KHÔNG duplicate
+    cors_allowed_origins=settings.cors_origins if settings.is_production else [],
     ping_timeout=60,
-    ping_interval=25
+    ping_interval=25,
+    logger=logger,
+    engineio_logger=logger
 )
 
 # ====================== LIFESPAN ======================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Quản lý khởi tạo và đóng server"""
-    await connect_to_mongo()
-    print("--- SERVER ĐÃ SẴN SÀNG VÀ KẾT NỐI MONGODB ---")
+    logger.info(" Starting server...")
+    
+    # Connect to MongoDB
+    try:
+        await connect_to_mongo()
+        logger.info(" MongoDB connected successfully")
+        
+        # Log database health
+        health = await MongoDB.health_check()
+        logger.info(f" MongoDB health: {health}")
+        
+    except Exception as e:
+        logger.error(f" Failed to connect to MongoDB: {e}")
+        raise
 
     # Background task dọn dẹp
     async def cleanup_task():
@@ -94,100 +124,213 @@ async def lifespan(app: FastAPI):
                 db = get_database()
                 deleted_count = await cleanup_expired_posts(db)
                 if deleted_count > 0:
-                    print(f"Đã xóa {deleted_count} bài viết hết hạn")
+                    logger.info(f" Deleted {deleted_count} expired posts")
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                print(f"Lỗi cleanup task: {e}")
+                logger.error(f" Cleanup task error: {e}")
 
-    task = asyncio.create_task(cleanup_task())
+    cleanup = asyncio.create_task(cleanup_task())
+    logger.info(" Cleanup task started")
 
     yield
 
     # Dọn dẹp khi tắt server
-    task.cancel()
+    logger.info(" Shutting down server...")
+    cleanup.cancel()
+    
+    try:
+        await cleanup
+    except asyncio.CancelledError:
+        pass
+    
     await close_mongo_connection()
-    print("--- SERVER ĐÃ ĐÓNG ---")
+    logger.info(" Server shutdown complete")
 
 
 # ====================== FASTAPI APP ======================
 app = FastAPI(
-    title="Đặc Sản Quê Tôi API",
-    version="1.0.0",
-    description="API cho ứng dụng Đặc Sản Quê Tôi",
-    lifespan=lifespan
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    description=f"API cho ứng dụng {settings.PROJECT_NAME}",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
 )
 
-# CORS Middleware (chỉ cho HTTP routes)
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,  # Phải là False
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
+
+# ====================== EXCEPTION HANDLERS ======================
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "code": exc.status_code,
+            "message": exc.detail,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "code": 500,
+            "message": "Internal server error" if settings.is_production else str(exc),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
 
 # ====================== SOCKET.IO EVENTS ======================
 @sio.event
 async def connect(sid, environ):
-    print(f"Client connected: {sid}")
-
+    client_host = environ.get('REMOTE_ADDR', 'unknown')
+    logger.info(f" Client connected: {sid} from {client_host}")
+    return True
 
 @sio.event
 async def disconnect(sid):
-    print(f"Client disconnected: {sid}")
+    logger.info(f" Client disconnected: {sid}")
 
+@sio.on('ping')
+async def handle_ping(sid, data):
+    """Handle ping from client"""
+    await sio.emit('pong', {'timestamp': datetime.utcnow().isoformat()}, room=sid)
 
-# ==================== JOIN ROOM (BẮT BUỘC) ====================
 @sio.event
 async def join(sid, data):
     """User join room theo user_id"""
-    if data and isinstance(data, dict) and data.get('user_id'):
-        await sio.enter_room(sid, data['user_id'])
-        print(f"✅ User {data['user_id']} joined room")
-
+    try:
+        if data and isinstance(data, dict) and data.get('user_id'):
+            user_id = str(data['user_id'])
+            await sio.enter_room(sid, user_id)
+            logger.info(f" User {user_id} joined room {user_id}")
+            await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
+        else:
+            await sio.emit('error', {'message': 'Invalid join data'}, room=sid)
+    except Exception as e:
+        logger.error(f" Join error: {e}")
+        await sio.emit('error', {'message': str(e)}, room=sid)
 
 @sio.event
 async def join_shop_room(sid, data):
     """Shop join room theo shop_id"""
-    if data and isinstance(data, dict) and data.get('shop_id'):
-        await sio.enter_room(sid, data['shop_id'])
-        print(f"✅ Shop {data['shop_id']} joined room")
+    try:
+        if data and isinstance(data, dict) and data.get('shop_id'):
+            shop_id = str(data['shop_id'])
+            await sio.enter_room(sid, shop_id)
+            logger.info(f" Shop {shop_id} joined room {shop_id}")
+            await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
+        else:
+            await sio.emit('error', {'message': 'Invalid join data'}, room=sid)
+    except Exception as e:
+        logger.error(f" Join shop error: {e}")
+        await sio.emit('error', {'message': str(e)}, room=sid)
 
+@sio.event
+async def leave(sid, data):
+    """User leave room"""
+    try:
+        if data and isinstance(data, dict):
+            room = data.get('user_id') or data.get('shop_id')
+            if room:
+                await sio.leave_room(sid, str(room))
+                logger.info(f" Client {sid} left room {room}")
+                await sio.emit('left', {'room': room, 'status': 'success'}, room=sid)
+    except Exception as e:
+        logger.error(f" Leave error: {e}")
 
-# ==================== SEND CHAT MESSAGE ====================
 @sio.event
 async def send_chat_message(sid, data):
     """Nhận tin nhắn từ client (user hoặc shop) và phát realtime"""
     try:
+        # Validate data
+        required_fields = ['sender_id', 'receiver_id', 'content']
+        for field in required_fields:
+            if field not in data:
+                await sio.emit('error', {'message': f'Missing field: {field}'}, room=sid)
+                return
+
         db = get_database()
         chat_service = ChatService(db)
 
-        # Gọi hàm đã sửa trong ChatService (không kiểm tra friend)
+        # Send message
         saved_msg = await chat_service.send_message(
             sender_id=data['sender_id'],
             receiver_id=data['receiver_id'],
             content=data['content']
         )
 
-        # Chuẩn bị dữ liệu gửi realtime
+        if not saved_msg:
+            await sio.emit('error', {'message': 'Failed to send message'}, room=sid)
+            return
+
+        # Prepare message data for realtime
         message_data = {
             "id": str(saved_msg.get("_id")),
             "sender_id": data['sender_id'],
             "receiver_id": data['receiver_id'],
             "content": data['content'],
             "message_type": "text",
-            "created_at": saved_msg["created_at"].isoformat()
+            "created_at": saved_msg["created_at"].isoformat() if saved_msg.get("created_at") else datetime.utcnow().isoformat()
         }
 
-        # Phát tin nhắn cho cả 2 bên (room của sender và receiver)
+        # Emit to both sender and receiver rooms
         await sio.emit('new_message', message_data, room=data['receiver_id'])
         await sio.emit('new_message', message_data, room=data['sender_id'])
+        
+        # Also send delivery receipt
+        await sio.emit('message_sent', {'id': message_data['id'], 'status': 'delivered'}, room=sid)
 
-        print(f"📨 Tin nhắn từ {data['sender_id']} → {data['receiver_id']}")
+        logger.info(f" Message from {data['sender_id']} to {data['receiver_id']}")
 
     except Exception as e:
-        print(f"Socket send_chat_message error: {e}")
-        await sio.emit('error', {"message": str(e)}, room=data.get('sender_id'))
+        logger.error(f" Socket send_chat_message error: {e}")
+        await sio.emit('error', {"message": str(e)}, room=sid)
 
+@sio.event
+async def typing_start(sid, data):
+    """Notify when user starts typing"""
+    try:
+        if data and isinstance(data, dict):
+            receiver_id = data.get('receiver_id')
+            sender_id = data.get('sender_id')
+            if receiver_id and sender_id:
+                await sio.emit('user_typing', {
+                    'sender_id': sender_id,
+                    'is_typing': True
+                }, room=receiver_id)
+    except Exception as e:
+        logger.error(f" Typing start error: {e}")
+
+@sio.event
+async def typing_stop(sid, data):
+    """Notify when user stops typing"""
+    try:
+        if data and isinstance(data, dict):
+            receiver_id = data.get('receiver_id')
+            sender_id = data.get('sender_id')
+            if receiver_id and sender_id:
+                await sio.emit('user_typing', {
+                    'sender_id': sender_id,
+                    'is_typing': False
+                }, room=receiver_id)
+    except Exception as e:
+        logger.error(f" Typing stop error: {e}")
 
 # ====================== INCLUDE ROUTERS ======================
 app.include_router(user_routes.router, prefix=API_PREFIX)
@@ -252,6 +395,13 @@ app.include_router(shop_statistics_router.router, prefix=API_PREFIX)
 app.include_router(shop_vouchers_router.router, prefix=API_PREFIX)
 app.include_router(traceability_router.router, prefix=API_PREFIX)
 app.include_router(upload_router.router, prefix=API_PREFIX)
+
+# Log all registered routes in debug mode
+if settings.DEBUG:
+    logger.info(" Registered routes:")
+    for route in app.routes:
+        logger.info(f"  {route.methods if hasattr(route, 'methods') else 'N/A'} {route.path}")
+
 # ====================== MOUNT SOCKET.IO ======================
 socket_app = socketio.ASGIApp(
     sio,
@@ -260,32 +410,74 @@ socket_app = socketio.ASGIApp(
 )
 app.mount("/socket.io", socket_app)
 
-
 # ====================== ROOT ENDPOINTS ======================
 @app.get("/")
 async def root():
     return {
         "status": "success",
-        "message": "API Đặc Sản Quê Tôi đang hoạt động",
-        "version": "1.0.0"
+        "message": f"API {settings.PROJECT_NAME} đang hoạt động",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "timestamp": datetime.utcnow().isoformat()
     }
-
 
 @app.get("/health")
 async def health_check():
+    """
+    Health check endpoint cho monitoring
+    """
     try:
+        # Check database
         db = get_database()
         await db.command("ping")
-        return {"status": "healthy", "database": "connected"}
+        
+        # Get MongoDB health details
+        db_health = await MongoDB.health_check()
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "mongodb": db_health,
+            "environment": settings.ENVIRONMENT,
+            "timestamp": datetime.utcnow().isoformat()
+        }
     except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+
+@app.get("/info")
+async def server_info():
+    """Server information endpoint"""
+    return {
+        "name": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "debug": settings.DEBUG,
+        "api_prefix": API_PREFIX,
+        "features": {
+            "email": settings.EMAIL_ENABLED,
+            "cache": settings.ENABLE_CACHE,
+            "async_email": settings.ENABLE_ASYNC_EMAIL,
+            "redis": settings.redis_enabled
+        }
+    }
 
 
+# ====================== RUN SERVER ======================
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower(),
+        workers=settings.WORKERS if not settings.DEBUG else 1,
+        reload_dirs=["app"] if settings.DEBUG else None
     )

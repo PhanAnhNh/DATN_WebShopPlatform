@@ -1,3 +1,4 @@
+# app/models/orders_model.py
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
@@ -12,6 +13,12 @@ class OrderStatus(str, Enum):
 
 class StatusUpdateRequest(BaseModel):
     status: OrderStatus
+
+# ✅ THÊM CLASS NÀY - Để sửa lỗi ImportError
+class OrderUpdate(BaseModel):
+    """Model for updating order status"""
+    status: OrderStatus
+    note: Optional[str] = None
 
 class OrderItem(BaseModel):
     product_id: str
