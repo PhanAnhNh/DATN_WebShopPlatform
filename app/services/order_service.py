@@ -54,7 +54,6 @@ class OrderService:
             "message": "Đặt hàng thành công"
         }
 
-    # app/services/order_service.py - CHỈ SỬA 1 DÒNG
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         start_time = datetime.utcnow()
         
@@ -69,7 +68,7 @@ class OrderService:
         shop_ids: Set[str] = set()
         items_to_save: List[dict] = []
         
-        # === STOCK CHECK ===
+        # === STOCK CHECK & RESERVE ===
         for item in order_data["items"]:
             shop_ids.add(item["shop_id"])
             
@@ -134,31 +133,35 @@ class OrderService:
             "email_sent": False
         }
         
-        # INSERT
+        # INSERT order
         result = await self.collection.insert_one(order)
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # ✅ FIX LỖI CHÍNH Ở ĐÂY
+        # 🧹 Xoá giỏ hàng (background)
         asyncio.create_task(self._delete_cart_async(user_id))
         
-        # RESPONSE TRẢ NGAY
+        # 📦 RESPONSE TRẢ NGAY (không chờ email hay notification)
         response_order = self._prepare_response(order, order_id, order_code)
         
         elapsed = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
         
-        # BACKGROUND TASKS (SAFE)
+        # 🔄 BACKGROUND TASKS (không ảnh hưởng response)
         asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
-        asyncio.create_task(self._send_notifications_async(
-            user_id, customer_name, order_id, order_code, shop_ids
-        ))
         
-        if customer_email:
-            asyncio.create_task(self._send_emails_async(
-                customer_email, customer_name, order_id, order_code,
-                order_data, items_to_save, shop_ids
-            ))
+        # 🚀 GỘP NOTIFICATION + EMAIL (gửi notification trước, email sau)
+        asyncio.create_task(self._send_notifications_then_emails(
+            user_id=user_id,
+            customer_name=customer_name,
+            order_id=order_id,
+            order_code=order_code,
+            shop_ids=shop_ids,
+            customer_email=customer_email,
+            customer_name_for_email=customer_name,
+            order_data=order_data,
+            items=items_to_save
+        ))
         
         return response_order
     
@@ -457,6 +460,34 @@ class OrderService:
         """Format currency"""
         return f"{amount:,.0f}₫".replace(",", ".")
 
+    async def _send_notifications_then_emails(
+        self,
+        user_id: str,
+        customer_name: str,
+        order_id: str,
+        order_code: str,
+        shop_ids: set,
+        customer_email: str,
+        customer_name_for_email: str,
+        order_data: dict,
+        items: list
+    ):
+        """Gửi notifications trước, sau đó mới gửi email (cả hai đều background)"""
+        try:
+            # 1. Gửi notifications (nhanh)
+            await self._send_notifications_async(
+                user_id, customer_name, order_id, order_code, shop_ids
+            )
+            # 2. Sau đó gửi emails (chậm, nhưng không block do thread pool)
+            if customer_email:
+                await self._send_emails_async(
+                    customer_email, customer_name_for_email, order_id, order_code,
+                    order_data, items, shop_ids
+                )
+            logger.info(f"✅ Notifications and emails completed for order {order_code}")
+        except Exception as e:
+            logger.error(f"❌ Background notification/email failed for order {order_code}: {e}")
+
     # ==================== OTHER METHODS ====================
     
     async def get_user_orders(self, user_id: str):
@@ -544,6 +575,13 @@ class OrderService:
             {"$set": {"status": status.value}}
         )
         return await self.get_order(order_id)
+    
+    async def _safe_db_op(self, coro, action: str = "db_op"):
+        """Wrapper để chạy DB operation trong background"""
+        try:
+            await coro
+        except Exception as e:
+            logger.error(f"❌ Background {action} failed: {e}")
     
     async def update_payment_status(self, order_id: str, status: str):
         """Update payment status"""
