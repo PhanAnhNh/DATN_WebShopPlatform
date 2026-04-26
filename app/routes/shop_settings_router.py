@@ -210,57 +210,6 @@ async def delete_bank_account(
     
     return await service.delete_bank_account(current_user.shop_id, account_id)
 
-@router.get("/public/{shop_id}")
-async def get_public_shop_settings(
-    shop_id: str,
-    service: ShopSettingsService = Depends(get_settings_service)
-):
-    """
-    Lấy cài đặt công khai của shop (không cần đăng nhập)
-    Dùng cho trang thanh toán
-    """
-    try:
-        settings = await service.get_settings(shop_id)
-        
-        # Chỉ trả về các thông tin cần thiết cho thanh toán
-        public_settings = {
-            "shop_id": settings.get("shop_id"),
-            "shop_name": settings.get("general", {}).get("shop_name"),
-            "payment": {
-                "cod": settings.get("payment", {}).get("cod", True),
-                "bank_transfer": settings.get("payment", {}).get("bank_transfer", True),
-                "momo": settings.get("payment", {}).get("momo", False),
-                "vnpay": settings.get("payment", {}).get("vnpay", False),
-                "zalopay": settings.get("payment", {}).get("zalopay", False),
-                "bank_accounts": [
-                    {
-                        "id": acc.get("id"),
-                        "bank_name": acc.get("bank_name"),
-                        "account_number": acc.get("account_number"),
-                        "account_name": acc.get("account_name")
-                    }
-                    for acc in settings.get("payment", {}).get("bank_accounts", [])
-                    if acc.get("is_active") is not False
-                ]
-            }
-        }
-        
-        return public_settings
-    except Exception as e:
-        print(f"Error getting public settings: {e}")
-        # Trả về cài đặt mặc định nếu có lỗi
-        return {
-            "shop_id": shop_id,
-            "payment": {
-                "cod": True,
-                "bank_transfer": True,
-                "momo": False,
-                "vnpay": False,
-                "zalopay": False,
-                "bank_accounts": []
-            }
-        }
-
 @router.post("/payment/upload-qr")
 async def upload_qr_code(
     request: Request,
@@ -282,8 +231,6 @@ async def upload_qr_code(
         raise HTTPException(status_code=400, detail="Không có file được upload")
     
     return await service.upload_qr_code(current_user.shop_id, account_id, file)
-
-# Thêm vào cuối file app/routes/shop_settings_router.py
 
 @router.get("/public/{shop_id}")
 async def get_public_shop_settings(
@@ -323,7 +270,7 @@ async def get_public_shop_settings(
                         "account_number": acc.get("account_number"),
                         "account_name": acc.get("account_name"),
                         "branch": acc.get("branch"),
-                        "qr_code_url": acc.get("qr_code_url"),
+                        "qr_code_url": acc.get("qr_code_url"),   # <-- QUAN TRỌNG
                         "is_active": acc.get("is_active", True)
                     }
                     for acc in settings.get("payment", {}).get("bank_accounts", [])
@@ -338,6 +285,8 @@ async def get_public_shop_settings(
     except Exception as e:
         print(f"Error getting public settings: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
 
 @router.post("/payment/upload-qr")
 async def upload_qr_code(
