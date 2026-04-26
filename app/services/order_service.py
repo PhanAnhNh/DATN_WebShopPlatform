@@ -60,7 +60,6 @@ class OrderService:
         }
 
     # app/services/order_service.py
-
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
         """
         Tạo đơn hàng - Tối ưu cho tốc độ < 2 giây
@@ -196,7 +195,6 @@ class OrderService:
         logger.info(f"Order {order_code} created in {elapsed:.3f}s")
         
         return response_order
-
 
     async def _send_customer_email_background(
         self, customer_email: str, customer_name: str, order_id: str, 
