@@ -7,6 +7,8 @@ from app.services.notification_service import NotificationService
 from app.services.payment_service import PaymentService
 from typing import Optional
 
+from app.services.shop_settings_service import ShopSettingsService
+
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
 @router.post("/create")
@@ -125,3 +127,53 @@ async def bank_transfer_webhook(
     service = PaymentService(db)
     result = await service.process_bank_transfer_webhook(data)
     return result
+
+@router.get("/generate-qr/{order_id}")
+async def generate_qr_for_order(
+    order_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Tạo QR code động cho đơn hàng (bank transfer)"""
+    order = await db["orders"].find_one({
+        "_id": ObjectId(order_id),
+        "user_id": ObjectId(current_user.id)
+    })
+    if not order:
+        raise HTTPException(404, "Order not found")
+    
+    if order.get("payment_method") not in ["bank", "bank_transfer"]:
+        raise HTTPException(400, "Only for bank transfer orders")
+    
+    if order.get("payment_status") == "paid":
+        raise HTTPException(400, "Order already paid")
+    
+    # Lấy thông tin tài khoản ngân hàng từ shop settings
+    # items là list, mỗi item có shop_id
+    items = order.get("items", [])
+    if not items:
+        raise HTTPException(400, "Order has no items")
+    shop_id = items[0].get("shop_id")
+    if not shop_id:
+        raise HTTPException(400, "Shop not found")
+    
+    settings_service = ShopSettingsService(db)
+    settings = await settings_service.get_settings(shop_id)
+    bank_accounts = settings.get("payment", {}).get("bank_accounts", [])
+    if not bank_accounts:
+        raise HTTPException(400, "Shop has no bank account configured")
+    
+    bank_account = bank_accounts[0]  # lấy tài khoản đầu tiên
+    order_code = str(order["_id"])[-8:].upper()
+    qr_url = await settings_service.generate_qr_code(order_code, order["total_amount"], bank_account)
+    
+    if not qr_url:
+        raise HTTPException(500, "Failed to generate QR code")
+    
+    # Lưu URL vào order để dùng lại
+    await db["orders"].update_one(
+        {"_id": ObjectId(order_id)},
+        {"$set": {"dynamic_qr_url": qr_url}}
+    )
+    
+    return {"qr_code_url": qr_url}

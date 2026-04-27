@@ -185,6 +185,11 @@ class Settings(BaseSettings):
     ENABLE_PUSH_NOTIFICATION: bool = True
     ENABLE_CACHE: bool = True
     ENABLE_ASYNC_EMAIL: bool = True
+
+    SEPAY_MERCHANT_ID: Optional[str] = None
+    SEPAY_SECRET_KEY: Optional[str] = None
+    SEPAY_API_URL: str = "https://pgapi-sandbox.sepay.vn"
+    BACKEND_URL: str = "http://localhost:8000"
     
     class Config:
         env_file = ".env"

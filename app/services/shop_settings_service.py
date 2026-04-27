@@ -1,4 +1,6 @@
 # app/services/shop_settings_service.py
+from fileinput import filename
+from io import BytesIO
 import os
 import uuid
 import boto3
@@ -7,6 +9,8 @@ from botocore.exceptions import ClientError, NoCredentialsError
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional, Dict
+
+import qrcode
 from app.core.r2_config import R2Config
 
 class ShopSettingsService:
@@ -424,3 +428,42 @@ class ShopSettingsService:
         )
         
         return {"message": "Xóa mã QR thành công"}
+
+    
+    async def upload_bytes_to_r2(self, file_bytes: bytes, filename: str, content_type: str) -> Optional[str]:
+        """Upload bytes trực tiếp lên R2"""
+        try:
+            s3 = self.get_r2_client()
+            s3.put_object(
+                Bucket=R2Config.BUCKET_NAME,
+                Key=filename,
+                Body=file_bytes,
+                ContentType=content_type,
+                CacheControl="public, max-age=31536000"
+            )
+            return f"{R2Config.PUBLIC_URL_BASE}/{filename}"
+        except Exception as e:
+            print(f"Error uploading to R2: {e}")
+            return None
+        
+    async def generate_qr_code(self, order_code: str, amount: float, bank_account: dict) -> Optional[str]:
+        """
+        Tạo QR code cho đơn hàng, upload lên R2 và trả về URL công khai.
+        bank_account: dict gồm account_number, account_name, bank_name
+        """
+        # Nội dung QR: chỉ chứa mã đơn hàng (để webhook dễ parse)
+        content = order_code
+        
+        # Tạo QR
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(content)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Lưu vào BytesIO
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        file_bytes = buffer.getvalue()
+        unique_name = f"qr_orders/{order_code}_{uuid.uuid4().hex}.png"
+        uploaded_url = await self.upload_bytes_to_r2(file_bytes, unique_name, "image/png")
+        return uploaded_url
