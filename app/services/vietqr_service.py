@@ -1,6 +1,6 @@
 import httpx
-import re
-import base64
+import qrcode
+from io import BytesIO
 from typing import Optional
 
 class VietQRService:
@@ -20,17 +20,22 @@ class VietQRService:
             try:
                 response = await client.post(self.api_url, json=payload)
                 data = response.json()
-                print("🔍 VietQR API full response:", data)   # <<< in ra log
-
+                print("🔍 VietQR API full response:", data)
                 if data.get("code") == "00":
-                    qr_data_url = data.get("data", {}).get("qrDataURL")
-                    if not qr_data_url:
-                        print("⚠️ qrDataURL is missing or null")
+                    qr_code_data = data.get("data", {}).get("qrCode")
+                    if not qr_code_data:
+                        print("⚠️ qrCode is missing or null")
                         return None
-                    base64_str = re.sub(r'^data:image/png;base64,', '', qr_data_url)
-                    return base64.b64decode(base64_str)
+                    # Tạo ảnh QR từ nội dung qrCode (chuẩn EMV)
+                    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                    qr.add_data(qr_code_data)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    buffer = BytesIO()
+                    img.save(buffer, format="PNG")
+                    return buffer.getvalue()
                 else:
-                    print(f"❌ VietQR API returned error code: {data.get('code')}, message: {data.get('desc')}")
+                    print(f"❌ VietQR API error: {data}")
                     return None
             except Exception as e:
                 print(f"⚠️ VietQR exception: {e}")
