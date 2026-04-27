@@ -12,6 +12,7 @@ from typing import Optional, Dict
 
 import qrcode
 from app.core.r2_config import R2Config
+from app.services.vietqr_service import VietQRService
 
 class ShopSettingsService:
     def __init__(self, db):
@@ -447,23 +448,36 @@ class ShopSettingsService:
             return None
         
     async def generate_qr_code(self, order_code: str, amount: float, bank_account: dict) -> Optional[str]:
-        """
-        Tạo QR code cho đơn hàng, upload lên R2 và trả về URL công khai.
-        bank_account: dict gồm account_number, account_name, bank_name
-        """
-        # Nội dung QR: chỉ chứa mã đơn hàng (để webhook dễ parse)
-        content = order_code
-        
-        # Tạo QR
-        qr = qrcode.QRCode(version=1, box_size=10, border=4)
-        qr.add_data(content)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Lưu vào BytesIO
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-        file_bytes = buffer.getvalue()
+        """Tạo QR code chuẩn VietQR, upload lên R2, trả URL"""
+        # Map tên ngân hàng -> mã BIN (có thể mở rộng)
+        bin_map = {
+            "VietinBank": "970415",
+            "Vietcombank": "970436",
+            "BIDV": "970418",
+            "MB Bank": "970422",
+            "Techcombank": "970407",
+            "Agribank": "970405",
+            "Sacombank": "970403",
+            "ACB": "970416",
+            "VPBank": "970432",
+            "TPBank": "970423",
+        }
+        bank_name = bank_account.get("bank_name")
+        bank_bin = bin_map.get(bank_name, "970415")  # default VietinBank
+        account_number = bank_account.get("account_number")
+        account_name = bank_account.get("account_name")
+        description = order_code   # nội dung chuyển khoản
+
+        service = VietQRService()
+        img_bytes = await service.generate_qr(
+            account_number=account_number,
+            account_name=account_name,
+            bank_bin=bank_bin,
+            amount=int(amount),
+            description=description
+        )
+        if not img_bytes:
+            return None
         unique_name = f"qr_orders/{order_code}_{uuid.uuid4().hex}.png"
-        uploaded_url = await self.upload_bytes_to_r2(file_bytes, unique_name, "image/png")
+        uploaded_url = await self.upload_bytes_to_r2(img_bytes, unique_name, "image/png")
         return uploaded_url
