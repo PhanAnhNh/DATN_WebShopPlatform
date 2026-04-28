@@ -73,6 +73,7 @@ from app.routes import (
 # Import services
 from app.services.chat_service import ChatService
 from app.services.cleanup_service import cleanup_expired_posts
+from app.services.sepay_poller import SePayPoller
 
 # Setup logging
 logging.basicConfig(
@@ -194,6 +195,29 @@ async def generic_exception_handler(request, exc):
             "timestamp": datetime.utcnow().isoformat()
         }
     )
+
+@app.on_event("startup")
+async def startup_event():
+    global sepay_poller
+    
+    # Log các endpoint để debug
+    logger.info(f"🚀 Server starting on: {settings.BACKEND_URL}")
+    logger.info(f"📡 SePay webhook endpoint: {settings.BACKEND_URL}/api/v1/payments/sepay/webhook")
+    
+    # Khởi động SePay poller
+    if settings.SEPAY_API_KEY and settings.SEPAY_API_URL:
+        
+        from app.db.mongodb import get_database
+        
+        sepay_poller = SePayPoller(
+            db=await get_database(),
+            api_key=settings.SEPAY_API_KEY,
+            api_url=settings.SEPAY_API_URL
+        )
+        asyncio.create_task(sepay_poller.start_polling(interval_seconds=30))
+        logger.info("✅ SePay poller started")
+    else:
+        logger.warning("⚠️ SePay not configured - missing API key or URL")
 
 # ====================== SOCKET.IO EVENTS ======================
 @sio.event

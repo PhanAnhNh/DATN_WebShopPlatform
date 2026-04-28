@@ -1,3 +1,5 @@
+import json
+
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, logger
 from app.db.mongodb import get_database
@@ -159,6 +161,7 @@ async def generate_qr_for_order(
     
     return {"qr_code_url": qr_url}
 
+
 @router.post("/sepay/webhook")
 async def sepay_webhook(
     request: Request,
@@ -166,28 +169,30 @@ async def sepay_webhook(
 ):
     """
     Webhook nhận dữ liệu từ SePay khi có giao dịch mới.
-    
-    SePay gửi POST với JSON:
-    {
-        "id": 123456,
-        "description": "ORD123456",
-        "amount_in": 100000,
-        ...
-    }
     """
     try:
+        # Log request headers để debug
+        logger.info("=" * 50)
+        logger.info("🔔 SePay webhook called!")
+        logger.info(f"📋 Headers: {dict(request.headers)}")
+        
         # Lấy raw data
         data = await request.json()
         
-        # Log để debug
-        logger.info(f"SePay webhook received: {data}")
+        # Log chi tiết data nhận được
+        logger.info(f"📦 Webhook data received: {json.dumps(data, indent=2, ensure_ascii=False)}")
         
         # Xử lý webhook
         sepay_service = SePayService(db)
         result = await sepay_service.process_webhook(data)
         
+        logger.info(f"✅ Webhook processed. Result: {result}")
+        logger.info("=" * 50)
+        
         return result
         
     except Exception as e:
-        logger.error(f"SePay webhook error: {e}")
+        logger.error(f"❌ SePay webhook error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
