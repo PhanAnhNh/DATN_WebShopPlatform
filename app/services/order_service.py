@@ -6,6 +6,7 @@ from datetime import datetime
 from app.models.orders_model import OrderStatus
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
+from app.services.sepay_service import SePayService
 from app.services.shipping_unit_service import ShippingUnitService
 
 logger = logging.getLogger(__name__)
@@ -152,15 +153,17 @@ class OrderService:
         # ✅ NẾU LÀ BANK TRANSFER, TẠO QR CODE NGAY
         qr_code_url = None
         if order_data["payment_method"] == "bank":
-            from app.services.sepay_service import SePayService
+
             sepay_service = SePayService(self.db)
-            qr_code_url = await sepay_service.generate_qr_code(order_id, order_code, order_data["total_amount"])
             
-            if qr_code_url:
-                await self.collection.update_one(
-                    {"_id": ObjectId(order_id)},
-                    {"$set": {"qr_code_url": qr_code_url}}
-                )
+            # Tạo nội dung chuyển khoản đúng format
+            transfer_content = f"SEVQR {order_code}"
+            
+            qr_code_url = await sepay_service.generate_qr_code(
+                order_id, 
+                transfer_content,  # Truyền cả content thay vì chỉ order_code
+                order_data["total_amount"]
+            )
         
         # 🧹 Xoá giỏ hàng (background)
         asyncio.create_task(self._delete_cart_async(user_id))

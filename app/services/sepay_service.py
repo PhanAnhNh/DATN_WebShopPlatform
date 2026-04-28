@@ -79,9 +79,23 @@ class SePayService:
             logger.error(f"Error processing webhook: {e}")
             return {"status": "error", "message": str(e)}
     
-    async def _find_order_by_code(self, order_code: str) -> Optional[Dict]:
-        """Tìm order theo order_code (8 ký tự cuối của _id)"""
-        # Cách 1: Tìm trong field order_code nếu có
+    async def _find_order_by_code(self, description: str) -> Optional[Dict]:
+        """
+        Tìm order theo nội dung chuyển khoản
+        """
+        # SePay sẽ gửi description có dạng: "SEVQR C6687621"
+        # Cần loại bỏ prefix "SEVQR" để lấy order_code
+        import re
+        
+        # Loại bỏ prefix SEVQR (có thể viết hoa hoặc thường)
+        clean_desc = re.sub(r'^SEVQR\s+', '', description, flags=re.IGNORECASE).strip()
+        
+        # Tìm order_code (8 ký tự cuối của _id)
+        order_code = clean_desc.upper()
+        
+        logger.info(f"🔍 Looking for order with code: {order_code} (from description: {description})")
+        
+        # Cách 1: Tìm theo field order_code
         order = await self.order_collection.find_one({"order_code": order_code})
         if order:
             return order
@@ -93,7 +107,7 @@ class SePayService:
         }).to_list(100)
         
         for order in orders:
-            if str(order["_id"])[-8:].upper() == order_code.upper():
+            if str(order["_id"])[-8:].upper() == order_code:
                 return order
         
         return None
@@ -160,21 +174,14 @@ class SePayService:
             message=f"Đơn hàng #{order_code} đã thanh toán {amount:,.0f}đ thành công",
             reference_id=str(order["_id"])
         )
-        
-        # Gửi email (chạy nền)
-        # email_service = EmailService()
-        # asyncio.create_task(email_service.send_payment_confirmation(order))
-    
+
     async def generate_qr_code(self, order_id: str, order_code: str, amount: float) -> Optional[str]:
         """
         Tạo URL QR code thanh toán
-        Sử dụng VietQR API: https://img.vietqr.io
         """
         from app.core.config import settings
         
-        # Lấy thông tin ngân hàng từ settings của shop
-        # Hoặc dùng config mặc định
-        bank_bin = settings.BANK_BIN or "970415"  # Default VietinBank
+        bank_bin = settings.BANK_BIN or "970415"
         bank_number = settings.BANK_NUMBER
         bank_name = settings.BANK_NAME
         
@@ -182,21 +189,28 @@ class SePayService:
             logger.warning("BANK_NUMBER not configured")
             return None
         
-        # URL QR Code (compact template)
-        # https://img.vietqr.io/image/{BIN}-{ACCOUNT}-compact.png?amount={amount}&addInfo={content}
-        qr_url = f"https://img.vietqr.io/image/{bank_bin}-{bank_number}-compact.png"
-        params = f"?amount={int(amount)}&addInfo={order_code}"
+        # ⚠️ QUAN TRỌNG: Thêm prefix SEVQR cho VietinBank
+        # Nội dung chuyển khoản phải bắt đầu bằng SEVQR
+        transfer_content = f"SEVQR {order_code}"
         
-        # Nếu có tên tài khoản thì thêm accountName
+        # URL QR Code với nội dung đã sửa
+        qr_url = f"https://img.vietqr.io/image/{bank_bin}-{bank_number}-compact.png"
+        params = f"?amount={int(amount)}&addInfo={transfer_content}"
+        
         if bank_name:
             params += f"&accountName={bank_name}"
         
         full_url = qr_url + params
         
-        # Lưu URL vào order để dùng lại
+        # Lưu URL vào order
         await self.order_collection.update_one(
             {"_id": ObjectId(order_id)},
-            {"$set": {"qr_code_url": full_url}}
+            {"$set": {
+                "qr_code_url": full_url,
+                "transfer_content": transfer_content  # Lưu lại để debug
+            }}
         )
+        
+        logger.info(f"✅ QR generated with content: {transfer_content}")
         
         return full_url

@@ -87,3 +87,4 @@ class OrderResponse(BaseModel):
     paid_at: Optional[datetime] = None
     qr_code_url: Optional[str] = None  # ✅ THÊM QR CODE URL
     transaction_id: Optional[str] = None  # ✅ THÊM TRANSACTION ID
+    transfer_content: Optional[str] = None
