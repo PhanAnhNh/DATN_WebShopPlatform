@@ -161,7 +161,6 @@ async def generate_qr_for_order(
     
     return {"qr_code_url": qr_url}
 
-
 @router.post("/sepay/webhook")
 async def sepay_webhook(
     request: Request,
@@ -197,7 +196,9 @@ async def sepay_webhook(
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
     
-@router.post("/sepay/test-webhook")
+# app/routes/payment_router.py - Thêm endpoint
+
+@router.post("/sepay/test")
 async def test_sepay_webhook(
     request: Request,
     db = Depends(get_database)
@@ -205,13 +206,21 @@ async def test_sepay_webhook(
     """Test endpoint để simulate webhook từ SePay"""
     try:
         data = await request.json()
-        logger.info("🧪 TEST webhook received")
-        logger.info(f"📦 Data: {json.dumps(data, indent=2, ensure_ascii=False)}")
+        logger.info("=" * 50)
+        logger.info("TEST WEBHOOK RECEIVED")
+        logger.info(f"Data: {json.dumps(data, indent=2, ensure_ascii=False)}")
         
         sepay_service = SePayService(db)
-        result = await sepay_service.process_webhook(data)
         
-        return {"status": "test_success", "result": result}
+        # Log thêm thông tin order trong DB
+        orders = await db["orders"].find({"payment_status": "unpaid"}).to_list(10)
+        logger.info(f"Pending orders in DB: {[(str(o['_id'])[-8:], o.get('order_code')) for o in orders]}")
+        
+        result = await sepay_service.process_webhook(data)
+        logger.info(f"Result: {result}")
+        logger.info("=" * 50)
+        
+        return result
     except Exception as e:
         logger.error(f"Test webhook error: {e}")
         return {"status": "error", "message": str(e)}
