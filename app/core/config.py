@@ -195,7 +195,7 @@ class Settings(BaseSettings):
     BANK_NUMBER: str = ""  # Số tài khoản nhận tiền
     BANK_NAME: str = ""  # Tên chủ tài khoản
 
-    BACKEND_URL: str = "http://localhost:8000"
+    BACKEND_URL: str = "https://datnwebshopplatform-production.up.railway.app"
     
     class Config:
         env_file = ".env"
