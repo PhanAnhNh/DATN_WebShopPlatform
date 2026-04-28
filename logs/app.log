@@ -11860,3 +11860,1763 @@
 2026-04-28 23:04:49,493 - app.main - INFO -  SePay poller stopped
 2026-04-28 23:04:49,556 - app.db.mongodb - INFO -  MongoDB connection closed
 2026-04-28 23:04:49,557 - app.main - INFO -  Server shutdown complete
+2026-04-28 23:04:52,356 - app.main - INFO - Server initialized for asgi.
+2026-04-28 23:04:52,606 - app.main - INFO -  Registered routes:
+2026-04-28 23:04:52,606 - app.main - INFO -   {'GET', 'HEAD'} /openapi.json
+2026-04-28 23:04:52,606 - app.main - INFO -   {'GET', 'HEAD'} /docs
+2026-04-28 23:04:52,606 - app.main - INFO -   {'GET', 'HEAD'} /docs/oauth2-redirect
+2026-04-28 23:04:52,606 - app.main - INFO -   {'GET', 'HEAD'} /redoc
+2026-04-28 23:04:52,607 - app.main - INFO -   {'POST'} /api/v1/users/
+2026-04-28 23:04:52,607 - app.main - INFO -   {'GET'} /api/v1/users/
+2026-04-28 23:04:52,607 - app.main - INFO -   {'PUT'} /api/v1/users/{user_id}
+2026-04-28 23:04:52,607 - app.main - INFO -   {'DELETE'} /api/v1/users/{user_id}
+2026-04-28 23:04:52,607 - app.main - INFO -   {'GET'} /api/v1/users/{user_id}
+2026-04-28 23:04:52,607 - app.main - INFO -   {'POST'} /api/v1/auth/login
+2026-04-28 23:04:52,607 - app.main - INFO -   {'GET'} /api/v1/auth/me
+2026-04-28 23:04:52,608 - app.main - INFO -   {'PUT'} /api/v1/auth/update-profile
+2026-04-28 23:04:52,608 - app.main - INFO -   {'POST'} /api/v1/password/verify-otp
+2026-04-28 23:04:52,608 - app.main - INFO -   {'POST'} /api/v1/password/forgot-password
+2026-04-28 23:04:52,608 - app.main - INFO -   {'POST'} /api/v1/password/reset-password
+2026-04-28 23:04:52,608 - app.main - INFO -   {'GET'} /api/v1/posts/search
+2026-04-28 23:04:52,608 - app.main - INFO -   {'GET'} /api/v1/posts/feed
+2026-04-28 23:04:52,608 - app.main - INFO -   {'GET'} /api/v1/posts/{post_id}
+2026-04-28 23:04:52,608 - app.main - INFO -   {'POST'} /api/v1/posts/
+2026-04-28 23:04:52,609 - app.main - INFO -   {'PUT'} /api/v1/posts/{post_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'DELETE'} /api/v1/posts/{post_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'DELETE'} /api/v1/posts/admin/{post_id}/permanent
+2026-04-28 23:04:52,609 - app.main - INFO -   {'GET'} /api/v1/posts/user/{user_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'POST'} /api/v1/comments/
+2026-04-28 23:04:52,609 - app.main - INFO -   {'GET'} /api/v1/comments/{post_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'PUT'} /api/v1/comments/{comment_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'DELETE'} /api/v1/comments/{comment_id}
+2026-04-28 23:04:52,609 - app.main - INFO -   {'POST'} /api/v1/likes/{post_id}
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/likes/{post_id}
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/likes/check/{post_id}
+2026-04-28 23:04:52,610 - app.main - INFO -   {'POST'} /api/v1/follows/{user_id}
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/followers
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/following
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/stats
+2026-04-28 23:04:52,610 - app.main - INFO -   {'GET'} /api/v1/follows/check/{user_id}
+2026-04-28 23:04:52,610 - app.main - INFO -   {'POST'} /api/v1/friends/request
+2026-04-28 23:04:52,610 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/accept
+2026-04-28 23:04:52,610 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/reject
+2026-04-28 23:04:52,611 - app.main - INFO -   {'GET'} /api/v1/friends/list
+2026-04-28 23:04:52,611 - app.main - INFO -   {'GET'} /api/v1/friends/requests/pending
+2026-04-28 23:04:52,611 - app.main - INFO -   {'GET'} /api/v1/friends/check/{user_id}
+2026-04-28 23:04:52,611 - app.main - INFO -   {'POST'} /api/v1/friends/block/{user_id}
+2026-04-28 23:04:52,611 - app.main - INFO -   {'DELETE'} /api/v1/friends/{friend_id}
+2026-04-28 23:04:52,611 - app.main - INFO -   {'POST'} /api/v1/saves/
+2026-04-28 23:04:52,611 - app.main - INFO -   {'DELETE'} /api/v1/saves/{post_id}
+2026-04-28 23:04:52,612 - app.main - INFO -   {'GET'} /api/v1/saves/check/{post_id}
+2026-04-28 23:04:52,612 - app.main - INFO -   {'GET'} /api/v1/saves/my-posts
+2026-04-28 23:04:52,612 - app.main - INFO -   {'GET'} /api/v1/saves/count/{post_id}
+2026-04-28 23:04:52,612 - app.main - INFO -   {'POST'} /api/v1/shares/{post_id}
+2026-04-28 23:04:52,612 - app.main - INFO -   {'GET'} /api/v1/shares/{post_id}
+2026-04-28 23:04:52,613 - app.main - INFO -   {'POST'} /api/v1/chat/send
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/chat/conversation/{friend_id}
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/chat/recent
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/chat/unread-count
+2026-04-28 23:04:52,613 - app.main - INFO -   {'PUT'} /api/v1/chat/mark-as-read/{sender_id}
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/shops/info
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/shops/stats
+2026-04-28 23:04:52,613 - app.main - INFO -   {'GET'} /api/v1/shops/
+2026-04-28 23:04:52,614 - app.main - INFO -   {'POST'} /api/v1/shops/
+2026-04-28 23:04:52,614 - app.main - INFO -   {'POST'} /api/v1/shops/with-owner
+2026-04-28 23:04:52,614 - app.main - INFO -   {'GET'} /api/v1/shops/nearby
+2026-04-28 23:04:52,614 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}
+2026-04-28 23:04:52,614 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/products
+2026-04-28 23:04:52,614 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:04:52,614 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:04:52,614 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/follow
+2026-04-28 23:04:52,615 - app.main - INFO -   {'PUT'} /api/v1/shops/{shop_id}
+2026-04-28 23:04:52,615 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/dashboard
+2026-04-28 23:04:52,615 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/follow-status
+2026-04-28 23:04:52,615 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/payment-info
+2026-04-28 23:04:52,615 - app.main - INFO -   {'POST'} /api/v1/shop/auth/login
+2026-04-28 23:04:52,615 - app.main - INFO -   {'POST'} /api/v1/shop/auth/logout
+2026-04-28 23:04:52,615 - app.main - INFO -   {'POST'} /api/v1/shop/auth/refresh-token
+2026-04-28 23:04:52,615 - app.main - INFO -   {'GET'} /api/v1/shop/profile/
+2026-04-28 23:04:52,616 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/shop
+2026-04-28 23:04:52,616 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/owner
+2026-04-28 23:04:52,616 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-avatar
+2026-04-28 23:04:52,616 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-logo
+2026-04-28 23:04:52,616 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-banner
+2026-04-28 23:04:52,616 - app.main - INFO -   {'POST'} /api/v1/shop/profile/change-password
+2026-04-28 23:04:52,616 - app.main - INFO -   {'GET'} /api/v1/shop/customers/
+2026-04-28 23:04:52,617 - app.main - INFO -   {'GET'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:04:52,617 - app.main - INFO -   {'PUT'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:04:52,617 - app.main - INFO -   {'DELETE'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:04:52,617 - app.main - INFO -   {'GET'} /api/v1/shop/customers/export/excel
+2026-04-28 23:04:52,617 - app.main - INFO -   {'GET'} /api/v1/shop/products/
+2026-04-28 23:04:52,617 - app.main - INFO -   {'POST'} /api/v1/shop/products/
+2026-04-28 23:04:52,617 - app.main - INFO -   {'GET'} /api/v1/shop/products/{product_id}
+2026-04-28 23:04:52,617 - app.main - INFO -   {'PUT'} /api/v1/shop/products/{product_id}
+2026-04-28 23:04:52,617 - app.main - INFO -   {'DELETE'} /api/v1/shop/products/{product_id}
+2026-04-28 23:04:52,618 - app.main - INFO -   {'POST'} /api/v1/shop/products/{product_id}/upload-image
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/shop/products/stats/overview
+2026-04-28 23:04:52,618 - app.main - INFO -   {'POST'} /api/v1/products/
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/products/hot
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/products/
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}
+2026-04-28 23:04:52,618 - app.main - INFO -   {'PUT'} /api/v1/products/{product_id}
+2026-04-28 23:04:52,618 - app.main - INFO -   {'DELETE'} /api/v1/products/{product_id}
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}/trace
+2026-04-28 23:04:52,618 - app.main - INFO -   {'POST'} /api/v1/categories/
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/categories/
+2026-04-28 23:04:52,618 - app.main - INFO -   {'GET'} /api/v1/categories/{category_id}
+2026-04-28 23:04:52,618 - app.main - INFO -   {'PUT'} /api/v1/categories/{category_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'DELETE'} /api/v1/categories/{category_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'POST'} /api/v1/product-variants/
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/product-variants/product/{product_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'PUT'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'DELETE'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/locations/
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/locations/nearby
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/locations/province/{province_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'GET'} /api/v1/locations/{location_id}
+2026-04-28 23:04:52,619 - app.main - INFO -   {'POST'} /api/v1/locations/
+2026-04-28 23:04:52,619 - app.main - INFO -   {'PUT'} /api/v1/locations/{location_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'DELETE'} /api/v1/locations/{location_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/all
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'POST'} /api/v1/locations/provinces
+2026-04-28 23:04:52,620 - app.main - INFO -   {'PUT'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'DELETE'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}/statistics
+2026-04-28 23:04:52,620 - app.main - INFO -   {'POST'} /api/v1/favorites/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'DELETE'} /api/v1/favorites/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/favorites/check/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/favorites/my-favorites
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/favorites/count/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'POST'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:04:52,620 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/user-review
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/reviews/my-reviews
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/reviews/{review_id}
+2026-04-28 23:04:52,622 - app.main - INFO -   {'PUT'} /api/v1/reviews/{review_id}
+2026-04-28 23:04:52,622 - app.main - INFO -   {'DELETE'} /api/v1/reviews/{review_id}
+2026-04-28 23:04:52,622 - app.main - INFO -   {'POST'} /api/v1/reviews/{review_id}/helpful
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/stats
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/cart/
+2026-04-28 23:04:52,622 - app.main - INFO -   {'POST'} /api/v1/cart/add
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/cart/count
+2026-04-28 23:04:52,622 - app.main - INFO -   {'DELETE'} /api/v1/cart/remove
+2026-04-28 23:04:52,622 - app.main - INFO -   {'POST'} /api/v1/orders/
+2026-04-28 23:04:52,622 - app.main - INFO -   {'GET'} /api/v1/orders/my
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/orders/stats
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}
+2026-04-28 23:04:52,623 - app.main - INFO -   {'PUT'} /api/v1/orders/{order_id}/status
+2026-04-28 23:04:52,623 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/cancel
+2026-04-28 23:04:52,623 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/resend-email
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/orders/export/my
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}/payment-status
+2026-04-28 23:04:52,623 - app.main - INFO -   {'POST'} /api/v1/payments/create
+2026-04-28 23:04:52,623 - app.main - INFO -   {'POST'} /api/v1/payments/momo/ipn
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/payments/vnpay/return
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/payments/{payment_id}
+2026-04-28 23:04:52,623 - app.main - INFO -   {'GET'} /api/v1/payments/instructions/{order_id}
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/payments/bank-transfer/webhook
+2026-04-28 23:04:52,624 - app.main - INFO -   {'GET'} /api/v1/payments/generate-qr/{order_id}
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/webhook
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/test
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/addresses/
+2026-04-28 23:04:52,624 - app.main - INFO -   {'GET'} /api/v1/addresses/
+2026-04-28 23:04:52,624 - app.main - INFO -   {'GET'} /api/v1/addresses/default
+2026-04-28 23:04:52,624 - app.main - INFO -   {'GET'} /api/v1/addresses/{address_id}
+2026-04-28 23:04:52,624 - app.main - INFO -   {'PUT'} /api/v1/addresses/{address_id}
+2026-04-28 23:04:52,624 - app.main - INFO -   {'DELETE'} /api/v1/addresses/{address_id}
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/addresses/{address_id}/set-default
+2026-04-28 23:04:52,624 - app.main - INFO -   {'GET'} /api/v1/addresses/me/default-address
+2026-04-28 23:04:52,624 - app.main - INFO -   {'POST'} /api/v1/product-reviews/
+2026-04-28 23:04:52,625 - app.main - INFO -   {'GET'} /api/v1/product-reviews/{product_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'PUT'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'DELETE'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'POST'} /api/v1/shop-reviews/
+2026-04-28 23:04:52,625 - app.main - INFO -   {'GET'} /api/v1/shop-reviews/{shop_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'PUT'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'DELETE'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'POST'} /api/v1/vouchers/
+2026-04-28 23:04:52,625 - app.main - INFO -   {'GET'} /api/v1/vouchers/
+2026-04-28 23:04:52,625 - app.main - INFO -   {'POST'} /api/v1/vouchers/save/{voucher_id}
+2026-04-28 23:04:52,625 - app.main - INFO -   {'POST'} /api/v1/vouchers/validate
+2026-04-28 23:04:52,626 - app.main - INFO -   {'POST'} /api/v1/vouchers/{voucher_id}/use
+2026-04-28 23:04:52,626 - app.main - INFO -   {'GET'} /api/v1/vouchers/my-vouchers
+2026-04-28 23:04:52,626 - app.main - INFO -   {'GET'} /api/v1/vouchers/available
+2026-04-28 23:04:52,626 - app.main - INFO -   {'POST'} /api/v1/shipping-units/shop
+2026-04-28 23:04:52,626 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/stats
+2026-04-28 23:04:52,626 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop
+2026-04-28 23:04:52,626 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:04:52,626 - app.main - INFO -   {'PUT'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:04:52,627 - app.main - INFO -   {'PATCH'} /api/v1/shipping-units/shop/{unit_id}/status
+2026-04-28 23:04:52,627 - app.main - INFO -   {'DELETE'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:04:52,627 - app.main - INFO -   {'GET'} /api/v1/shipping-units/available
+2026-04-28 23:04:52,627 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:04:52,627 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:04:52,627 - app.main - INFO -   {'PUT'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:04:52,627 - app.main - INFO -   {'PATCH'} /api/v1/shipping-vouchers/shop/{voucher_id}/status
+2026-04-28 23:04:52,627 - app.main - INFO -   {'DELETE'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop/stats
+2026-04-28 23:04:52,628 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/validate
+2026-04-28 23:04:52,628 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/use/{voucher_id}
+2026-04-28 23:04:52,628 - app.main - INFO -   {'POST'} /api/v1/returns/request
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/my
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/my/{return_id}
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/stats
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/shop
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/shop/{return_id}
+2026-04-28 23:04:52,628 - app.main - INFO -   {'PUT'} /api/v1/returns/shop/{return_id}/process
+2026-04-28 23:04:52,628 - app.main - INFO -   {'GET'} /api/v1/returns/shop/stats
+2026-04-28 23:04:52,628 - app.main - INFO -   {'POST'} /api/v1/returns/upload-image
+2026-04-28 23:04:52,628 - app.main - INFO -   {'POST'} /api/v1/reports/
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/reports/admin/list
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/reports/admin/stats
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:04:52,629 - app.main - INFO -   {'PUT'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:04:52,629 - app.main - INFO -   {'POST'} /api/v1/admin/login
+2026-04-28 23:04:52,629 - app.main - INFO -   {'POST'} /api/v1/admin/logout
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/admin/dashboard
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/admin/post-category
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/admin/new-users
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/admin/new-shops
+2026-04-28 23:04:52,629 - app.main - INFO -   {'GET'} /api/v1/admin/visit-stats
+2026-04-28 23:04:52,630 - app.main - INFO -   {'GET'} /api/v1/admin/interaction-stats
+2026-04-28 23:04:52,630 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/
+2026-04-28 23:04:52,630 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/unread-count
+2026-04-28 23:04:52,630 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/{notification_id}/read
+2026-04-28 23:04:52,630 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/read-all
+2026-04-28 23:04:52,630 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/{notification_id}
+2026-04-28 23:04:52,630 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/
+2026-04-28 23:04:52,630 - app.main - INFO -   {'GET'} /api/v1/admin/posts/
+2026-04-28 23:04:52,630 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}/status
+2026-04-28 23:04:52,630 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:04:52,630 - app.main - INFO -   {'DELETE'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:04:52,631 - app.main - INFO -   {'GET'} /api/v1/admin/shops/
+2026-04-28 23:04:52,631 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:04:52,631 - app.main - INFO -   {'DELETE'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:04:52,631 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}/status
+2026-04-28 23:04:52,631 - app.main - INFO -   {'GET'} /api/v1/admin/profile/
+2026-04-28 23:04:52,631 - app.main - INFO -   {'GET'} /api/v1/admin/profile/stats
+2026-04-28 23:04:52,631 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/
+2026-04-28 23:04:52,631 - app.main - INFO -   {'POST'} /api/v1/admin/profile/avatar
+2026-04-28 23:04:52,631 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/password
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/admin/settings/
+2026-04-28 23:04:52,632 - app.main - INFO -   {'PUT'} /api/v1/admin/settings/
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/notifications/
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/notifications/unread-count
+2026-04-28 23:04:52,632 - app.main - INFO -   {'PUT'} /api/v1/notifications/{notification_id}/read
+2026-04-28 23:04:52,632 - app.main - INFO -   {'PUT'} /api/v1/notifications/read-all
+2026-04-28 23:04:52,632 - app.main - INFO -   {'DELETE'} /api/v1/notifications/{notification_id}
+2026-04-28 23:04:52,632 - app.main - INFO -   {'DELETE'} /api/v1/notifications/
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/stats
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/recent-activities
+2026-04-28 23:04:52,632 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/chart-data
+2026-04-28 23:04:52,633 - app.main - INFO -   {'GET'} /api/v1/shop/orders/
+2026-04-28 23:04:52,633 - app.main - INFO -   {'GET'} /api/v1/shop/orders/stats
+2026-04-28 23:04:52,633 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}
+2026-04-28 23:04:52,634 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/status
+2026-04-28 23:04:52,634 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/payment-status
+2026-04-28 23:04:52,634 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/assign-shipping
+2026-04-28 23:04:52,634 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}/tracking
+2026-04-28 23:04:52,634 - app.main - INFO -   {'GET'} /api/v1/shop/returns/
+2026-04-28 23:04:52,634 - app.main - INFO -   {'GET'} /api/v1/shop/returns/stats
+2026-04-28 23:04:52,634 - app.main - INFO -   {'GET'} /api/v1/shop/returns/{return_id}
+2026-04-28 23:04:52,634 - app.main - INFO -   {'PUT'} /api/v1/shop/returns/{return_id}/status
+2026-04-28 23:04:52,634 - app.main - INFO -   {'GET'} /api/v1/shop/settings/
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/general
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/notifications
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/shipping
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/security
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/invoice
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/social
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/seo
+2026-04-28 23:04:52,635 - app.main - INFO -   {'GET'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:04:52,635 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:04:52,635 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:04:52,636 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:04:52,636 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:04:52,636 - app.main - INFO -   {'GET'} /api/v1/shop/settings/public/{shop_id}
+2026-04-28 23:04:52,636 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:04:52,636 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/save-qr-url
+2026-04-28 23:04:52,636 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/delete-qr/{account_id}
+2026-04-28 23:04:52,636 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/overview
+2026-04-28 23:04:52,636 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/revenue
+2026-04-28 23:04:52,636 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/orders/daily
+2026-04-28 23:04:52,637 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/reviews
+2026-04-28 23:04:52,637 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/recent-reviews
+2026-04-28 23:04:52,637 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/debug/shop-reviews
+2026-04-28 23:04:52,637 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/export
+2026-04-28 23:04:52,637 - app.main - INFO -   {'GET'} /api/v1/shop/vouchers/
+2026-04-28 23:04:52,637 - app.main - INFO -   {'POST'} /api/v1/shop/vouchers/
+2026-04-28 23:04:52,637 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:04:52,637 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}/status
+2026-04-28 23:04:52,637 - app.main - INFO -   {'DELETE'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:04:52,637 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:04:52,638 - app.main - INFO -   {'GET'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:04:52,638 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}/events
+2026-04-28 23:04:52,638 - app.main - INFO -   {'PUT'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:04:52,638 - app.main - INFO -   {'DELETE'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:04:52,638 - app.main - INFO -   {'POST'} /api/v1/upload/image
+2026-04-28 23:04:52,639 - app.main - INFO -  Starting server...
+2026-04-28 23:04:52,639 - app.db.mongodb - WARNING -  SSL verification disabled for development
+2026-04-28 23:04:54,320 - app.db.mongodb - INFO -  MongoDB indexes created successfully
+2026-04-28 23:04:54,322 - app.db.mongodb - INFO -  MongoDB connected successfully to database: datn_db
+2026-04-28 23:04:54,322 - app.db.mongodb - INFO -    Connection pool: min=10, max=100
+2026-04-28 23:04:54,322 - app.main - INFO -  MongoDB connected successfully
+2026-04-28 23:04:54,451 - app.main - INFO -  MongoDB health: {'status': 'connected', 'latency_ms': 62.0, 'connections': {'current': 16, 'available': 484}, 'database': 'datn_db', 'pool_size': {'min': 10, 'max': 100}}
+2026-04-28 23:04:54,451 - app.main - INFO -  SePay API URL: https://my.sepay.vn/api/v1
+2026-04-28 23:04:54,451 - app.main - INFO -  SePay API Key: ***RSYNOFTJ
+2026-04-28 23:04:54,452 - app.main - INFO -  SePay poller started - checking every 30 seconds
+2026-04-28 23:04:54,452 - app.main - INFO -  Cleanup task started
+2026-04-28 23:04:54,452 - app.services.sepay_poller - INFO - [POLLER] SePay poller started - checking every 30s
+2026-04-28 23:04:54,452 - app.services.sepay_poller - INFO - [POLLER] API URL: https://my.sepay.vn/api/v1
+2026-04-28 23:04:54,452 - app.services.sepay_poller - INFO - [POLLER] API Key: ***RSYNOFTJ
+2026-04-28 23:04:54,453 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:04:54,453 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:04:54,835 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:04:54,836 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:05:24,819 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:05:24,819 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:05:25,246 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:05:25,246 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:05:55,271 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:05:55,271 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:05:55,702 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:05:55,702 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:06:25,706 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:06:25,706 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:06:26,344 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:06:26,345 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:06:56,345 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:06:56,345 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:06:57,018 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:06:57,019 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:07:27,027 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:07:27,027 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:07:27,712 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:07:27,712 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:07:57,689 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:07:57,692 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:07:58,049 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:07:58,049 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:08:28,052 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:08:28,052 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:08:28,394 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:08:28,394 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:08:58,413 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:08:58,413 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:08:58,809 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:08:58,809 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:09:28,822 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:09:28,824 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:09:30,064 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:09:30,064 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:10:00,064 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:10:00,064 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:10:00,432 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:10:00,432 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:10:30,421 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:10:30,421 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:10:30,827 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:10:30,827 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:11:00,848 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:11:00,848 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:11:01,214 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:11:01,214 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:11:31,227 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:11:31,227 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:11:31,627 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:11:31,628 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:12:01,642 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:12:01,642 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:12:02,074 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:12:02,074 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:12:32,093 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:12:32,093 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:12:32,450 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:12:32,450 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:13:02,452 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:13:02,452 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:13:02,844 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:13:02,844 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:13:32,853 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:13:32,853 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:13:33,281 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:13:33,282 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:14:03,288 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:14:03,288 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:14:03,703 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:14:03,704 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:14:33,698 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:14:33,698 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:14:34,153 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:14:34,153 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:15:04,175 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:15:04,175 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:15:04,643 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:15:04,643 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:15:34,654 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:15:34,654 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:15:35,343 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:15:35,345 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:16:05,355 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:16:05,355 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:16:05,803 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:16:05,803 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:16:35,806 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:16:35,806 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:16:36,218 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:16:36,218 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:17:06,236 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:17:06,236 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:17:06,595 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:17:06,595 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:17:36,597 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:17:36,598 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:17:37,010 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:17:37,010 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:18:07,029 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:18:07,029 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:18:07,483 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:18:07,484 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:18:37,496 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:18:37,496 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:18:37,920 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:18:37,920 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:19:07,920 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:19:07,920 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:19:08,293 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:19:08,294 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:19:38,302 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:19:38,302 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:19:38,692 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:19:38,693 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:20:08,711 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:20:08,711 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:20:09,069 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:20:09,069 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:20:39,082 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:20:39,082 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:20:39,479 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:20:39,479 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:21:09,496 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:21:09,496 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:21:09,930 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:21:09,930 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:21:39,928 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:21:39,928 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:21:40,330 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:21:40,330 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:22:10,328 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:22:10,328 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:22:10,694 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:22:10,695 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:22:40,702 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:22:40,702 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:22:41,083 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:22:41,083 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:23:11,094 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:23:11,094 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:23:11,471 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:23:11,471 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:23:41,474 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:23:41,474 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:23:41,843 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:23:41,843 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:24:11,845 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:24:11,845 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:24:12,266 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:24:12,267 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:24:42,291 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:24:42,291 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:24:43,461 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:24:43,461 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:25:13,457 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:25:13,457 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:25:13,809 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:25:13,810 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:25:43,824 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:25:43,824 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:25:44,252 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:25:44,253 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:26:14,231 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:26:14,232 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:26:14,609 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:26:14,610 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:26:44,634 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:26:44,635 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:26:45,051 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:26:45,051 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:27:15,032 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:27:15,032 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:27:15,433 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:27:15,434 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:27:45,444 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:27:45,444 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:27:45,853 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:27:45,853 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:28:15,867 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:28:15,867 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:28:16,228 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:28:16,229 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:28:46,244 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:28:46,244 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:28:46,657 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:28:46,658 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:29:16,656 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:29:16,656 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:29:17,085 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:29:17,085 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:29:47,064 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:29:47,064 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:29:47,481 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:29:47,482 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:30:14,534 - app.main - INFO -  Shutting down server...
+2026-04-28 23:30:14,535 - app.services.sepay_poller - INFO - [POLLER] SePay poller stopped
+2026-04-28 23:30:14,535 - app.main - INFO -  SePay poller stopped
+2026-04-28 23:30:14,601 - app.db.mongodb - INFO -  MongoDB connection closed
+2026-04-28 23:30:14,602 - app.main - INFO -  Server shutdown complete
+2026-04-28 23:30:17,579 - app.main - INFO - Server initialized for asgi.
+2026-04-28 23:30:17,827 - app.main - INFO -  Registered routes:
+2026-04-28 23:30:17,827 - app.main - INFO -   {'HEAD', 'GET'} /openapi.json
+2026-04-28 23:30:17,827 - app.main - INFO -   {'HEAD', 'GET'} /docs
+2026-04-28 23:30:17,827 - app.main - INFO -   {'HEAD', 'GET'} /docs/oauth2-redirect
+2026-04-28 23:30:17,827 - app.main - INFO -   {'HEAD', 'GET'} /redoc
+2026-04-28 23:30:17,827 - app.main - INFO -   {'POST'} /api/v1/users/
+2026-04-28 23:30:17,828 - app.main - INFO -   {'GET'} /api/v1/users/
+2026-04-28 23:30:17,828 - app.main - INFO -   {'PUT'} /api/v1/users/{user_id}
+2026-04-28 23:30:17,828 - app.main - INFO -   {'DELETE'} /api/v1/users/{user_id}
+2026-04-28 23:30:17,828 - app.main - INFO -   {'GET'} /api/v1/users/{user_id}
+2026-04-28 23:30:17,828 - app.main - INFO -   {'POST'} /api/v1/auth/login
+2026-04-28 23:30:17,828 - app.main - INFO -   {'GET'} /api/v1/auth/me
+2026-04-28 23:30:17,828 - app.main - INFO -   {'PUT'} /api/v1/auth/update-profile
+2026-04-28 23:30:17,828 - app.main - INFO -   {'POST'} /api/v1/password/verify-otp
+2026-04-28 23:30:17,828 - app.main - INFO -   {'POST'} /api/v1/password/forgot-password
+2026-04-28 23:30:17,828 - app.main - INFO -   {'POST'} /api/v1/password/reset-password
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/posts/search
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/posts/feed
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/posts/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'POST'} /api/v1/posts/
+2026-04-28 23:30:17,829 - app.main - INFO -   {'PUT'} /api/v1/posts/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'DELETE'} /api/v1/posts/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'DELETE'} /api/v1/posts/admin/{post_id}/permanent
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/posts/user/{user_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'POST'} /api/v1/comments/
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/comments/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'PUT'} /api/v1/comments/{comment_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'DELETE'} /api/v1/comments/{comment_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'POST'} /api/v1/likes/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/likes/{post_id}
+2026-04-28 23:30:17,829 - app.main - INFO -   {'GET'} /api/v1/likes/check/{post_id}
+2026-04-28 23:30:17,831 - app.main - INFO -   {'POST'} /api/v1/follows/{user_id}
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/followers
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/following
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/stats
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/follows/check/{user_id}
+2026-04-28 23:30:17,831 - app.main - INFO -   {'POST'} /api/v1/friends/request
+2026-04-28 23:30:17,831 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/accept
+2026-04-28 23:30:17,831 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/reject
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/friends/list
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/friends/requests/pending
+2026-04-28 23:30:17,831 - app.main - INFO -   {'GET'} /api/v1/friends/check/{user_id}
+2026-04-28 23:30:17,831 - app.main - INFO -   {'POST'} /api/v1/friends/block/{user_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'DELETE'} /api/v1/friends/{friend_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'POST'} /api/v1/saves/
+2026-04-28 23:30:17,832 - app.main - INFO -   {'DELETE'} /api/v1/saves/{post_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/saves/check/{post_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/saves/my-posts
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/saves/count/{post_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'POST'} /api/v1/shares/{post_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/shares/{post_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'POST'} /api/v1/chat/send
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/chat/conversation/{friend_id}
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/chat/recent
+2026-04-28 23:30:17,832 - app.main - INFO -   {'GET'} /api/v1/chat/unread-count
+2026-04-28 23:30:17,833 - app.main - INFO -   {'PUT'} /api/v1/chat/mark-as-read/{sender_id}
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/info
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/stats
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/
+2026-04-28 23:30:17,833 - app.main - INFO -   {'POST'} /api/v1/shops/
+2026-04-28 23:30:17,833 - app.main - INFO -   {'POST'} /api/v1/shops/with-owner
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/nearby
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/products
+2026-04-28 23:30:17,833 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:30:17,833 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:30:17,834 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/follow
+2026-04-28 23:30:17,834 - app.main - INFO -   {'PUT'} /api/v1/shops/{shop_id}
+2026-04-28 23:30:17,834 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/dashboard
+2026-04-28 23:30:17,834 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/follow-status
+2026-04-28 23:30:17,834 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/payment-info
+2026-04-28 23:30:17,834 - app.main - INFO -   {'POST'} /api/v1/shop/auth/login
+2026-04-28 23:30:17,834 - app.main - INFO -   {'POST'} /api/v1/shop/auth/logout
+2026-04-28 23:30:17,834 - app.main - INFO -   {'POST'} /api/v1/shop/auth/refresh-token
+2026-04-28 23:30:17,834 - app.main - INFO -   {'GET'} /api/v1/shop/profile/
+2026-04-28 23:30:17,835 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/shop
+2026-04-28 23:30:17,835 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/owner
+2026-04-28 23:30:17,835 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-avatar
+2026-04-28 23:30:17,835 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-logo
+2026-04-28 23:30:17,835 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-banner
+2026-04-28 23:30:17,835 - app.main - INFO -   {'POST'} /api/v1/shop/profile/change-password
+2026-04-28 23:30:17,835 - app.main - INFO -   {'GET'} /api/v1/shop/customers/
+2026-04-28 23:30:17,835 - app.main - INFO -   {'GET'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:30:17,835 - app.main - INFO -   {'PUT'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:30:17,836 - app.main - INFO -   {'DELETE'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:30:17,836 - app.main - INFO -   {'GET'} /api/v1/shop/customers/export/excel
+2026-04-28 23:30:17,836 - app.main - INFO -   {'GET'} /api/v1/shop/products/
+2026-04-28 23:30:17,836 - app.main - INFO -   {'POST'} /api/v1/shop/products/
+2026-04-28 23:30:17,836 - app.main - INFO -   {'GET'} /api/v1/shop/products/{product_id}
+2026-04-28 23:30:17,836 - app.main - INFO -   {'PUT'} /api/v1/shop/products/{product_id}
+2026-04-28 23:30:17,836 - app.main - INFO -   {'DELETE'} /api/v1/shop/products/{product_id}
+2026-04-28 23:30:17,836 - app.main - INFO -   {'POST'} /api/v1/shop/products/{product_id}/upload-image
+2026-04-28 23:30:17,836 - app.main - INFO -   {'GET'} /api/v1/shop/products/stats/overview
+2026-04-28 23:30:17,836 - app.main - INFO -   {'POST'} /api/v1/products/
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/products/hot
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/products/
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'PUT'} /api/v1/products/{product_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'DELETE'} /api/v1/products/{product_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}/trace
+2026-04-28 23:30:17,837 - app.main - INFO -   {'POST'} /api/v1/categories/
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/categories/
+2026-04-28 23:30:17,837 - app.main - INFO -   {'GET'} /api/v1/categories/{category_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'PUT'} /api/v1/categories/{category_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'DELETE'} /api/v1/categories/{category_id}
+2026-04-28 23:30:17,837 - app.main - INFO -   {'POST'} /api/v1/product-variants/
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/product-variants/product/{product_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'PUT'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'DELETE'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/locations/
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/locations/nearby
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/locations/province/{province_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'GET'} /api/v1/locations/{location_id}
+2026-04-28 23:30:17,838 - app.main - INFO -   {'POST'} /api/v1/locations/
+2026-04-28 23:30:17,838 - app.main - INFO -   {'PUT'} /api/v1/locations/{location_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'DELETE'} /api/v1/locations/{location_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/all
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'POST'} /api/v1/locations/provinces
+2026-04-28 23:30:17,839 - app.main - INFO -   {'PUT'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'DELETE'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}/statistics
+2026-04-28 23:30:17,839 - app.main - INFO -   {'POST'} /api/v1/favorites/{product_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'DELETE'} /api/v1/favorites/{product_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/favorites/check/{product_id}
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/favorites/my-favorites
+2026-04-28 23:30:17,839 - app.main - INFO -   {'GET'} /api/v1/favorites/count/{product_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'POST'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/user-review
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/reviews/my-reviews
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/reviews/{review_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'PUT'} /api/v1/reviews/{review_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'DELETE'} /api/v1/reviews/{review_id}
+2026-04-28 23:30:17,840 - app.main - INFO -   {'POST'} /api/v1/reviews/{review_id}/helpful
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/stats
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/cart/
+2026-04-28 23:30:17,840 - app.main - INFO -   {'POST'} /api/v1/cart/add
+2026-04-28 23:30:17,840 - app.main - INFO -   {'GET'} /api/v1/cart/count
+2026-04-28 23:30:17,841 - app.main - INFO -   {'DELETE'} /api/v1/cart/remove
+2026-04-28 23:30:17,841 - app.main - INFO -   {'POST'} /api/v1/orders/
+2026-04-28 23:30:17,841 - app.main - INFO -   {'GET'} /api/v1/orders/my
+2026-04-28 23:30:17,841 - app.main - INFO -   {'GET'} /api/v1/orders/stats
+2026-04-28 23:30:17,841 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}
+2026-04-28 23:30:17,841 - app.main - INFO -   {'PUT'} /api/v1/orders/{order_id}/status
+2026-04-28 23:30:17,841 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/cancel
+2026-04-28 23:30:17,841 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/resend-email
+2026-04-28 23:30:17,841 - app.main - INFO -   {'GET'} /api/v1/orders/export/my
+2026-04-28 23:30:17,841 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}/payment-status
+2026-04-28 23:30:17,841 - app.main - INFO -   {'POST'} /api/v1/payments/create
+2026-04-28 23:30:17,841 - app.main - INFO -   {'POST'} /api/v1/payments/momo/ipn
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/payments/vnpay/return
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/payments/{payment_id}
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/payments/instructions/{order_id}
+2026-04-28 23:30:17,842 - app.main - INFO -   {'POST'} /api/v1/payments/bank-transfer/webhook
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/payments/generate-qr/{order_id}
+2026-04-28 23:30:17,842 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/webhook
+2026-04-28 23:30:17,842 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/test
+2026-04-28 23:30:17,842 - app.main - INFO -   {'POST'} /api/v1/addresses/
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/addresses/
+2026-04-28 23:30:17,842 - app.main - INFO -   {'GET'} /api/v1/addresses/default
+2026-04-28 23:30:17,843 - app.main - INFO -   {'GET'} /api/v1/addresses/{address_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'PUT'} /api/v1/addresses/{address_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'DELETE'} /api/v1/addresses/{address_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'POST'} /api/v1/addresses/{address_id}/set-default
+2026-04-28 23:30:17,843 - app.main - INFO -   {'GET'} /api/v1/addresses/me/default-address
+2026-04-28 23:30:17,843 - app.main - INFO -   {'POST'} /api/v1/product-reviews/
+2026-04-28 23:30:17,843 - app.main - INFO -   {'GET'} /api/v1/product-reviews/{product_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'PUT'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'DELETE'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:30:17,843 - app.main - INFO -   {'POST'} /api/v1/shop-reviews/
+2026-04-28 23:30:17,843 - app.main - INFO -   {'GET'} /api/v1/shop-reviews/{shop_id}
+2026-04-28 23:30:17,844 - app.main - INFO -   {'PUT'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:30:17,844 - app.main - INFO -   {'DELETE'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:30:17,844 - app.main - INFO -   {'POST'} /api/v1/vouchers/
+2026-04-28 23:30:17,844 - app.main - INFO -   {'GET'} /api/v1/vouchers/
+2026-04-28 23:30:17,844 - app.main - INFO -   {'POST'} /api/v1/vouchers/save/{voucher_id}
+2026-04-28 23:30:17,844 - app.main - INFO -   {'POST'} /api/v1/vouchers/validate
+2026-04-28 23:30:17,844 - app.main - INFO -   {'POST'} /api/v1/vouchers/{voucher_id}/use
+2026-04-28 23:30:17,844 - app.main - INFO -   {'GET'} /api/v1/vouchers/my-vouchers
+2026-04-28 23:30:17,844 - app.main - INFO -   {'GET'} /api/v1/vouchers/available
+2026-04-28 23:30:17,844 - app.main - INFO -   {'POST'} /api/v1/shipping-units/shop
+2026-04-28 23:30:17,844 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/stats
+2026-04-28 23:30:17,844 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop
+2026-04-28 23:30:17,845 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:30:17,845 - app.main - INFO -   {'PUT'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:30:17,845 - app.main - INFO -   {'PATCH'} /api/v1/shipping-units/shop/{unit_id}/status
+2026-04-28 23:30:17,845 - app.main - INFO -   {'DELETE'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:30:17,845 - app.main - INFO -   {'GET'} /api/v1/shipping-units/available
+2026-04-28 23:30:17,845 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:30:17,845 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:30:17,845 - app.main - INFO -   {'PUT'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:30:17,845 - app.main - INFO -   {'PATCH'} /api/v1/shipping-vouchers/shop/{voucher_id}/status
+2026-04-28 23:30:17,845 - app.main - INFO -   {'DELETE'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:30:17,845 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop/stats
+2026-04-28 23:30:17,845 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/validate
+2026-04-28 23:30:17,846 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/use/{voucher_id}
+2026-04-28 23:30:17,846 - app.main - INFO -   {'POST'} /api/v1/returns/request
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/my
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/my/{return_id}
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/stats
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/shop
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/shop/{return_id}
+2026-04-28 23:30:17,846 - app.main - INFO -   {'PUT'} /api/v1/returns/shop/{return_id}/process
+2026-04-28 23:30:17,846 - app.main - INFO -   {'GET'} /api/v1/returns/shop/stats
+2026-04-28 23:30:17,846 - app.main - INFO -   {'POST'} /api/v1/returns/upload-image
+2026-04-28 23:30:17,846 - app.main - INFO -   {'POST'} /api/v1/reports/
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/reports/admin/list
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/reports/admin/stats
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:30:17,847 - app.main - INFO -   {'PUT'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:30:17,847 - app.main - INFO -   {'POST'} /api/v1/admin/login
+2026-04-28 23:30:17,847 - app.main - INFO -   {'POST'} /api/v1/admin/logout
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/dashboard
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/post-category
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/new-users
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/new-shops
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/visit-stats
+2026-04-28 23:30:17,847 - app.main - INFO -   {'GET'} /api/v1/admin/interaction-stats
+2026-04-28 23:30:17,848 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/
+2026-04-28 23:30:17,848 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/unread-count
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/{notification_id}/read
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/read-all
+2026-04-28 23:30:17,848 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/{notification_id}
+2026-04-28 23:30:17,848 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/
+2026-04-28 23:30:17,848 - app.main - INFO -   {'GET'} /api/v1/admin/posts/
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}/status
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:30:17,848 - app.main - INFO -   {'DELETE'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:30:17,848 - app.main - INFO -   {'GET'} /api/v1/admin/shops/
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:30:17,848 - app.main - INFO -   {'DELETE'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:30:17,848 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}/status
+2026-04-28 23:30:17,849 - app.main - INFO -   {'GET'} /api/v1/admin/profile/
+2026-04-28 23:30:17,849 - app.main - INFO -   {'GET'} /api/v1/admin/profile/stats
+2026-04-28 23:30:17,849 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/
+2026-04-28 23:30:17,849 - app.main - INFO -   {'POST'} /api/v1/admin/profile/avatar
+2026-04-28 23:30:17,849 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/password
+2026-04-28 23:30:17,849 - app.main - INFO -   {'GET'} /api/v1/admin/settings/
+2026-04-28 23:30:17,849 - app.main - INFO -   {'PUT'} /api/v1/admin/settings/
+2026-04-28 23:30:17,849 - app.main - INFO -   {'GET'} /api/v1/notifications/
+2026-04-28 23:30:17,849 - app.main - INFO -   {'GET'} /api/v1/notifications/unread-count
+2026-04-28 23:30:17,849 - app.main - INFO -   {'PUT'} /api/v1/notifications/{notification_id}/read
+2026-04-28 23:30:17,849 - app.main - INFO -   {'PUT'} /api/v1/notifications/read-all
+2026-04-28 23:30:17,850 - app.main - INFO -   {'DELETE'} /api/v1/notifications/{notification_id}
+2026-04-28 23:30:17,850 - app.main - INFO -   {'DELETE'} /api/v1/notifications/
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/stats
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/recent-activities
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/chart-data
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/orders/
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/orders/stats
+2026-04-28 23:30:17,850 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}
+2026-04-28 23:30:17,850 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/status
+2026-04-28 23:30:17,850 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/payment-status
+2026-04-28 23:30:17,851 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/assign-shipping
+2026-04-28 23:30:17,851 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}/tracking
+2026-04-28 23:30:17,851 - app.main - INFO -   {'GET'} /api/v1/shop/returns/
+2026-04-28 23:30:17,851 - app.main - INFO -   {'GET'} /api/v1/shop/returns/stats
+2026-04-28 23:30:17,851 - app.main - INFO -   {'GET'} /api/v1/shop/returns/{return_id}
+2026-04-28 23:30:17,851 - app.main - INFO -   {'PUT'} /api/v1/shop/returns/{return_id}/status
+2026-04-28 23:30:17,851 - app.main - INFO -   {'GET'} /api/v1/shop/settings/
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/general
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/notifications
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/shipping
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/security
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/invoice
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/social
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/seo
+2026-04-28 23:30:17,852 - app.main - INFO -   {'GET'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:30:17,852 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:30:17,852 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:30:17,853 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:30:17,853 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:30:17,853 - app.main - INFO -   {'GET'} /api/v1/shop/settings/public/{shop_id}
+2026-04-28 23:30:17,853 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:30:17,853 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/save-qr-url
+2026-04-28 23:30:17,853 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/delete-qr/{account_id}
+2026-04-28 23:30:17,853 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/overview
+2026-04-28 23:30:17,853 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/revenue
+2026-04-28 23:30:17,853 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/orders/daily
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/reviews
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/recent-reviews
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/debug/shop-reviews
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/export
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/shop/vouchers/
+2026-04-28 23:30:17,855 - app.main - INFO -   {'POST'} /api/v1/shop/vouchers/
+2026-04-28 23:30:17,855 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:30:17,855 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}/status
+2026-04-28 23:30:17,855 - app.main - INFO -   {'DELETE'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:30:17,855 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:30:17,855 - app.main - INFO -   {'GET'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:30:17,855 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}/events
+2026-04-28 23:30:17,856 - app.main - INFO -   {'PUT'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:30:17,856 - app.main - INFO -   {'DELETE'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:30:17,856 - app.main - INFO -   {'POST'} /api/v1/upload/image
+2026-04-28 23:30:17,857 - app.main - INFO -  Starting server...
+2026-04-28 23:30:17,857 - app.db.mongodb - WARNING -  SSL verification disabled for development
+2026-04-28 23:30:19,583 - app.db.mongodb - INFO -  MongoDB indexes created successfully
+2026-04-28 23:30:19,584 - app.db.mongodb - INFO -  MongoDB connected successfully to database: datn_db
+2026-04-28 23:30:19,584 - app.db.mongodb - INFO -    Connection pool: min=10, max=100
+2026-04-28 23:30:19,584 - app.main - INFO -  MongoDB connected successfully
+2026-04-28 23:30:19,712 - app.main - INFO -  MongoDB health: {'status': 'connected', 'latency_ms': 63.0, 'connections': {'current': 16, 'available': 484}, 'database': 'datn_db', 'pool_size': {'min': 10, 'max': 100}}
+2026-04-28 23:30:19,713 - app.main - INFO -  SePay API URL: https://my.sepay.vn/api/v1
+2026-04-28 23:30:19,713 - app.main - INFO -  SePay API Key: ***DKB8NIPH
+2026-04-28 23:30:19,713 - app.main - INFO -  SePay poller started - checking every 30 seconds
+2026-04-28 23:30:19,714 - app.main - INFO -  Cleanup task started
+2026-04-28 23:30:19,714 - app.services.sepay_poller - INFO - [POLLER] SePay poller started - checking every 30s
+2026-04-28 23:30:19,714 - app.services.sepay_poller - INFO - [POLLER] API URL: https://my.sepay.vn/api/v1
+2026-04-28 23:30:19,715 - app.services.sepay_poller - INFO - [POLLER] API Key: ***DKB8NIPH
+2026-04-28 23:30:19,715 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:30:19,715 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:30:20,161 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:30:20,161 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:30:50,181 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:30:50,181 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:30:50,600 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:30:50,600 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:31:20,604 - app.services.sepay_poller - INFO - [POLLER] Checking for new transactions...
+2026-04-28 23:31:20,605 - app.services.sepay_poller - INFO - [POLLER] Trying endpoint: https://my.sepay.vn/api/v1/transactions
+2026-04-28 23:31:21,023 - app.services.sepay_poller - INFO - [POLLER] Response status: 401
+2026-04-28 23:31:21,023 - app.services.sepay_poller - ERROR - [POLLER] Authentication failed - check API key
+2026-04-28 23:31:29,955 - app.main - INFO -  Shutting down server...
+2026-04-28 23:31:29,956 - app.services.sepay_poller - INFO - [POLLER] SePay poller stopped
+2026-04-28 23:31:29,956 - app.main - INFO -  SePay poller stopped
+2026-04-28 23:31:30,027 - app.db.mongodb - INFO -  MongoDB connection closed
+2026-04-28 23:31:30,027 - app.main - INFO -  Server shutdown complete
+2026-04-28 23:31:32,722 - app.main - INFO - Server initialized for asgi.
+2026-04-28 23:31:32,968 - app.main - INFO -  Registered routes:
+2026-04-28 23:31:32,968 - app.main - INFO -   {'GET', 'HEAD'} /openapi.json
+2026-04-28 23:31:32,968 - app.main - INFO -   {'GET', 'HEAD'} /docs
+2026-04-28 23:31:32,968 - app.main - INFO -   {'GET', 'HEAD'} /docs/oauth2-redirect
+2026-04-28 23:31:32,969 - app.main - INFO -   {'GET', 'HEAD'} /redoc
+2026-04-28 23:31:32,969 - app.main - INFO -   {'POST'} /api/v1/users/
+2026-04-28 23:31:32,969 - app.main - INFO -   {'GET'} /api/v1/users/
+2026-04-28 23:31:32,969 - app.main - INFO -   {'PUT'} /api/v1/users/{user_id}
+2026-04-28 23:31:32,969 - app.main - INFO -   {'DELETE'} /api/v1/users/{user_id}
+2026-04-28 23:31:32,970 - app.main - INFO -   {'GET'} /api/v1/users/{user_id}
+2026-04-28 23:31:32,970 - app.main - INFO -   {'POST'} /api/v1/auth/login
+2026-04-28 23:31:32,970 - app.main - INFO -   {'GET'} /api/v1/auth/me
+2026-04-28 23:31:32,970 - app.main - INFO -   {'PUT'} /api/v1/auth/update-profile
+2026-04-28 23:31:32,970 - app.main - INFO -   {'POST'} /api/v1/password/verify-otp
+2026-04-28 23:31:32,970 - app.main - INFO -   {'POST'} /api/v1/password/forgot-password
+2026-04-28 23:31:32,970 - app.main - INFO -   {'POST'} /api/v1/password/reset-password
+2026-04-28 23:31:32,971 - app.main - INFO -   {'GET'} /api/v1/posts/search
+2026-04-28 23:31:32,971 - app.main - INFO -   {'GET'} /api/v1/posts/feed
+2026-04-28 23:31:32,971 - app.main - INFO -   {'GET'} /api/v1/posts/{post_id}
+2026-04-28 23:31:32,971 - app.main - INFO -   {'POST'} /api/v1/posts/
+2026-04-28 23:31:32,971 - app.main - INFO -   {'PUT'} /api/v1/posts/{post_id}
+2026-04-28 23:31:32,971 - app.main - INFO -   {'DELETE'} /api/v1/posts/{post_id}
+2026-04-28 23:31:32,971 - app.main - INFO -   {'DELETE'} /api/v1/posts/admin/{post_id}/permanent
+2026-04-28 23:31:32,971 - app.main - INFO -   {'GET'} /api/v1/posts/user/{user_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'POST'} /api/v1/comments/
+2026-04-28 23:31:32,972 - app.main - INFO -   {'GET'} /api/v1/comments/{post_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'PUT'} /api/v1/comments/{comment_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'DELETE'} /api/v1/comments/{comment_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'POST'} /api/v1/likes/{post_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'GET'} /api/v1/likes/{post_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'GET'} /api/v1/likes/check/{post_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'POST'} /api/v1/follows/{user_id}
+2026-04-28 23:31:32,972 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/followers
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/following
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/stats
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/follows/check/{user_id}
+2026-04-28 23:31:32,973 - app.main - INFO -   {'POST'} /api/v1/friends/request
+2026-04-28 23:31:32,973 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/accept
+2026-04-28 23:31:32,973 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/reject
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/friends/list
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/friends/requests/pending
+2026-04-28 23:31:32,973 - app.main - INFO -   {'GET'} /api/v1/friends/check/{user_id}
+2026-04-28 23:31:32,973 - app.main - INFO -   {'POST'} /api/v1/friends/block/{user_id}
+2026-04-28 23:31:32,973 - app.main - INFO -   {'DELETE'} /api/v1/friends/{friend_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'POST'} /api/v1/saves/
+2026-04-28 23:31:32,974 - app.main - INFO -   {'DELETE'} /api/v1/saves/{post_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/saves/check/{post_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/saves/my-posts
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/saves/count/{post_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'POST'} /api/v1/shares/{post_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/shares/{post_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'POST'} /api/v1/chat/send
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/chat/conversation/{friend_id}
+2026-04-28 23:31:32,974 - app.main - INFO -   {'GET'} /api/v1/chat/recent
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/chat/unread-count
+2026-04-28 23:31:32,975 - app.main - INFO -   {'PUT'} /api/v1/chat/mark-as-read/{sender_id}
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/info
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/stats
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/
+2026-04-28 23:31:32,975 - app.main - INFO -   {'POST'} /api/v1/shops/
+2026-04-28 23:31:32,975 - app.main - INFO -   {'POST'} /api/v1/shops/with-owner
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/nearby
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/products
+2026-04-28 23:31:32,975 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:31:32,975 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/follow
+2026-04-28 23:31:32,977 - app.main - INFO -   {'PUT'} /api/v1/shops/{shop_id}
+2026-04-28 23:31:32,977 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/dashboard
+2026-04-28 23:31:32,977 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/follow-status
+2026-04-28 23:31:32,977 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/payment-info
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shop/auth/login
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shop/auth/logout
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shop/auth/refresh-token
+2026-04-28 23:31:32,977 - app.main - INFO -   {'GET'} /api/v1/shop/profile/
+2026-04-28 23:31:32,977 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/shop
+2026-04-28 23:31:32,977 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/owner
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-avatar
+2026-04-28 23:31:32,977 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-logo
+2026-04-28 23:31:32,978 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-banner
+2026-04-28 23:31:32,978 - app.main - INFO -   {'POST'} /api/v1/shop/profile/change-password
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/customers/
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'PUT'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'DELETE'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/customers/export/excel
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/products/
+2026-04-28 23:31:32,978 - app.main - INFO -   {'POST'} /api/v1/shop/products/
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/products/{product_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'PUT'} /api/v1/shop/products/{product_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'DELETE'} /api/v1/shop/products/{product_id}
+2026-04-28 23:31:32,978 - app.main - INFO -   {'POST'} /api/v1/shop/products/{product_id}/upload-image
+2026-04-28 23:31:32,978 - app.main - INFO -   {'GET'} /api/v1/shop/products/stats/overview
+2026-04-28 23:31:32,979 - app.main - INFO -   {'POST'} /api/v1/products/
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/products/hot
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/products/
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}
+2026-04-28 23:31:32,979 - app.main - INFO -   {'PUT'} /api/v1/products/{product_id}
+2026-04-28 23:31:32,979 - app.main - INFO -   {'DELETE'} /api/v1/products/{product_id}
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}/trace
+2026-04-28 23:31:32,979 - app.main - INFO -   {'POST'} /api/v1/categories/
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/categories/
+2026-04-28 23:31:32,979 - app.main - INFO -   {'GET'} /api/v1/categories/{category_id}
+2026-04-28 23:31:32,979 - app.main - INFO -   {'PUT'} /api/v1/categories/{category_id}
+2026-04-28 23:31:32,979 - app.main - INFO -   {'DELETE'} /api/v1/categories/{category_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'POST'} /api/v1/product-variants/
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/product-variants/product/{product_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'PUT'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'DELETE'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/locations/
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/locations/nearby
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/locations/province/{province_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'GET'} /api/v1/locations/{location_id}
+2026-04-28 23:31:32,980 - app.main - INFO -   {'POST'} /api/v1/locations/
+2026-04-28 23:31:32,980 - app.main - INFO -   {'PUT'} /api/v1/locations/{location_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'DELETE'} /api/v1/locations/{location_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/all
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'POST'} /api/v1/locations/provinces
+2026-04-28 23:31:32,981 - app.main - INFO -   {'PUT'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'DELETE'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}/statistics
+2026-04-28 23:31:32,981 - app.main - INFO -   {'POST'} /api/v1/favorites/{product_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'DELETE'} /api/v1/favorites/{product_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/favorites/check/{product_id}
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/favorites/my-favorites
+2026-04-28 23:31:32,981 - app.main - INFO -   {'GET'} /api/v1/favorites/count/{product_id}
+2026-04-28 23:31:32,982 - app.main - INFO -   {'POST'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:31:32,982 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:31:32,982 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/user-review
+2026-04-28 23:31:32,982 - app.main - INFO -   {'GET'} /api/v1/reviews/my-reviews
+2026-04-28 23:31:32,982 - app.main - INFO -   {'GET'} /api/v1/reviews/{review_id}
+2026-04-28 23:31:32,982 - app.main - INFO -   {'PUT'} /api/v1/reviews/{review_id}
+2026-04-28 23:31:32,983 - app.main - INFO -   {'DELETE'} /api/v1/reviews/{review_id}
+2026-04-28 23:31:32,983 - app.main - INFO -   {'POST'} /api/v1/reviews/{review_id}/helpful
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/stats
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/cart/
+2026-04-28 23:31:32,983 - app.main - INFO -   {'POST'} /api/v1/cart/add
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/cart/count
+2026-04-28 23:31:32,983 - app.main - INFO -   {'DELETE'} /api/v1/cart/remove
+2026-04-28 23:31:32,983 - app.main - INFO -   {'POST'} /api/v1/orders/
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/orders/my
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/orders/stats
+2026-04-28 23:31:32,983 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}
+2026-04-28 23:31:32,983 - app.main - INFO -   {'PUT'} /api/v1/orders/{order_id}/status
+2026-04-28 23:31:32,984 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/cancel
+2026-04-28 23:31:32,984 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/resend-email
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/orders/export/my
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}/payment-status
+2026-04-28 23:31:32,984 - app.main - INFO -   {'POST'} /api/v1/payments/create
+2026-04-28 23:31:32,984 - app.main - INFO -   {'POST'} /api/v1/payments/momo/ipn
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/payments/vnpay/return
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/payments/{payment_id}
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/payments/instructions/{order_id}
+2026-04-28 23:31:32,984 - app.main - INFO -   {'POST'} /api/v1/payments/bank-transfer/webhook
+2026-04-28 23:31:32,984 - app.main - INFO -   {'GET'} /api/v1/payments/generate-qr/{order_id}
+2026-04-28 23:31:32,985 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/webhook
+2026-04-28 23:31:32,985 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/test
+2026-04-28 23:31:32,985 - app.main - INFO -   {'POST'} /api/v1/addresses/
+2026-04-28 23:31:32,985 - app.main - INFO -   {'GET'} /api/v1/addresses/
+2026-04-28 23:31:32,985 - app.main - INFO -   {'GET'} /api/v1/addresses/default
+2026-04-28 23:31:32,985 - app.main - INFO -   {'GET'} /api/v1/addresses/{address_id}
+2026-04-28 23:31:32,985 - app.main - INFO -   {'PUT'} /api/v1/addresses/{address_id}
+2026-04-28 23:31:32,985 - app.main - INFO -   {'DELETE'} /api/v1/addresses/{address_id}
+2026-04-28 23:31:32,985 - app.main - INFO -   {'POST'} /api/v1/addresses/{address_id}/set-default
+2026-04-28 23:31:32,985 - app.main - INFO -   {'GET'} /api/v1/addresses/me/default-address
+2026-04-28 23:31:32,985 - app.main - INFO -   {'POST'} /api/v1/product-reviews/
+2026-04-28 23:31:32,986 - app.main - INFO -   {'GET'} /api/v1/product-reviews/{product_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'PUT'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'DELETE'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'POST'} /api/v1/shop-reviews/
+2026-04-28 23:31:32,986 - app.main - INFO -   {'GET'} /api/v1/shop-reviews/{shop_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'PUT'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'DELETE'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'POST'} /api/v1/vouchers/
+2026-04-28 23:31:32,986 - app.main - INFO -   {'GET'} /api/v1/vouchers/
+2026-04-28 23:31:32,986 - app.main - INFO -   {'POST'} /api/v1/vouchers/save/{voucher_id}
+2026-04-28 23:31:32,986 - app.main - INFO -   {'POST'} /api/v1/vouchers/validate
+2026-04-28 23:31:32,986 - app.main - INFO -   {'POST'} /api/v1/vouchers/{voucher_id}/use
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/vouchers/my-vouchers
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/vouchers/available
+2026-04-28 23:31:32,987 - app.main - INFO -   {'POST'} /api/v1/shipping-units/shop
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/stats
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:31:32,987 - app.main - INFO -   {'PUT'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:31:32,987 - app.main - INFO -   {'PATCH'} /api/v1/shipping-units/shop/{unit_id}/status
+2026-04-28 23:31:32,987 - app.main - INFO -   {'DELETE'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/shipping-units/available
+2026-04-28 23:31:32,987 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:31:32,987 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:31:32,987 - app.main - INFO -   {'PUT'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:31:32,988 - app.main - INFO -   {'PATCH'} /api/v1/shipping-vouchers/shop/{voucher_id}/status
+2026-04-28 23:31:32,988 - app.main - INFO -   {'DELETE'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop/stats
+2026-04-28 23:31:32,988 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/validate
+2026-04-28 23:31:32,988 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/use/{voucher_id}
+2026-04-28 23:31:32,988 - app.main - INFO -   {'POST'} /api/v1/returns/request
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/returns/my
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/returns/my/{return_id}
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/returns/stats
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/returns/shop
+2026-04-28 23:31:32,988 - app.main - INFO -   {'GET'} /api/v1/returns/shop/{return_id}
+2026-04-28 23:31:32,989 - app.main - INFO -   {'PUT'} /api/v1/returns/shop/{return_id}/process
+2026-04-28 23:31:32,989 - app.main - INFO -   {'GET'} /api/v1/returns/shop/stats
+2026-04-28 23:31:32,989 - app.main - INFO -   {'POST'} /api/v1/returns/upload-image
+2026-04-28 23:31:32,989 - app.main - INFO -   {'POST'} /api/v1/reports/
+2026-04-28 23:31:32,989 - app.main - INFO -   {'GET'} /api/v1/reports/admin/list
+2026-04-28 23:31:32,989 - app.main - INFO -   {'GET'} /api/v1/reports/admin/stats
+2026-04-28 23:31:32,989 - app.main - INFO -   {'GET'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:31:32,989 - app.main - INFO -   {'PUT'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:31:32,989 - app.main - INFO -   {'POST'} /api/v1/admin/login
+2026-04-28 23:31:32,989 - app.main - INFO -   {'POST'} /api/v1/admin/logout
+2026-04-28 23:31:32,989 - app.main - INFO -   {'GET'} /api/v1/admin/dashboard
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/post-category
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/new-users
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/new-shops
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/visit-stats
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/interaction-stats
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/unread-count
+2026-04-28 23:31:32,990 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/{notification_id}/read
+2026-04-28 23:31:32,990 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/read-all
+2026-04-28 23:31:32,990 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/{notification_id}
+2026-04-28 23:31:32,990 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/
+2026-04-28 23:31:32,990 - app.main - INFO -   {'GET'} /api/v1/admin/posts/
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}/status
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:31:32,991 - app.main - INFO -   {'DELETE'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:31:32,991 - app.main - INFO -   {'GET'} /api/v1/admin/shops/
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:31:32,991 - app.main - INFO -   {'DELETE'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}/status
+2026-04-28 23:31:32,991 - app.main - INFO -   {'GET'} /api/v1/admin/profile/
+2026-04-28 23:31:32,991 - app.main - INFO -   {'GET'} /api/v1/admin/profile/stats
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/
+2026-04-28 23:31:32,991 - app.main - INFO -   {'POST'} /api/v1/admin/profile/avatar
+2026-04-28 23:31:32,991 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/password
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/admin/settings/
+2026-04-28 23:31:32,992 - app.main - INFO -   {'PUT'} /api/v1/admin/settings/
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/notifications/
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/notifications/unread-count
+2026-04-28 23:31:32,992 - app.main - INFO -   {'PUT'} /api/v1/notifications/{notification_id}/read
+2026-04-28 23:31:32,992 - app.main - INFO -   {'PUT'} /api/v1/notifications/read-all
+2026-04-28 23:31:32,992 - app.main - INFO -   {'DELETE'} /api/v1/notifications/{notification_id}
+2026-04-28 23:31:32,992 - app.main - INFO -   {'DELETE'} /api/v1/notifications/
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/stats
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/recent-activities
+2026-04-28 23:31:32,992 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/chart-data
+2026-04-28 23:31:32,993 - app.main - INFO -   {'GET'} /api/v1/shop/orders/
+2026-04-28 23:31:32,993 - app.main - INFO -   {'GET'} /api/v1/shop/orders/stats
+2026-04-28 23:31:32,993 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}
+2026-04-28 23:31:32,993 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/status
+2026-04-28 23:31:32,993 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/payment-status
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/assign-shipping
+2026-04-28 23:31:32,994 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}/tracking
+2026-04-28 23:31:32,994 - app.main - INFO -   {'GET'} /api/v1/shop/returns/
+2026-04-28 23:31:32,994 - app.main - INFO -   {'GET'} /api/v1/shop/returns/stats
+2026-04-28 23:31:32,994 - app.main - INFO -   {'GET'} /api/v1/shop/returns/{return_id}
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/returns/{return_id}/status
+2026-04-28 23:31:32,994 - app.main - INFO -   {'GET'} /api/v1/shop/settings/
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/general
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/notifications
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment
+2026-04-28 23:31:32,994 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/shipping
+2026-04-28 23:31:32,995 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/security
+2026-04-28 23:31:32,995 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/invoice
+2026-04-28 23:31:32,995 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/social
+2026-04-28 23:31:32,995 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/seo
+2026-04-28 23:31:32,995 - app.main - INFO -   {'GET'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:31:32,995 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:31:32,995 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:31:32,995 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:31:32,995 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:31:32,995 - app.main - INFO -   {'GET'} /api/v1/shop/settings/public/{shop_id}
+2026-04-28 23:31:32,995 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:31:32,996 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/save-qr-url
+2026-04-28 23:31:32,996 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/delete-qr/{account_id}
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/overview
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/revenue
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/orders/daily
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/reviews
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/recent-reviews
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/debug/shop-reviews
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/export
+2026-04-28 23:31:32,996 - app.main - INFO -   {'GET'} /api/v1/shop/vouchers/
+2026-04-28 23:31:32,996 - app.main - INFO -   {'POST'} /api/v1/shop/vouchers/
+2026-04-28 23:31:32,996 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:31:32,996 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}/status
+2026-04-28 23:31:32,996 - app.main - INFO -   {'DELETE'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:31:32,997 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:31:32,997 - app.main - INFO -   {'GET'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:31:32,997 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}/events
+2026-04-28 23:31:32,997 - app.main - INFO -   {'PUT'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:31:32,997 - app.main - INFO -   {'DELETE'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:31:32,997 - app.main - INFO -   {'POST'} /api/v1/upload/image
+2026-04-28 23:33:09,283 - app.main - INFO - Server initialized for asgi.
+2026-04-28 23:33:09,540 - app.main - INFO -  Registered routes:
+2026-04-28 23:33:09,550 - app.main - INFO -   {'HEAD', 'GET'} /openapi.json
+2026-04-28 23:33:09,551 - app.main - INFO -   {'HEAD', 'GET'} /docs
+2026-04-28 23:33:09,551 - app.main - INFO -   {'HEAD', 'GET'} /docs/oauth2-redirect
+2026-04-28 23:33:09,551 - app.main - INFO -   {'HEAD', 'GET'} /redoc
+2026-04-28 23:33:09,552 - app.main - INFO -   {'POST'} /api/v1/users/
+2026-04-28 23:33:09,552 - app.main - INFO -   {'GET'} /api/v1/users/
+2026-04-28 23:33:09,552 - app.main - INFO -   {'PUT'} /api/v1/users/{user_id}
+2026-04-28 23:33:09,552 - app.main - INFO -   {'DELETE'} /api/v1/users/{user_id}
+2026-04-28 23:33:09,552 - app.main - INFO -   {'GET'} /api/v1/users/{user_id}
+2026-04-28 23:33:09,552 - app.main - INFO -   {'POST'} /api/v1/auth/login
+2026-04-28 23:33:09,553 - app.main - INFO -   {'GET'} /api/v1/auth/me
+2026-04-28 23:33:09,553 - app.main - INFO -   {'PUT'} /api/v1/auth/update-profile
+2026-04-28 23:33:09,553 - app.main - INFO -   {'POST'} /api/v1/password/verify-otp
+2026-04-28 23:33:09,553 - app.main - INFO -   {'POST'} /api/v1/password/forgot-password
+2026-04-28 23:33:09,553 - app.main - INFO -   {'POST'} /api/v1/password/reset-password
+2026-04-28 23:33:09,553 - app.main - INFO -   {'GET'} /api/v1/posts/search
+2026-04-28 23:33:09,553 - app.main - INFO -   {'GET'} /api/v1/posts/feed
+2026-04-28 23:33:09,553 - app.main - INFO -   {'GET'} /api/v1/posts/{post_id}
+2026-04-28 23:33:09,553 - app.main - INFO -   {'POST'} /api/v1/posts/
+2026-04-28 23:33:09,553 - app.main - INFO -   {'PUT'} /api/v1/posts/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'DELETE'} /api/v1/posts/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'DELETE'} /api/v1/posts/admin/{post_id}/permanent
+2026-04-28 23:33:09,555 - app.main - INFO -   {'GET'} /api/v1/posts/user/{user_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'POST'} /api/v1/comments/
+2026-04-28 23:33:09,555 - app.main - INFO -   {'GET'} /api/v1/comments/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'PUT'} /api/v1/comments/{comment_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'DELETE'} /api/v1/comments/{comment_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'POST'} /api/v1/likes/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'GET'} /api/v1/likes/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'GET'} /api/v1/likes/check/{post_id}
+2026-04-28 23:33:09,555 - app.main - INFO -   {'POST'} /api/v1/follows/{user_id}
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/followers
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/following
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/stats
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/follows/check/{user_id}
+2026-04-28 23:33:09,556 - app.main - INFO -   {'POST'} /api/v1/friends/request
+2026-04-28 23:33:09,556 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/accept
+2026-04-28 23:33:09,556 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/reject
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/friends/list
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/friends/requests/pending
+2026-04-28 23:33:09,556 - app.main - INFO -   {'GET'} /api/v1/friends/check/{user_id}
+2026-04-28 23:33:09,556 - app.main - INFO -   {'POST'} /api/v1/friends/block/{user_id}
+2026-04-28 23:33:09,556 - app.main - INFO -   {'DELETE'} /api/v1/friends/{friend_id}
+2026-04-28 23:33:09,556 - app.main - INFO -   {'POST'} /api/v1/saves/
+2026-04-28 23:33:09,556 - app.main - INFO -   {'DELETE'} /api/v1/saves/{post_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/saves/check/{post_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/saves/my-posts
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/saves/count/{post_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'POST'} /api/v1/shares/{post_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/shares/{post_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'POST'} /api/v1/chat/send
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/chat/conversation/{friend_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/chat/recent
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/chat/unread-count
+2026-04-28 23:33:09,557 - app.main - INFO -   {'PUT'} /api/v1/chat/mark-as-read/{sender_id}
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/shops/info
+2026-04-28 23:33:09,557 - app.main - INFO -   {'GET'} /api/v1/shops/stats
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/
+2026-04-28 23:33:09,558 - app.main - INFO -   {'POST'} /api/v1/shops/
+2026-04-28 23:33:09,558 - app.main - INFO -   {'POST'} /api/v1/shops/with-owner
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/nearby
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/products
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:33:09,558 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:33:09,558 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/follow
+2026-04-28 23:33:09,558 - app.main - INFO -   {'PUT'} /api/v1/shops/{shop_id}
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/dashboard
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/follow-status
+2026-04-28 23:33:09,558 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/payment-info
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/auth/login
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/auth/logout
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/auth/refresh-token
+2026-04-28 23:33:09,559 - app.main - INFO -   {'GET'} /api/v1/shop/profile/
+2026-04-28 23:33:09,559 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/shop
+2026-04-28 23:33:09,559 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/owner
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-avatar
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-logo
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-banner
+2026-04-28 23:33:09,559 - app.main - INFO -   {'POST'} /api/v1/shop/profile/change-password
+2026-04-28 23:33:09,559 - app.main - INFO -   {'GET'} /api/v1/shop/customers/
+2026-04-28 23:33:09,559 - app.main - INFO -   {'GET'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'PUT'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'DELETE'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'GET'} /api/v1/shop/customers/export/excel
+2026-04-28 23:33:09,560 - app.main - INFO -   {'GET'} /api/v1/shop/products/
+2026-04-28 23:33:09,560 - app.main - INFO -   {'POST'} /api/v1/shop/products/
+2026-04-28 23:33:09,560 - app.main - INFO -   {'GET'} /api/v1/shop/products/{product_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'PUT'} /api/v1/shop/products/{product_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'DELETE'} /api/v1/shop/products/{product_id}
+2026-04-28 23:33:09,560 - app.main - INFO -   {'POST'} /api/v1/shop/products/{product_id}/upload-image
+2026-04-28 23:33:09,560 - app.main - INFO -   {'GET'} /api/v1/shop/products/stats/overview
+2026-04-28 23:33:09,561 - app.main - INFO -   {'POST'} /api/v1/products/
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/products/hot
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/products/
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}
+2026-04-28 23:33:09,561 - app.main - INFO -   {'PUT'} /api/v1/products/{product_id}
+2026-04-28 23:33:09,561 - app.main - INFO -   {'DELETE'} /api/v1/products/{product_id}
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}/trace
+2026-04-28 23:33:09,561 - app.main - INFO -   {'POST'} /api/v1/categories/
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/categories/
+2026-04-28 23:33:09,561 - app.main - INFO -   {'GET'} /api/v1/categories/{category_id}
+2026-04-28 23:33:09,561 - app.main - INFO -   {'PUT'} /api/v1/categories/{category_id}
+2026-04-28 23:33:09,561 - app.main - INFO -   {'DELETE'} /api/v1/categories/{category_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'POST'} /api/v1/product-variants/
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/product-variants/product/{product_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'PUT'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'DELETE'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/nearby
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/province/{province_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/{location_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'POST'} /api/v1/locations/
+2026-04-28 23:33:09,563 - app.main - INFO -   {'PUT'} /api/v1/locations/{location_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'DELETE'} /api/v1/locations/{location_id}
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/all
+2026-04-28 23:33:09,563 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'POST'} /api/v1/locations/provinces
+2026-04-28 23:33:09,564 - app.main - INFO -   {'PUT'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'DELETE'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}/statistics
+2026-04-28 23:33:09,564 - app.main - INFO -   {'POST'} /api/v1/favorites/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'DELETE'} /api/v1/favorites/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/favorites/check/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/favorites/my-favorites
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/favorites/count/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'POST'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/user-review
+2026-04-28 23:33:09,564 - app.main - INFO -   {'GET'} /api/v1/reviews/my-reviews
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/reviews/{review_id}
+2026-04-28 23:33:09,565 - app.main - INFO -   {'PUT'} /api/v1/reviews/{review_id}
+2026-04-28 23:33:09,565 - app.main - INFO -   {'DELETE'} /api/v1/reviews/{review_id}
+2026-04-28 23:33:09,565 - app.main - INFO -   {'POST'} /api/v1/reviews/{review_id}/helpful
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/stats
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/cart/
+2026-04-28 23:33:09,565 - app.main - INFO -   {'POST'} /api/v1/cart/add
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/cart/count
+2026-04-28 23:33:09,565 - app.main - INFO -   {'DELETE'} /api/v1/cart/remove
+2026-04-28 23:33:09,565 - app.main - INFO -   {'POST'} /api/v1/orders/
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/orders/my
+2026-04-28 23:33:09,565 - app.main - INFO -   {'GET'} /api/v1/orders/stats
+2026-04-28 23:33:09,566 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}
+2026-04-28 23:33:09,566 - app.main - INFO -   {'PUT'} /api/v1/orders/{order_id}/status
+2026-04-28 23:33:09,566 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/cancel
+2026-04-28 23:33:09,566 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/resend-email
+2026-04-28 23:33:09,566 - app.main - INFO -   {'GET'} /api/v1/orders/export/my
+2026-04-28 23:33:09,566 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}/payment-status
+2026-04-28 23:33:09,566 - app.main - INFO -   {'POST'} /api/v1/payments/create
+2026-04-28 23:33:09,566 - app.main - INFO -   {'POST'} /api/v1/payments/momo/ipn
+2026-04-28 23:33:09,566 - app.main - INFO -   {'GET'} /api/v1/payments/vnpay/return
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/payments/{payment_id}
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/payments/instructions/{order_id}
+2026-04-28 23:33:09,567 - app.main - INFO -   {'POST'} /api/v1/payments/bank-transfer/webhook
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/payments/generate-qr/{order_id}
+2026-04-28 23:33:09,567 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/webhook
+2026-04-28 23:33:09,567 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/test
+2026-04-28 23:33:09,567 - app.main - INFO -   {'POST'} /api/v1/addresses/
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/addresses/
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/addresses/default
+2026-04-28 23:33:09,567 - app.main - INFO -   {'GET'} /api/v1/addresses/{address_id}
+2026-04-28 23:33:09,567 - app.main - INFO -   {'PUT'} /api/v1/addresses/{address_id}
+2026-04-28 23:33:09,567 - app.main - INFO -   {'DELETE'} /api/v1/addresses/{address_id}
+2026-04-28 23:33:09,568 - app.main - INFO -   {'POST'} /api/v1/addresses/{address_id}/set-default
+2026-04-28 23:33:09,568 - app.main - INFO -   {'GET'} /api/v1/addresses/me/default-address
+2026-04-28 23:33:09,568 - app.main - INFO -   {'POST'} /api/v1/product-reviews/
+2026-04-28 23:33:09,568 - app.main - INFO -   {'GET'} /api/v1/product-reviews/{product_id}
+2026-04-28 23:33:09,568 - app.main - INFO -   {'PUT'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:33:09,568 - app.main - INFO -   {'DELETE'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:33:09,568 - app.main - INFO -   {'POST'} /api/v1/shop-reviews/
+2026-04-28 23:33:09,568 - app.main - INFO -   {'GET'} /api/v1/shop-reviews/{shop_id}
+2026-04-28 23:33:09,569 - app.main - INFO -   {'PUT'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:33:09,569 - app.main - INFO -   {'DELETE'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:33:09,569 - app.main - INFO -   {'POST'} /api/v1/vouchers/
+2026-04-28 23:33:09,569 - app.main - INFO -   {'GET'} /api/v1/vouchers/
+2026-04-28 23:33:09,569 - app.main - INFO -   {'POST'} /api/v1/vouchers/save/{voucher_id}
+2026-04-28 23:33:09,569 - app.main - INFO -   {'POST'} /api/v1/vouchers/validate
+2026-04-28 23:33:09,569 - app.main - INFO -   {'POST'} /api/v1/vouchers/{voucher_id}/use
+2026-04-28 23:33:09,569 - app.main - INFO -   {'GET'} /api/v1/vouchers/my-vouchers
+2026-04-28 23:33:09,569 - app.main - INFO -   {'GET'} /api/v1/vouchers/available
+2026-04-28 23:33:09,569 - app.main - INFO -   {'POST'} /api/v1/shipping-units/shop
+2026-04-28 23:33:09,569 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/stats
+2026-04-28 23:33:09,570 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop
+2026-04-28 23:33:09,570 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:33:09,570 - app.main - INFO -   {'PUT'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:33:09,570 - app.main - INFO -   {'PATCH'} /api/v1/shipping-units/shop/{unit_id}/status
+2026-04-28 23:33:09,570 - app.main - INFO -   {'DELETE'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:33:09,570 - app.main - INFO -   {'GET'} /api/v1/shipping-units/available
+2026-04-28 23:33:09,570 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:33:09,570 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:33:09,570 - app.main - INFO -   {'PUT'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:33:09,570 - app.main - INFO -   {'PATCH'} /api/v1/shipping-vouchers/shop/{voucher_id}/status
+2026-04-28 23:33:09,571 - app.main - INFO -   {'DELETE'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop/stats
+2026-04-28 23:33:09,571 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/validate
+2026-04-28 23:33:09,571 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/use/{voucher_id}
+2026-04-28 23:33:09,571 - app.main - INFO -   {'POST'} /api/v1/returns/request
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/returns/my
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/returns/my/{return_id}
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/returns/stats
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/returns/shop
+2026-04-28 23:33:09,571 - app.main - INFO -   {'GET'} /api/v1/returns/shop/{return_id}
+2026-04-28 23:33:09,571 - app.main - INFO -   {'PUT'} /api/v1/returns/shop/{return_id}/process
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/returns/shop/stats
+2026-04-28 23:33:09,572 - app.main - INFO -   {'POST'} /api/v1/returns/upload-image
+2026-04-28 23:33:09,572 - app.main - INFO -   {'POST'} /api/v1/reports/
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/reports/admin/list
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/reports/admin/stats
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:33:09,572 - app.main - INFO -   {'PUT'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:33:09,572 - app.main - INFO -   {'POST'} /api/v1/admin/login
+2026-04-28 23:33:09,572 - app.main - INFO -   {'POST'} /api/v1/admin/logout
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/admin/dashboard
+2026-04-28 23:33:09,572 - app.main - INFO -   {'GET'} /api/v1/admin/post-category
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/new-users
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/new-shops
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/visit-stats
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/interaction-stats
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/unread-count
+2026-04-28 23:33:09,573 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/{notification_id}/read
+2026-04-28 23:33:09,573 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/read-all
+2026-04-28 23:33:09,573 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/{notification_id}
+2026-04-28 23:33:09,573 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/
+2026-04-28 23:33:09,573 - app.main - INFO -   {'GET'} /api/v1/admin/posts/
+2026-04-28 23:33:09,574 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}/status
+2026-04-28 23:33:09,574 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:33:09,574 - app.main - INFO -   {'DELETE'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:33:09,574 - app.main - INFO -   {'GET'} /api/v1/admin/shops/
+2026-04-28 23:33:09,574 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:33:09,574 - app.main - INFO -   {'DELETE'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:33:09,574 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}/status
+2026-04-28 23:33:09,574 - app.main - INFO -   {'GET'} /api/v1/admin/profile/
+2026-04-28 23:33:09,574 - app.main - INFO -   {'GET'} /api/v1/admin/profile/stats
+2026-04-28 23:33:09,574 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/
+2026-04-28 23:33:09,574 - app.main - INFO -   {'POST'} /api/v1/admin/profile/avatar
+2026-04-28 23:33:09,575 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/password
+2026-04-28 23:33:09,575 - app.main - INFO -   {'GET'} /api/v1/admin/settings/
+2026-04-28 23:33:09,575 - app.main - INFO -   {'PUT'} /api/v1/admin/settings/
+2026-04-28 23:33:09,575 - app.main - INFO -   {'GET'} /api/v1/notifications/
+2026-04-28 23:33:09,575 - app.main - INFO -   {'GET'} /api/v1/notifications/unread-count
+2026-04-28 23:33:09,575 - app.main - INFO -   {'PUT'} /api/v1/notifications/{notification_id}/read
+2026-04-28 23:33:09,575 - app.main - INFO -   {'PUT'} /api/v1/notifications/read-all
+2026-04-28 23:33:09,575 - app.main - INFO -   {'DELETE'} /api/v1/notifications/{notification_id}
+2026-04-28 23:33:09,575 - app.main - INFO -   {'DELETE'} /api/v1/notifications/
+2026-04-28 23:33:09,575 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/stats
+2026-04-28 23:33:09,575 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/recent-activities
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/chart-data
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/orders/
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/orders/stats
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}
+2026-04-28 23:33:09,576 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/status
+2026-04-28 23:33:09,576 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/payment-status
+2026-04-28 23:33:09,576 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/assign-shipping
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}/tracking
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/returns/
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/returns/stats
+2026-04-28 23:33:09,576 - app.main - INFO -   {'GET'} /api/v1/shop/returns/{return_id}
+2026-04-28 23:33:09,576 - app.main - INFO -   {'PUT'} /api/v1/shop/returns/{return_id}/status
+2026-04-28 23:33:09,577 - app.main - INFO -   {'GET'} /api/v1/shop/settings/
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/general
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/notifications
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/shipping
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/security
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/invoice
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/social
+2026-04-28 23:33:09,577 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/seo
+2026-04-28 23:33:09,577 - app.main - INFO -   {'GET'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:33:09,577 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:33:09,578 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:33:09,578 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:33:09,578 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/settings/public/{shop_id}
+2026-04-28 23:33:09,578 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:33:09,578 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/save-qr-url
+2026-04-28 23:33:09,578 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/delete-qr/{account_id}
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/overview
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/revenue
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/orders/daily
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/reviews
+2026-04-28 23:33:09,578 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/recent-reviews
+2026-04-28 23:33:09,579 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/debug/shop-reviews
+2026-04-28 23:33:09,579 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/export
+2026-04-28 23:33:09,579 - app.main - INFO -   {'GET'} /api/v1/shop/vouchers/
+2026-04-28 23:33:09,579 - app.main - INFO -   {'POST'} /api/v1/shop/vouchers/
+2026-04-28 23:33:09,579 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:33:09,579 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}/status
+2026-04-28 23:33:09,579 - app.main - INFO -   {'DELETE'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:33:09,579 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:33:09,579 - app.main - INFO -   {'GET'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:33:09,579 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}/events
+2026-04-28 23:33:09,579 - app.main - INFO -   {'PUT'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:33:09,579 - app.main - INFO -   {'DELETE'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:33:09,580 - app.main - INFO -   {'POST'} /api/v1/upload/image
+2026-04-28 23:33:09,581 - app.main - INFO -  Starting server...
+2026-04-28 23:33:09,581 - app.db.mongodb - WARNING -  SSL verification disabled for development
+2026-04-28 23:33:11,427 - app.db.mongodb - INFO -  MongoDB indexes created successfully
+2026-04-28 23:33:11,427 - app.db.mongodb - INFO -  MongoDB connected successfully to database: datn_db
+2026-04-28 23:33:11,428 - app.db.mongodb - INFO -    Connection pool: min=10, max=100
+2026-04-28 23:33:11,428 - app.main - INFO -  MongoDB connected successfully
+2026-04-28 23:33:11,563 - app.main - INFO -  MongoDB health: {'status': 'connected', 'latency_ms': 63.0, 'connections': {'current': 15, 'available': 485}, 'database': 'datn_db', 'pool_size': {'min': 10, 'max': 100}}
+2026-04-28 23:33:11,563 - app.main - INFO -  SePay API URL: https://my.sepay.vn/api/v1
+2026-04-28 23:33:11,564 - app.main - INFO -  SePay API Key: ***DKB8NIPH
+2026-04-28 23:33:11,564 - app.main - INFO -  Cleanup task started
+2026-04-28 23:34:57,783 - app.main - INFO -  Shutting down server...
+2026-04-28 23:35:00,728 - app.main - INFO - Server initialized for asgi.
+2026-04-28 23:35:01,069 - app.main - INFO -  Registered routes:
+2026-04-28 23:35:01,069 - app.main - INFO -   {'GET', 'HEAD'} /openapi.json
+2026-04-28 23:35:01,070 - app.main - INFO -   {'GET', 'HEAD'} /docs
+2026-04-28 23:35:01,070 - app.main - INFO -   {'GET', 'HEAD'} /docs/oauth2-redirect
+2026-04-28 23:35:01,070 - app.main - INFO -   {'GET', 'HEAD'} /redoc
+2026-04-28 23:35:01,070 - app.main - INFO -   {'POST'} /api/v1/users/
+2026-04-28 23:35:01,070 - app.main - INFO -   {'GET'} /api/v1/users/
+2026-04-28 23:35:01,070 - app.main - INFO -   {'PUT'} /api/v1/users/{user_id}
+2026-04-28 23:35:01,070 - app.main - INFO -   {'DELETE'} /api/v1/users/{user_id}
+2026-04-28 23:35:01,070 - app.main - INFO -   {'GET'} /api/v1/users/{user_id}
+2026-04-28 23:35:01,071 - app.main - INFO -   {'POST'} /api/v1/auth/login
+2026-04-28 23:35:01,071 - app.main - INFO -   {'GET'} /api/v1/auth/me
+2026-04-28 23:35:01,071 - app.main - INFO -   {'PUT'} /api/v1/auth/update-profile
+2026-04-28 23:35:01,071 - app.main - INFO -   {'POST'} /api/v1/password/verify-otp
+2026-04-28 23:35:01,071 - app.main - INFO -   {'POST'} /api/v1/password/forgot-password
+2026-04-28 23:35:01,071 - app.main - INFO -   {'POST'} /api/v1/password/reset-password
+2026-04-28 23:35:01,071 - app.main - INFO -   {'GET'} /api/v1/posts/search
+2026-04-28 23:35:01,071 - app.main - INFO -   {'GET'} /api/v1/posts/feed
+2026-04-28 23:35:01,071 - app.main - INFO -   {'GET'} /api/v1/posts/{post_id}
+2026-04-28 23:35:01,071 - app.main - INFO -   {'POST'} /api/v1/posts/
+2026-04-28 23:35:01,072 - app.main - INFO -   {'PUT'} /api/v1/posts/{post_id}
+2026-04-28 23:35:01,072 - app.main - INFO -   {'DELETE'} /api/v1/posts/{post_id}
+2026-04-28 23:35:01,072 - app.main - INFO -   {'DELETE'} /api/v1/posts/admin/{post_id}/permanent
+2026-04-28 23:35:01,072 - app.main - INFO -   {'GET'} /api/v1/posts/user/{user_id}
+2026-04-28 23:35:01,072 - app.main - INFO -   {'POST'} /api/v1/comments/
+2026-04-28 23:35:01,072 - app.main - INFO -   {'GET'} /api/v1/comments/{post_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'PUT'} /api/v1/comments/{comment_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'DELETE'} /api/v1/comments/{comment_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'POST'} /api/v1/likes/{post_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/likes/{post_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/likes/check/{post_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'POST'} /api/v1/follows/{user_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/followers
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/following
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/follows/{user_id}/stats
+2026-04-28 23:35:01,073 - app.main - INFO -   {'GET'} /api/v1/follows/check/{user_id}
+2026-04-28 23:35:01,073 - app.main - INFO -   {'POST'} /api/v1/friends/request
+2026-04-28 23:35:01,073 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/accept
+2026-04-28 23:35:01,073 - app.main - INFO -   {'PUT'} /api/v1/friends/request/{request_id}/reject
+2026-04-28 23:35:01,074 - app.main - INFO -   {'GET'} /api/v1/friends/list
+2026-04-28 23:35:01,074 - app.main - INFO -   {'GET'} /api/v1/friends/requests/pending
+2026-04-28 23:35:01,074 - app.main - INFO -   {'GET'} /api/v1/friends/check/{user_id}
+2026-04-28 23:35:01,074 - app.main - INFO -   {'POST'} /api/v1/friends/block/{user_id}
+2026-04-28 23:35:01,074 - app.main - INFO -   {'DELETE'} /api/v1/friends/{friend_id}
+2026-04-28 23:35:01,074 - app.main - INFO -   {'POST'} /api/v1/saves/
+2026-04-28 23:35:01,074 - app.main - INFO -   {'DELETE'} /api/v1/saves/{post_id}
+2026-04-28 23:35:01,074 - app.main - INFO -   {'GET'} /api/v1/saves/check/{post_id}
+2026-04-28 23:35:01,074 - app.main - INFO -   {'GET'} /api/v1/saves/my-posts
+2026-04-28 23:35:01,075 - app.main - INFO -   {'GET'} /api/v1/saves/count/{post_id}
+2026-04-28 23:35:01,075 - app.main - INFO -   {'POST'} /api/v1/shares/{post_id}
+2026-04-28 23:35:01,075 - app.main - INFO -   {'GET'} /api/v1/shares/{post_id}
+2026-04-28 23:35:01,075 - app.main - INFO -   {'POST'} /api/v1/chat/send
+2026-04-28 23:35:01,075 - app.main - INFO -   {'GET'} /api/v1/chat/conversation/{friend_id}
+2026-04-28 23:35:01,075 - app.main - INFO -   {'GET'} /api/v1/chat/recent
+2026-04-28 23:35:01,075 - app.main - INFO -   {'GET'} /api/v1/chat/unread-count
+2026-04-28 23:35:01,075 - app.main - INFO -   {'PUT'} /api/v1/chat/mark-as-read/{sender_id}
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/info
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/stats
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/
+2026-04-28 23:35:01,076 - app.main - INFO -   {'POST'} /api/v1/shops/
+2026-04-28 23:35:01,076 - app.main - INFO -   {'POST'} /api/v1/shops/with-owner
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/nearby
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/products
+2026-04-28 23:35:01,076 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:35:01,076 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/reviews
+2026-04-28 23:35:01,078 - app.main - INFO -   {'POST'} /api/v1/shops/{shop_id}/follow
+2026-04-28 23:35:01,078 - app.main - INFO -   {'PUT'} /api/v1/shops/{shop_id}
+2026-04-28 23:35:01,078 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/dashboard
+2026-04-28 23:35:01,078 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/follow-status
+2026-04-28 23:35:01,078 - app.main - INFO -   {'GET'} /api/v1/shops/{shop_id}/payment-info
+2026-04-28 23:35:01,078 - app.main - INFO -   {'POST'} /api/v1/shop/auth/login
+2026-04-28 23:35:01,078 - app.main - INFO -   {'POST'} /api/v1/shop/auth/logout
+2026-04-28 23:35:01,078 - app.main - INFO -   {'POST'} /api/v1/shop/auth/refresh-token
+2026-04-28 23:35:01,078 - app.main - INFO -   {'GET'} /api/v1/shop/profile/
+2026-04-28 23:35:01,079 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/shop
+2026-04-28 23:35:01,079 - app.main - INFO -   {'PUT'} /api/v1/shop/profile/owner
+2026-04-28 23:35:01,079 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-avatar
+2026-04-28 23:35:01,079 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-logo
+2026-04-28 23:35:01,079 - app.main - INFO -   {'POST'} /api/v1/shop/profile/upload-banner
+2026-04-28 23:35:01,079 - app.main - INFO -   {'POST'} /api/v1/shop/profile/change-password
+2026-04-28 23:35:01,079 - app.main - INFO -   {'GET'} /api/v1/shop/customers/
+2026-04-28 23:35:01,079 - app.main - INFO -   {'GET'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:35:01,079 - app.main - INFO -   {'PUT'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:35:01,079 - app.main - INFO -   {'DELETE'} /api/v1/shop/customers/{customer_id}
+2026-04-28 23:35:01,080 - app.main - INFO -   {'GET'} /api/v1/shop/customers/export/excel
+2026-04-28 23:35:01,080 - app.main - INFO -   {'GET'} /api/v1/shop/products/
+2026-04-28 23:35:01,080 - app.main - INFO -   {'POST'} /api/v1/shop/products/
+2026-04-28 23:35:01,080 - app.main - INFO -   {'GET'} /api/v1/shop/products/{product_id}
+2026-04-28 23:35:01,080 - app.main - INFO -   {'PUT'} /api/v1/shop/products/{product_id}
+2026-04-28 23:35:01,080 - app.main - INFO -   {'DELETE'} /api/v1/shop/products/{product_id}
+2026-04-28 23:35:01,080 - app.main - INFO -   {'POST'} /api/v1/shop/products/{product_id}/upload-image
+2026-04-28 23:35:01,080 - app.main - INFO -   {'GET'} /api/v1/shop/products/stats/overview
+2026-04-28 23:35:01,080 - app.main - INFO -   {'POST'} /api/v1/products/
+2026-04-28 23:35:01,080 - app.main - INFO -   {'GET'} /api/v1/products/hot
+2026-04-28 23:35:01,081 - app.main - INFO -   {'GET'} /api/v1/products/
+2026-04-28 23:35:01,081 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}
+2026-04-28 23:35:01,081 - app.main - INFO -   {'PUT'} /api/v1/products/{product_id}
+2026-04-28 23:35:01,081 - app.main - INFO -   {'DELETE'} /api/v1/products/{product_id}
+2026-04-28 23:35:01,081 - app.main - INFO -   {'GET'} /api/v1/products/{product_id}/trace
+2026-04-28 23:35:01,081 - app.main - INFO -   {'POST'} /api/v1/categories/
+2026-04-28 23:35:01,081 - app.main - INFO -   {'GET'} /api/v1/categories/
+2026-04-28 23:35:01,081 - app.main - INFO -   {'GET'} /api/v1/categories/{category_id}
+2026-04-28 23:35:01,081 - app.main - INFO -   {'PUT'} /api/v1/categories/{category_id}
+2026-04-28 23:35:01,082 - app.main - INFO -   {'DELETE'} /api/v1/categories/{category_id}
+2026-04-28 23:35:01,082 - app.main - INFO -   {'POST'} /api/v1/product-variants/
+2026-04-28 23:35:01,082 - app.main - INFO -   {'GET'} /api/v1/product-variants/product/{product_id}
+2026-04-28 23:35:01,082 - app.main - INFO -   {'GET'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:35:01,082 - app.main - INFO -   {'PUT'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'DELETE'} /api/v1/product-variants/{variant_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/nearby
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/province/{province_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/{location_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'POST'} /api/v1/locations/
+2026-04-28 23:35:01,083 - app.main - INFO -   {'PUT'} /api/v1/locations/{location_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'DELETE'} /api/v1/locations/{location_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/all
+2026-04-28 23:35:01,083 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:35:01,083 - app.main - INFO -   {'POST'} /api/v1/locations/provinces
+2026-04-28 23:35:01,084 - app.main - INFO -   {'PUT'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'DELETE'} /api/v1/locations/provinces/{province_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/locations/provinces/{province_id}/statistics
+2026-04-28 23:35:01,084 - app.main - INFO -   {'POST'} /api/v1/favorites/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'DELETE'} /api/v1/favorites/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/favorites/check/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/favorites/my-favorites
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/favorites/count/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'POST'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/user-review
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/reviews/my-reviews
+2026-04-28 23:35:01,084 - app.main - INFO -   {'GET'} /api/v1/reviews/{review_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'PUT'} /api/v1/reviews/{review_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'DELETE'} /api/v1/reviews/{review_id}
+2026-04-28 23:35:01,084 - app.main - INFO -   {'POST'} /api/v1/reviews/{review_id}/helpful
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/reviews/product/{product_id}/stats
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/cart/
+2026-04-28 23:35:01,086 - app.main - INFO -   {'POST'} /api/v1/cart/add
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/cart/count
+2026-04-28 23:35:01,086 - app.main - INFO -   {'DELETE'} /api/v1/cart/remove
+2026-04-28 23:35:01,086 - app.main - INFO -   {'POST'} /api/v1/orders/
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/orders/my
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/orders/stats
+2026-04-28 23:35:01,086 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}
+2026-04-28 23:35:01,086 - app.main - INFO -   {'PUT'} /api/v1/orders/{order_id}/status
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/cancel
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/orders/{order_id}/resend-email
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/orders/export/my
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/orders/{order_id}/payment-status
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/payments/create
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/payments/momo/ipn
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/payments/vnpay/return
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/payments/{payment_id}
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/payments/instructions/{order_id}
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/payments/bank-transfer/webhook
+2026-04-28 23:35:01,087 - app.main - INFO -   {'GET'} /api/v1/payments/generate-qr/{order_id}
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/webhook
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/payments/sepay/test
+2026-04-28 23:35:01,087 - app.main - INFO -   {'POST'} /api/v1/addresses/
+2026-04-28 23:35:01,088 - app.main - INFO -   {'GET'} /api/v1/addresses/
+2026-04-28 23:35:01,088 - app.main - INFO -   {'GET'} /api/v1/addresses/default
+2026-04-28 23:35:01,088 - app.main - INFO -   {'GET'} /api/v1/addresses/{address_id}
+2026-04-28 23:35:01,088 - app.main - INFO -   {'PUT'} /api/v1/addresses/{address_id}
+2026-04-28 23:35:01,088 - app.main - INFO -   {'DELETE'} /api/v1/addresses/{address_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'POST'} /api/v1/addresses/{address_id}/set-default
+2026-04-28 23:35:01,089 - app.main - INFO -   {'GET'} /api/v1/addresses/me/default-address
+2026-04-28 23:35:01,089 - app.main - INFO -   {'POST'} /api/v1/product-reviews/
+2026-04-28 23:35:01,089 - app.main - INFO -   {'GET'} /api/v1/product-reviews/{product_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'PUT'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'DELETE'} /api/v1/product-reviews/{review_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'POST'} /api/v1/shop-reviews/
+2026-04-28 23:35:01,089 - app.main - INFO -   {'GET'} /api/v1/shop-reviews/{shop_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'PUT'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'DELETE'} /api/v1/shop-reviews/{review_shop_id}
+2026-04-28 23:35:01,089 - app.main - INFO -   {'POST'} /api/v1/vouchers/
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/vouchers/
+2026-04-28 23:35:01,090 - app.main - INFO -   {'POST'} /api/v1/vouchers/save/{voucher_id}
+2026-04-28 23:35:01,090 - app.main - INFO -   {'POST'} /api/v1/vouchers/validate
+2026-04-28 23:35:01,090 - app.main - INFO -   {'POST'} /api/v1/vouchers/{voucher_id}/use
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/vouchers/my-vouchers
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/vouchers/available
+2026-04-28 23:35:01,090 - app.main - INFO -   {'POST'} /api/v1/shipping-units/shop
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/stats
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop
+2026-04-28 23:35:01,090 - app.main - INFO -   {'GET'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:35:01,091 - app.main - INFO -   {'PUT'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:35:01,091 - app.main - INFO -   {'PATCH'} /api/v1/shipping-units/shop/{unit_id}/status
+2026-04-28 23:35:01,091 - app.main - INFO -   {'DELETE'} /api/v1/shipping-units/shop/{unit_id}
+2026-04-28 23:35:01,091 - app.main - INFO -   {'GET'} /api/v1/shipping-units/available
+2026-04-28 23:35:01,091 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:35:01,091 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/shop
+2026-04-28 23:35:01,091 - app.main - INFO -   {'PUT'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:35:01,091 - app.main - INFO -   {'PATCH'} /api/v1/shipping-vouchers/shop/{voucher_id}/status
+2026-04-28 23:35:01,091 - app.main - INFO -   {'DELETE'} /api/v1/shipping-vouchers/shop/{voucher_id}
+2026-04-28 23:35:01,091 - app.main - INFO -   {'GET'} /api/v1/shipping-vouchers/shop/stats
+2026-04-28 23:35:01,091 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/validate
+2026-04-28 23:35:01,092 - app.main - INFO -   {'POST'} /api/v1/shipping-vouchers/use/{voucher_id}
+2026-04-28 23:35:01,092 - app.main - INFO -   {'POST'} /api/v1/returns/request
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/my
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/my/{return_id}
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/stats
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/shop
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/shop/{return_id}
+2026-04-28 23:35:01,092 - app.main - INFO -   {'PUT'} /api/v1/returns/shop/{return_id}/process
+2026-04-28 23:35:01,092 - app.main - INFO -   {'GET'} /api/v1/returns/shop/stats
+2026-04-28 23:35:01,092 - app.main - INFO -   {'POST'} /api/v1/returns/upload-image
+2026-04-28 23:35:01,092 - app.main - INFO -   {'POST'} /api/v1/reports/
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/reports/admin/list
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/reports/admin/stats
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:35:01,093 - app.main - INFO -   {'PUT'} /api/v1/reports/admin/{report_id}
+2026-04-28 23:35:01,093 - app.main - INFO -   {'POST'} /api/v1/admin/login
+2026-04-28 23:35:01,093 - app.main - INFO -   {'POST'} /api/v1/admin/logout
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/dashboard
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/post-category
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/new-users
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/new-shops
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/visit-stats
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/interaction-stats
+2026-04-28 23:35:01,093 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/
+2026-04-28 23:35:01,094 - app.main - INFO -   {'GET'} /api/v1/admin/notifications/unread-count
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/{notification_id}/read
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/notifications/read-all
+2026-04-28 23:35:01,094 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/{notification_id}
+2026-04-28 23:35:01,094 - app.main - INFO -   {'DELETE'} /api/v1/admin/notifications/
+2026-04-28 23:35:01,094 - app.main - INFO -   {'GET'} /api/v1/admin/posts/
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}/status
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:35:01,094 - app.main - INFO -   {'DELETE'} /api/v1/admin/posts/{post_id}
+2026-04-28 23:35:01,094 - app.main - INFO -   {'GET'} /api/v1/admin/shops/
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:35:01,094 - app.main - INFO -   {'DELETE'} /api/v1/admin/shops/{shop_id}
+2026-04-28 23:35:01,094 - app.main - INFO -   {'PUT'} /api/v1/admin/shops/{shop_id}/status
+2026-04-28 23:35:01,094 - app.main - INFO -   {'GET'} /api/v1/admin/profile/
+2026-04-28 23:35:01,094 - app.main - INFO -   {'GET'} /api/v1/admin/profile/stats
+2026-04-28 23:35:01,096 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/
+2026-04-28 23:35:01,096 - app.main - INFO -   {'POST'} /api/v1/admin/profile/avatar
+2026-04-28 23:35:01,096 - app.main - INFO -   {'PUT'} /api/v1/admin/profile/password
+2026-04-28 23:35:01,096 - app.main - INFO -   {'GET'} /api/v1/admin/settings/
+2026-04-28 23:35:01,096 - app.main - INFO -   {'PUT'} /api/v1/admin/settings/
+2026-04-28 23:35:01,096 - app.main - INFO -   {'GET'} /api/v1/notifications/
+2026-04-28 23:35:01,096 - app.main - INFO -   {'GET'} /api/v1/notifications/unread-count
+2026-04-28 23:35:01,096 - app.main - INFO -   {'PUT'} /api/v1/notifications/{notification_id}/read
+2026-04-28 23:35:01,097 - app.main - INFO -   {'PUT'} /api/v1/notifications/read-all
+2026-04-28 23:35:01,097 - app.main - INFO -   {'DELETE'} /api/v1/notifications/{notification_id}
+2026-04-28 23:35:01,097 - app.main - INFO -   {'DELETE'} /api/v1/notifications/
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/stats
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/recent-activities
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/dashboard/chart-data
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/orders/
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/orders/stats
+2026-04-28 23:35:01,097 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}
+2026-04-28 23:35:01,097 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/status
+2026-04-28 23:35:01,097 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/payment-status
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/orders/{order_id}/assign-shipping
+2026-04-28 23:35:01,098 - app.main - INFO -   {'GET'} /api/v1/shop/orders/{order_id}/tracking
+2026-04-28 23:35:01,098 - app.main - INFO -   {'GET'} /api/v1/shop/returns/
+2026-04-28 23:35:01,098 - app.main - INFO -   {'GET'} /api/v1/shop/returns/stats
+2026-04-28 23:35:01,098 - app.main - INFO -   {'GET'} /api/v1/shop/returns/{return_id}
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/returns/{return_id}/status
+2026-04-28 23:35:01,098 - app.main - INFO -   {'GET'} /api/v1/shop/settings/
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/general
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/notifications
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment
+2026-04-28 23:35:01,098 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/shipping
+2026-04-28 23:35:01,099 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/security
+2026-04-28 23:35:01,099 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/invoice
+2026-04-28 23:35:01,099 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/social
+2026-04-28 23:35:01,099 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/seo
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:35:01,099 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/bank-accounts
+2026-04-28 23:35:01,099 - app.main - INFO -   {'PUT'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:35:01,099 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/bank-accounts/{account_id}
+2026-04-28 23:35:01,099 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/settings/public/{shop_id}
+2026-04-28 23:35:01,099 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/upload-qr
+2026-04-28 23:35:01,099 - app.main - INFO -   {'POST'} /api/v1/shop/settings/payment/save-qr-url
+2026-04-28 23:35:01,099 - app.main - INFO -   {'DELETE'} /api/v1/shop/settings/payment/delete-qr/{account_id}
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/overview
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/revenue
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/orders/daily
+2026-04-28 23:35:01,099 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/reviews
+2026-04-28 23:35:01,101 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/recent-reviews
+2026-04-28 23:35:01,101 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/debug/shop-reviews
+2026-04-28 23:35:01,101 - app.main - INFO -   {'GET'} /api/v1/shop/statistics/export
+2026-04-28 23:35:01,101 - app.main - INFO -   {'GET'} /api/v1/shop/vouchers/
+2026-04-28 23:35:01,101 - app.main - INFO -   {'POST'} /api/v1/shop/vouchers/
+2026-04-28 23:35:01,101 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:35:01,101 - app.main - INFO -   {'PUT'} /api/v1/shop/vouchers/{voucher_id}/status
+2026-04-28 23:35:01,101 - app.main - INFO -   {'DELETE'} /api/v1/shop/vouchers/{voucher_id}
+2026-04-28 23:35:01,101 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:35:01,101 - app.main - INFO -   {'GET'} /api/v1/traceability/products/{product_id}
+2026-04-28 23:35:01,101 - app.main - INFO -   {'POST'} /api/v1/traceability/products/{product_id}/events
+2026-04-28 23:35:01,102 - app.main - INFO -   {'PUT'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:35:01,102 - app.main - INFO -   {'DELETE'} /api/v1/traceability/products/{product_id}/events/{event_index}
+2026-04-28 23:35:01,102 - app.main - INFO -   {'POST'} /api/v1/upload/image
+2026-04-28 23:35:01,103 - app.main - INFO -  Starting server...
+2026-04-28 23:35:01,104 - app.db.mongodb - WARNING -  SSL verification disabled for development
+2026-04-28 23:35:02,970 - app.db.mongodb - INFO -  MongoDB indexes created successfully
+2026-04-28 23:35:02,970 - app.db.mongodb - INFO -  MongoDB connected successfully to database: datn_db
+2026-04-28 23:35:02,970 - app.db.mongodb - INFO -    Connection pool: min=10, max=100
+2026-04-28 23:35:02,971 - app.main - INFO -  MongoDB connected successfully
+2026-04-28 23:35:03,107 - app.main - INFO -  MongoDB health: {'status': 'connected', 'latency_ms': 63.0, 'connections': {'current': 16, 'available': 484}, 'database': 'datn_db', 'pool_size': {'min': 10, 'max': 100}}
+2026-04-28 23:35:03,107 - app.main - INFO -  Cleanup task started
+2026-04-28 23:35:10,605 - app.main - INFO -  Shutting down server...

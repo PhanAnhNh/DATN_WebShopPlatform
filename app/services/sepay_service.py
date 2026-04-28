@@ -1,4 +1,5 @@
 # app/services/sepay_service.py
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 import hashlib
@@ -16,69 +17,84 @@ class SePayService:
         self.payment_collection = db["payments"]
     
     async def process_webhook(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Xử lý webhook từ SePay
-        
-        SePay gửi data dạng:
-        {
-            "id": 123456,
-            "gateway": "vietinbank",
-            "transaction_date": "2024-01-15 10:00:00",
-            "account_number": "123456789",
-            "account_name": "NGUYEN VAN A",
-            "amount_in": 100000,
-            "amount_out": 0,
-            "accumulated": 100000,
-            "code": "sepay_gateway",
-            "sub_account": "123456",
-            "reference_code": "REF123",
-            "description": "ORD123456",
-            "transaction_type": "in"
-        }
-        """
+        """Xử lý webhook từ SePay"""
         try:
-            # 1. Extract nội dung chuyển khoản = order_code
+            logger.info(f"Processing SePay webhook: {json.dumps(data, indent=2, ensure_ascii=False)}")
+            
+            # Lấy thông tin từ webhook
             description = data.get("description", "").strip()
             amount = float(data.get("amount_in", 0))
             transaction_id = str(data.get("id", ""))
             
-            if amount <= 0:
-                logger.warning(f"Invalid amount: {amount}")
-                return {"status": "error", "message": "Invalid amount"}
+            # Loại bỏ prefix SEVQR để lấy order_code
+            import re
+            clean_desc = re.sub(r'^SEVQR\s+', '', description, flags=re.IGNORECASE).strip()
+            order_code = clean_desc.upper()
             
-            # 2. Tìm order theo order_code (8 ký tự cuối của _id)
-            order = await self._find_order_by_code(description)
+            logger.info(f"Extracted order_code: {order_code} from description: {description}")
+            
+            # Tìm order
+            order = await self.order_collection.find_one({
+                "order_code": order_code,
+                "payment_status": {"$ne": "paid"}
+            })
             
             if not order:
-                logger.warning(f"Order not found for code: {description}")
+                # Thử tìm theo _id
+                try:
+                    if len(order_code) == 24:
+                        order = await self.order_collection.find_one({
+                            "_id": ObjectId(order_code),
+                            "payment_status": {"$ne": "paid"}
+                        })
+                except:
+                    pass
+            
+            if not order:
+                logger.warning(f"Order not found for code: {order_code}")
                 return {"status": "error", "message": "Order not found"}
             
-            # 3. Kiểm tra trạng thái (tránh xử lý trùng)
-            if order.get("payment_status") == "paid":
-                logger.info(f"Order {description} already paid, skipping")
-                return {"status": "success", "message": "Already processed"}
-            
-            # 4. Kiểm tra số tiền
+            # Kiểm tra số tiền
             order_amount = order.get("total_amount", 0)
             if amount < order_amount:
                 logger.warning(f"Amount mismatch: {amount} < {order_amount}")
-                # Ghi nhận payment pending với số tiền thiếu
-                await self._record_pending_payment(order, transaction_id, amount, data)
-                return {"status": "error", "message": f"Insufficient amount. Need: {order_amount}, Got: {amount}"}
+                return {"status": "error", "message": f"Insufficient amount"}
             
-            # 5. Xử lý thanh toán thành công
-            await self._process_successful_payment(order, transaction_id, amount, data)
+            # Cập nhật thanh toán
+            await self.order_collection.update_one(
+                {"_id": order["_id"]},
+                {
+                    "$set": {
+                        "payment_status": "paid",
+                        "status": "paid",
+                        "paid_at": datetime.utcnow(),
+                        "transaction_id": transaction_id,
+                        "webhook_data": data
+                    }
+                }
+            )
             
-            # 6. Chạy các task nền
-            await self._trigger_background_tasks(order, description, amount)
+            # Tạo notification
+            from app.services.notification_service import NotificationService
+            noti_service = NotificationService(self.db)
+            await noti_service.create_notification(
+                user_id=str(order["user_id"]),
+                type="payment",
+                title="Thanh toán thành công",
+                message=f"Đơn hàng #{order_code} đã thanh toán {amount:,.0f}đ thành công",
+                reference_id=str(order["_id"])
+            )
             
-            logger.info(f"✅ Payment processed successfully for order {description}")
+            logger.info(f"Payment processed for order {order_code}")
+            
             return {"status": "success", "message": "Order paid successfully"}
             
         except Exception as e:
             logger.error(f"Error processing webhook: {e}")
+            import traceback
+            traceback.print_exc()
             return {"status": "error", "message": str(e)}
-    
+
     async def _find_order_by_code(self, description: str) -> Optional[Dict]:
         """
         Tìm order theo nội dung chuyển khoản

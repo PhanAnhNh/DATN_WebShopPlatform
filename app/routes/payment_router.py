@@ -198,6 +198,18 @@ async def sepay_webhook(
     
 # app/routes/payment_router.py - Thêm endpoint
 
+@router.get("/sepay/webhook")
+async def sepay_webhook_get():
+    """GET endpoint để kiểm tra webhook URL"""
+    return {
+        "status": "ok",
+        "message": "Webhook endpoint is working",
+        "expected_format": {
+            "id": "transaction_id",
+            "description": "SEVQR_ORDER_CODE",
+            "amount_in": 50000
+        }
+    }
 @router.post("/sepay/test")
 async def test_sepay_webhook(
     request: Request,

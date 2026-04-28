@@ -85,7 +85,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-sepay_poller = None
+sepay_poller = None 
 
 API_PREFIX = settings.API_V1_STR
 
@@ -103,7 +103,7 @@ sio = socketio.AsyncServer(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Quản lý khởi tạo và đóng server"""
-    global sepay_poller
+    global sepay_poller  # Giữ dòng này
     
     logger.info(" Starting server...")
     
@@ -120,26 +120,25 @@ async def lifespan(app: FastAPI):
         logger.error(f" Failed to connect to MongoDB: {e}")
         raise
 
-    # ========== KHỞI ĐỘNG SEPAY POLLER ==========
-    logger.info(f" SePay API URL: {settings.SEPAY_API_URL}")
-    logger.info(f" SePay API Key: {'***' + settings.SEPAY_API_KEY[-8:] if settings.SEPAY_API_KEY else 'NOT SET'}")
+    # ========== COMMENT HOẶC XÓA PHẦN NÀY ==========
+    # logger.info(f" SePay API URL: {settings.SEPAY_API_URL}")
+    # logger.info(f" SePay API Key: {'***' + settings.SEPAY_API_KEY[-8:] if settings.SEPAY_API_KEY else 'NOT SET'}")
     
-    if settings.SEPAY_API_KEY and settings.SEPAY_API_URL:
-        try:
-            db = get_database()
-            sepay_poller = SePayPoller(
-                db=db,
-                api_key=settings.SEPAY_API_KEY,
-                api_url=settings.SEPAY_API_URL
-            )
-            asyncio.create_task(sepay_poller.start_polling(interval_seconds=30))
-            logger.info(" SePay poller started - checking every 30 seconds")
-        except Exception as e:
-            logger.error(f" Failed to start SePay poller: {e}")
-    else:
-        logger.warning(" SePay not configured - missing API key or URL")
-        logger.warning(f"   SEPAY_API_KEY: {'SET' if settings.SEPAY_API_KEY else 'MISSING'}")
-        logger.warning(f"   SEPAY_API_URL: {settings.SEPAY_API_URL or 'MISSING'}")
+    # if settings.SEPAY_API_KEY and settings.SEPAY_API_URL:
+    #     try:
+    #         db = get_database()
+    #         sepay_poller = SePayPoller(
+    #             db=db,
+    #             api_key=settings.SEPAY_API_KEY,
+    #             api_url=settings.SEPAY_API_URL
+    #         )
+    #         asyncio.create_task(sepay_poller.start_polling(interval_seconds=30))
+    #         logger.info(" SePay poller started - checking every 30 seconds")
+    #     except Exception as e:
+    #         logger.error(f" Failed to start SePay poller: {e}")
+    # else:
+    #     logger.warning(" SePay not configured - missing API key or URL")
+    # ========== KẾT THÚC PHẦN COMMENT ==========
 
     # Background task dọn dẹp
     async def cleanup_task():
@@ -164,7 +163,7 @@ async def lifespan(app: FastAPI):
     # Dọn dẹp khi tắt server
     logger.info(" Shutting down server...")
     
-    # Stop SePay poller
+    # Stop SePay poller (nếu có)
     if sepay_poller:
         await sepay_poller.stop()
         logger.info(" SePay poller stopped")
