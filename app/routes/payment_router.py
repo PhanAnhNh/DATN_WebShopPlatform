@@ -196,3 +196,22 @@ async def sepay_webhook(
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
+    
+@router.post("/sepay/test-webhook")
+async def test_sepay_webhook(
+    request: Request,
+    db = Depends(get_database)
+):
+    """Test endpoint để simulate webhook từ SePay"""
+    try:
+        data = await request.json()
+        logger.info("🧪 TEST webhook received")
+        logger.info(f"📦 Data: {json.dumps(data, indent=2, ensure_ascii=False)}")
+        
+        sepay_service = SePayService(db)
+        result = await sepay_service.process_webhook(data)
+        
+        return {"status": "test_success", "result": result}
+    except Exception as e:
+        logger.error(f"Test webhook error: {e}")
+        return {"status": "error", "message": str(e)}
