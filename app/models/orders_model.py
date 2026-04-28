@@ -14,7 +14,6 @@ class OrderStatus(str, Enum):
 class StatusUpdateRequest(BaseModel):
     status: OrderStatus
 
-# ✅ THÊM CLASS NÀY - Để sửa lỗi ImportError
 class OrderUpdate(BaseModel):
     """Model for updating order status"""
     status: OrderStatus
@@ -64,4 +63,27 @@ class OrderCreate(BaseModel):
     note: Optional[str] = ""
     payment_method: str = "cod"
     voucher: Optional[VoucherInfo] = None
-    shipping_unit_id: Optional[str] = None  # Thêm shipping_unit_id
+    shipping_unit_id: Optional[str] = None
+
+
+# ✅ THÊM MODEL NÀY CHO ORDER RESPONSE
+class OrderResponse(BaseModel):
+    """Model for order response"""
+    id: str
+    order_code: str
+    user_id: str
+    items: List[dict]
+    total_amount: float
+    subtotal: float
+    discount: float
+    shipping_fee: float
+    status: str
+    payment_status: str
+    payment_method: str
+    shipping_address: str
+    shipping_address_details: dict
+    note: Optional[str] = None
+    created_at: datetime
+    paid_at: Optional[datetime] = None
+    qr_code_url: Optional[str] = None  # ✅ THÊM QR CODE URL
+    transaction_id: Optional[str] = None  # ✅ THÊM TRANSACTION ID

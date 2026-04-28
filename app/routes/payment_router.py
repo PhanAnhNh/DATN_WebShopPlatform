@@ -1,5 +1,5 @@
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, logger
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
 from app.models.payment_model import PaymentCreate, MomoPaymentRequest, VNPayPaymentRequest
@@ -7,6 +7,7 @@ from app.services.notification_service import NotificationService
 from app.services.payment_service import PaymentService
 from typing import Optional
 
+from app.services.sepay_service import SePayService
 from app.services.shop_settings_service import ShopSettingsService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -135,6 +136,7 @@ async def generate_qr_for_order(
     current_user = Depends(get_current_user)
 ):
     """Tạo QR code động cho đơn hàng (bank transfer)"""
+    # Kiểm tra order
     order = await db["orders"].find_one({
         "_id": ObjectId(order_id),
         "user_id": ObjectId(current_user.id)
@@ -142,38 +144,50 @@ async def generate_qr_for_order(
     if not order:
         raise HTTPException(404, "Order not found")
     
-    if order.get("payment_method") not in ["bank", "bank_transfer"]:
-        raise HTTPException(400, "Only for bank transfer orders")
-    
     if order.get("payment_status") == "paid":
         raise HTTPException(400, "Order already paid")
     
-    # Lấy thông tin tài khoản ngân hàng từ shop settings
-    # items là list, mỗi item có shop_id
-    items = order.get("items", [])
-    if not items:
-        raise HTTPException(400, "Order has no items")
-    shop_id = items[0].get("shop_id")
-    if not shop_id:
-        raise HTTPException(400, "Shop not found")
-    
-    settings_service = ShopSettingsService(db)
-    settings = await settings_service.get_settings(shop_id)
-    bank_accounts = settings.get("payment", {}).get("bank_accounts", [])
-    if not bank_accounts:
-        raise HTTPException(400, "Shop has no bank account configured")
-    
-    bank_account = bank_accounts[0]  # lấy tài khoản đầu tiên
+    # Tạo order_code
     order_code = str(order["_id"])[-8:].upper()
-    qr_url = await settings_service.generate_qr_code(order_code, order["total_amount"], bank_account)
+    
+    # Tạo QR code
+    sepay_service = SePayService(db)
+    qr_url = await sepay_service.generate_qr_code(order_id, order_code, order["total_amount"])
     
     if not qr_url:
         raise HTTPException(500, "Failed to generate QR code")
     
-    # Lưu URL vào order để dùng lại
-    await db["orders"].update_one(
-        {"_id": ObjectId(order_id)},
-        {"$set": {"dynamic_qr_url": qr_url}}
-    )
-    
     return {"qr_code_url": qr_url}
+
+@router.post("/sepay/webhook")
+async def sepay_webhook(
+    request: Request,
+    db = Depends(get_database)
+):
+    """
+    Webhook nhận dữ liệu từ SePay khi có giao dịch mới.
+    
+    SePay gửi POST với JSON:
+    {
+        "id": 123456,
+        "description": "ORD123456",
+        "amount_in": 100000,
+        ...
+    }
+    """
+    try:
+        # Lấy raw data
+        data = await request.json()
+        
+        # Log để debug
+        logger.info(f"SePay webhook received: {data}")
+        
+        # Xử lý webhook
+        sepay_service = SePayService(db)
+        result = await sepay_service.process_webhook(data)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"SePay webhook error: {e}")
+        return {"status": "error", "message": str(e)}

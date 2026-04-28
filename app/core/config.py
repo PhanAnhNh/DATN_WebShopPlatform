@@ -186,9 +186,15 @@ class Settings(BaseSettings):
     ENABLE_CACHE: bool = True
     ENABLE_ASYNC_EMAIL: bool = True
 
-    SEPAY_MERCHANT_ID: Optional[str] = None
-    SEPAY_SECRET_KEY: Optional[str] = None
-    SEPAY_API_URL: str = "https://pgapi-sandbox.sepay.vn"
+    SEPAY_API_KEY: Optional[str] = None
+    SEPAY_API_URL: str = "https://my.sepay.vn/api/v1"
+    SEPAY_API_KEY: Optional[str] = None
+    SEPAY_WEBHOOK_SECRET: Optional[str] None  # Nếu SePay có signature
+    
+    BANK_BIN: str = "970415"  # VietinBank
+    BANK_NUMBER: str = ""  # Số tài khoản nhận tiền
+    BANK_NAME: str = ""  # Tên chủ tài khoản
+
     BACKEND_URL: str = "http://localhost:8000"
     
     class Config:

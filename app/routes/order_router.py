@@ -472,7 +472,39 @@ async def export_my_orders(
     
     return {"data": orders, "count": len(orders)}
 
+# app/routes/order_router.py (thêm vào cuối file)
 
+@router.get("/{order_id}/payment-status")
+async def get_payment_status(
+    order_id: str,
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Check payment status of order (for polling)"""
+    if not ObjectId.is_valid(order_id):
+        raise HTTPException(status_code=400, detail="ID đơn hàng không hợp lệ")
+    
+    try:
+        order = await db["orders"].find_one(
+            {"_id": ObjectId(order_id), "user_id": ObjectId(current_user.id)},
+            {"payment_status": 1, "status": 1, "paid_at": 1}
+        )
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+        
+        return {
+            "payment_status": order.get("payment_status", "unpaid"),
+            "status": order.get("status", "pending"),
+            "paid_at": order.get("paid_at"),
+            "order_id": order_id,
+            "order_code": order_id[-8:].upper()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking payment status: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra trạng thái")
 # ==================== HELPER FUNCTIONS ====================
 
 def parse_date(date_str: Optional[str]) -> Optional[datetime]:

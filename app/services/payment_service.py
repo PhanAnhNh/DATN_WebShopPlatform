@@ -227,96 +227,78 @@ class PaymentService:
         return {"success": False, "order_id": order_id}
     
     async def process_bank_transfer_webhook(self, data: dict):
-        """Xử lý webhook từ SePay"""
+        """
+        Webhook từ SePay khi có giao dịch vào tài khoản ảo
+        """
         try:
-            # Log dữ liệu nhận được để debug
-            print("SePay webhook received:", data)
-            
-            # Lấy các trường cần thiết (cấu trúc theo SePay)
-            # SePay gửi: { transaction_id, amount, description, account_number, ... }
-            description = data.get("description", "").strip()
-            amount = float(data.get("amount", 0))
-            transaction_id = data.get("transaction_id")
-            account_number = data.get("account_number")
-            
-            # Trích xuất mã đơn hàng từ nội dung (giả sử 8 ký tự cuối của order_id viết hoa)
-            # Nếu SePay có gửi field "paymentCode" thì dùng luôn
-            order_code = data.get("paymentCode")
-            if not order_code:
-                # Tìm trong description: chuỗi ký tự in hoa và số dài 8-10 ký tự
-                import re
-                match = re.search(r'([A-Z0-9]{8,})', description.upper())
-                if match:
-                    order_code = match.group(1)
-                else:
-                    return {"status": "error", "message": "Cannot extract order code"}
-            
-            # Tìm order theo order_code (8 ký tự cuối của _id)
-            # Lưu ý: cách này không index được, nên bạn nên lưu trường "order_code" khi tạo order.
-            # Tạm thời dùng cách duyệt (không tối ưu, chỉ demo)
-            orders = await self.order_collection.find({
-                "payment_status": {"$ne": "paid"},
-                "status": {"$ne": "cancelled"}
-            }).to_list(100)
-            
-            found_order = None
-            for order in orders:
-                order_id_str = str(order["_id"])
-                if order_id_str[-8:].upper() == order_code:
-                    found_order = order
-                    break
-            
-            if not found_order:
-                # Thử tìm theo order_code trong note hoặc field riêng nếu có
-                # Hoặc có thể lưu order_code khi tạo order
+            # Xác thực chữ ký (nếu bạn đặt secret trên Sepay)
+            # signature = request.headers.get('X-Sepay-Signature')
+            # ... (bỏ qua nếu không dùng)
+
+            if data.get('status') != 'success':
+                return {"status": "error", "message": "Transaction not successful"}
+
+            virtual_account = data.get('virtualAccount')
+            description = data.get('description', '').strip()
+            amount = float(data.get('amount', 0))
+
+            # Tìm đơn hàng theo virtual_account (ưu tiên)
+            order = None
+            if virtual_account:
+                order = await self.order_collection.find_one({"virtual_account": virtual_account})
+            if not order:
+                # fallback: tìm theo order_code trong description
+                orders = await self.order_collection.find({"payment_status": {"$ne": "paid"}}).to_list(100)
+                for o in orders:
+                    if str(o["_id"])[-8:].upper() == description:
+                        order = o
+                        break
+
+            if not order:
                 return {"status": "error", "message": "Order not found"}
-            
-            order = found_order
-            
-            # Kiểm tra số tiền (có thể sai lệch 1000đ)
+
+            # Kiểm tra số tiền (cho phép sai lệch 1000đ)
             if abs(order["total_amount"] - amount) > 1000:
                 return {"status": "error", "message": "Amount mismatch"}
-            
-            # Cập nhật payment record (nếu có)
+
+            # Cập nhật thanh toán
+            await self.order_collection.update_one(
+                {"_id": order["_id"]},
+                {"$set": {
+                    "payment_status": "paid",
+                    "status": "paid",
+                    "paid_at": datetime.utcnow(),
+                    "payment_transaction_id": data.get("transactionId")
+                }}
+            )
+
+            # Ghi nhận payment record
             await self.payment_collection.update_one(
                 {"order_id": order["_id"], "method": "bank_transfer"},
                 {
                     "$set": {
                         "status": "success",
-                        "transaction_id": transaction_id,
+                        "transaction_id": data.get("transactionId"),
                         "completed_at": datetime.utcnow(),
-                        "bank_account": account_number,
                         "webhook_data": data
                     }
                 },
                 upsert=True
             )
-            
-            # Cập nhật order
-            await self.order_collection.update_one(
-                {"_id": order["_id"]},
-                {
-                    "$set": {
-                        "payment_status": "paid",
-                        "status": "paid",
-                        "paid_at": datetime.utcnow()
-                    }
-                }
-            )
-            
-            # Tạo thông báo cho user
+
+            # Gửi thông báo cho user
             from app.services.notification_service import NotificationService
             noti_service = NotificationService(self.db)
             await noti_service.create_notification(
                 user_id=str(order["user_id"]),
                 type="payment",
                 title="Thanh toán thành công",
-                message=f"Đơn hàng #{order_code} đã được thanh toán qua chuyển khoản",
+                message=f"Đơn hàng #{str(order['_id'])[-8:].upper()} đã thanh toán qua chuyển khoản",
                 reference_id=str(order["_id"])
             )
-            
+
             return {"status": "success", "order_id": str(order["_id"])}
-            
+
         except Exception as e:
-            print(f"Error processing webhook: {e}")
+            print(f"Webhook error: {e}")
             return {"status": "error", "message": str(e)}

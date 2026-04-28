@@ -114,7 +114,7 @@ class OrderService:
         formatted_address = shipping_addr.get("full_address") or \
             f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
-        # Order doc
+        # ✅ Tạo order doc với order_code
         order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
@@ -130,7 +130,12 @@ class OrderService:
             "status": OrderStatus.pending.value,
             "created_at": datetime.utcnow(),
             "notification_sent": False,
-            "email_sent": False
+            "email_sent": False,
+            # ✅ THÊM CÁC FIELD MỚI CHO SePay
+            "order_code": None,  # sẽ set sau khi có _id
+            "qr_code_url": None,  # sẽ set sau nếu bank transfer
+            "transaction_id": None,
+            "paid_at": None
         }
         
         # INSERT order
@@ -138,19 +143,39 @@ class OrderService:
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
+        # ✅ CẬP NHẬT order_code vào document
+        await self.collection.update_one(
+            {"_id": ObjectId(order_id)},
+            {"$set": {"order_code": order_code}}
+        )
+        
+        # ✅ NẾU LÀ BANK TRANSFER, TẠO QR CODE NGAY
+        qr_code_url = None
+        if order_data["payment_method"] == "bank":
+            from app.services.sepay_service import SePayService
+            sepay_service = SePayService(self.db)
+            qr_code_url = await sepay_service.generate_qr_code(order_id, order_code, order_data["total_amount"])
+            
+            if qr_code_url:
+                await self.collection.update_one(
+                    {"_id": ObjectId(order_id)},
+                    {"$set": {"qr_code_url": qr_code_url}}
+                )
+        
         # 🧹 Xoá giỏ hàng (background)
         asyncio.create_task(self._delete_cart_async(user_id))
         
-        # 📦 RESPONSE TRẢ NGAY (không chờ email hay notification)
+        # 📦 RESPONSE TRẢ NGAY
         response_order = self._prepare_response(order, order_id, order_code)
+        if qr_code_url:
+            response_order["qr_code_url"] = qr_code_url  # ✅ THÊM QR URL VÀO RESPONSE
         
         elapsed = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
         
-        # 🔄 BACKGROUND TASKS (không ảnh hưởng response)
+        # 🔄 BACKGROUND TASKS
         asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
         
-        # 🚀 GỘP NOTIFICATION + EMAIL (gửi notification trước, email sau)
         asyncio.create_task(self._send_notifications_then_emails(
             user_id=user_id,
             customer_name=customer_name,
@@ -164,6 +189,48 @@ class OrderService:
         ))
         
         return response_order
+
+
+    # ✅ THÊM METHOD MỚI ĐỂ CẬP NHẬT THANH TOÁN TỪ WEBHOOK
+    async def update_payment_from_webhook(self, order_id: str, transaction_id: str, amount: float, raw_data: dict):
+        """Update order payment status from SePay webhook"""
+        try:
+            order = await self.collection.find_one({"_id": ObjectId(order_id)})
+            if not order:
+                return False, "Order not found"
+            
+            if order.get("payment_status") == "paid":
+                return True, "Already paid"  # Không lỗi, chỉ bỏ qua
+            
+            # Cập nhật order
+            await self.collection.update_one(
+                {"_id": ObjectId(order_id)},
+                {
+                    "$set": {
+                        "payment_status": "paid",
+                        "status": OrderStatus.paid.value,
+                        "paid_at": datetime.utcnow(),
+                        "transaction_id": transaction_id,
+                        "webhook_data": raw_data  # lưu lại để debug
+                    }
+                }
+            )
+            
+            # Tạo notification thanh toán thành công
+            await self.notification_service.create_notification(
+                user_id=str(order["user_id"]),
+                type="payment",
+                title="Thanh toán thành công ✅",
+                message=f"Đơn hàng #{order_id[-8:].upper()} đã thanh toán {amount:,.0f}đ thành công",
+                reference_id=order_id
+            )
+            
+            logger.info(f"✅ Payment updated for order {order_id[-8:].upper()}")
+            return True, "Success"
+            
+        except Exception as e:
+            logger.error(f"Failed to update payment: {e}")
+            return False, str(e)
     
     async def _delete_cart_async(self, user_id: str):
         """Delete cart safely in background"""
