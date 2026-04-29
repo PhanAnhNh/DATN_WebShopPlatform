@@ -21,7 +21,7 @@ class SePayService:
             
             # ✅ LẤY ĐÚNG FIELD TỪ SEPAY
             # SePay gửi: amount_in, content, id, ...
-            amount = float(data.get("amount_in", 0))
+            amount = float(data.get("transferAmount", 0))
             description = data.get("content", "")  # Nội dung chuyển khoản
             transaction_id = str(data.get("id", ""))
             gateway = data.get("gateway", "Unknown")
