@@ -167,33 +167,37 @@ async def sepay_webhook(
     db = Depends(get_database)
 ):
     """
-    Webhook nhận dữ liệu từ SePay khi có giao dịch mới.
+    Webhook từ SePay - KHÔNG CẦN XÁC THỰC (No_Authen)
+    SePay sẽ gửi POST với JSON body.
     """
     try:
-        # Log request headers để debug
-        logger.info("=" * 50)
-        logger.info("🔔 SePay webhook called!")
-        logger.info(f"📋 Headers: {dict(request.headers)}")
+        # Lấy raw body để debug
+        raw_body = await request.body()
+        logger.info(f"SePay webhook raw body: {raw_body[:500]}")
         
-        # Lấy raw data
+        # Parse JSON
         data = await request.json()
+        logger.info(f"SePay webhook parsed data: {json.dumps(data, indent=2, ensure_ascii=False)}")
         
-        # Log chi tiết data nhận được
-        logger.info(f"📦 Webhook data received: {json.dumps(data, indent=2, ensure_ascii=False)}")
+        # ⚠️ KHÔNG kiểm tra API key - vì bạn dùng No_Authen
         
         # Xử lý webhook
         sepay_service = SePayService(db)
         result = await sepay_service.process_webhook(data)
         
-        logger.info(f"✅ Webhook processed. Result: {result}")
-        logger.info("=" * 50)
+        logger.info(f"SePay webhook result: {result}")
         
+        # SePay yêu cầu response với status code 200
         return result
         
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON from SePay: {e}")
+        return {"status": "error", "message": "Invalid JSON"}
     except Exception as e:
-        logger.error(f"❌ SePay webhook error: {e}")
+        logger.error(f"SePay webhook error: {e}")
         import traceback
         traceback.print_exc()
+        # VẪN TRẢ VỀ 200 để SePay không gửi lại
         return {"status": "error", "message": str(e)}
     
 # app/routes/payment_router.py - Thêm endpoint

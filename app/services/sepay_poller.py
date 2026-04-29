@@ -45,7 +45,7 @@ class SePayPoller:
         
         async with aiohttp.ClientSession() as session:
             headers = {
-                "Authorization": f"Bearer {self.api_key}",
+                "Authorization": f"Apikey {self.api_key}",
                 "Content-Type": "application/json"
             }
             

@@ -186,10 +186,9 @@ class Settings(BaseSettings):
     ENABLE_CACHE: bool = True
     ENABLE_ASYNC_EMAIL: bool = True
 
-    SEPAY_API_KEY: Optional[str] = None
+    # SEPAY_API_KEY: Optional[str] = None
     SEPAY_API_URL: str = "https://my.sepay.vn/api/v1"
-    SEPAY_API_KEY: Optional[str] = None
-    SEPAY_WEBHOOK_SECRET: Optional[str] = None  # Nếu SePay có signature
+    # SEPAY_WEBHOOK_SECRET: Optional[str] = None  # Nếu SePay có signature
     
     BANK_BIN: str = "970415"  # VietinBank
     BANK_NUMBER: str = ""  # Số tài khoản nhận tiền
