@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, List, Set
 import asyncio
 import logging
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.orders_model import OrderStatus
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
@@ -50,9 +50,9 @@ class OrderService:
             "order_code": order_code,
             "total_amount": order.get("total_amount", 0),
             "status": order.get("status", "pending"),
-            "payment_status": order.get("payment_status", "unpaid"),
+            "payment_status": order.get("payment_status", "pending_payment"),
             "created_at": order.get("created_at"),
-            "message": "Đặt hàng thành công"
+            "message": "Đặt hàng thành công" if order.get("payment_method") == "cod" else "Vui lòng thanh toán trong 15 phút"
         }
 
     async def create_order(self, user_id: str, order_data: dict) -> Dict[str, Any]:
@@ -115,7 +115,16 @@ class OrderService:
         formatted_address = shipping_addr.get("full_address") or \
             f"{shipping_addr['street']}, {shipping_addr['ward']}, {shipping_addr['district']}, {shipping_addr['city']}, {shipping_addr['country']}"
         
-        # ✅ Tạo order doc với order_code
+        # Xác định payment_status dựa trên phương thức thanh toán
+        payment_method = order_data["payment_method"]
+        if payment_method == "cod":
+            payment_status = "unpaid"
+            order_status = OrderStatus.pending.value
+        else:  # bank, momo, vnpay, zalopay
+            payment_status = "pending_payment"  # Chờ thanh toán
+            order_status = OrderStatus.pending.value
+        
+        # Tạo order doc
         order = {
             "user_id": ObjectId(user_id),
             "items": items_to_save,
@@ -126,15 +135,14 @@ class OrderService:
             "shipping_address": formatted_address,
             "shipping_address_details": shipping_addr,
             "note": order_data.get("note", ""),
-            "payment_method": order_data["payment_method"],
-            "payment_status": "unpaid",
-            "status": OrderStatus.pending.value,
+            "payment_method": payment_method,
+            "payment_status": payment_status,
+            "status": order_status,
             "created_at": datetime.utcnow(),
             "notification_sent": False,
             "email_sent": False,
-            # ✅ THÊM CÁC FIELD MỚI CHO SePay
-            "order_code": None,  # sẽ set sau khi có _id
-            "qr_code_url": None,  # sẽ set sau nếu bank transfer
+            "order_code": None,
+            "qr_code_url": None,
             "transaction_id": None,
             "paid_at": None
         }
@@ -144,104 +152,103 @@ class OrderService:
         order_id = str(result.inserted_id)
         order_code = order_id[-8:].upper()
         
-        # ✅ CẬP NHẬT order_code vào document
+        # Cập nhật order_code
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
             {"$set": {"order_code": order_code}}
         )
         
-        # ✅ NẾU LÀ BANK TRANSFER, TẠO QR CODE NGAY
+        # Nếu là Bank Transfer, tạo QR code
         qr_code_url = None
-        if order_data["payment_method"] == "bank":
-
+        if payment_method == "bank":
             sepay_service = SePayService(self.db)
-            
-            # Tạo nội dung chuyển khoản đúng format
-            transfer_content = f"SEVQR {order_code}"
-            
             qr_code_url = await sepay_service.generate_qr_code(
                 order_id, 
-                transfer_content,  # Truyền cả content thay vì chỉ order_code
+                order_code,
                 order_data["total_amount"]
             )
         
-        # 🧹 Xoá giỏ hàng (background)
-        asyncio.create_task(self._delete_cart_async(user_id))
+        # Xóa giỏ hàng (chỉ với COD)
+        if payment_method == "cod":
+            asyncio.create_task(self._delete_cart_async(user_id))
         
-        # 📦 RESPONSE TRẢ NGAY
+        # Response
         response_order = self._prepare_response(order, order_id, order_code)
         if qr_code_url:
-            response_order["qr_code_url"] = qr_code_url  # ✅ THÊM QR URL VÀO RESPONSE
+            response_order["qr_code_url"] = qr_code_url
         
         elapsed = (datetime.utcnow() - start_time).total_seconds()
-        logger.info(f"✅ Order {order_code} created in {elapsed:.3f}s")
+        logger.info(f"Order {order_code} created in {elapsed:.3f}s")
         
-        # 🔄 BACKGROUND TASKS
+        # Background tasks
         asyncio.create_task(self._update_sold_quantity_async(items_to_save, "increase"))
         
-        asyncio.create_task(self._send_notifications_then_emails(
-            user_id=user_id,
-            customer_name=customer_name,
-            order_id=order_id,
-            order_code=order_code,
-            shop_ids=shop_ids,
-            customer_email=customer_email,
-            customer_name_for_email=customer_name,
-            order_data=order_data,
-            items=items_to_save
-        ))
+        # Chỉ gửi thông báo cho COD, còn Bank thì gửi sau khi thanh toán
+        if payment_method == "cod":
+            asyncio.create_task(self._send_notifications_then_emails(
+                user_id=user_id,
+                customer_name=customer_name,
+                order_id=order_id,
+                order_code=order_code,
+                shop_ids=shop_ids,
+                customer_email=customer_email,
+                customer_name_for_email=customer_name,
+                order_data=order_data,
+                items=items_to_save
+            ))
         
         return response_order
 
-
-    # ✅ THÊM METHOD MỚI ĐỂ CẬP NHẬT THANH TOÁN TỪ WEBHOOK
-    async def update_payment_from_webhook(self, order_id: str, transaction_id: str, amount: float, raw_data: dict):
-        """Update order payment status from SePay webhook"""
-        try:
-            order = await self.collection.find_one({"_id": ObjectId(order_id)})
-            if not order:
-                return False, "Order not found"
+    async def delete_expired_pending_payment_orders(self):
+        """Xóa các đơn hàng pending_payment quá 15 phút"""
+        expires_at = datetime.utcnow() - timedelta(minutes=15)
+        
+        expired_orders = await self.collection.find({
+            "payment_status": "pending_payment",
+            "created_at": {"$lt": expires_at}
+        }).to_list(None)
+        
+        deleted_count = 0
+        for order in expired_orders:
+            # Hoàn lại stock
+            for item in order.get("items", []):
+                if item.get("variant_id"):
+                    await self.db["product_variants"].update_one(
+                        {"_id": item["variant_id"]},
+                        {"$inc": {"stock": item["quantity"]}}
+                    )
+                else:
+                    await self.db["products"].update_one(
+                        {"_id": item["product_id"]},
+                        {"$inc": {"stock": item["quantity"]}}
+                    )
             
-            if order.get("payment_status") == "paid":
-                return True, "Already paid"  # Không lỗi, chỉ bỏ qua
-            
-            # Cập nhật order
+            # Cập nhật trạng thái
             await self.collection.update_one(
-                {"_id": ObjectId(order_id)},
-                {
-                    "$set": {
-                        "payment_status": "paid",
-                        "status": OrderStatus.paid.value,
-                        "paid_at": datetime.utcnow(),
-                        "transaction_id": transaction_id,
-                        "webhook_data": raw_data  # lưu lại để debug
-                    }
-                }
+                {"_id": order["_id"]},
+                {"$set": {
+                    "status": "cancelled",
+                    "payment_status": "cancelled",
+                    "cancelled_at": datetime.utcnow(),
+                    "cancel_reason": "Hết hạn thanh toán"
+                }}
             )
-            
-            # Tạo notification thanh toán thành công
-            await self.notification_service.create_notification(
-                user_id=str(order["user_id"]),
-                type="payment",
-                title="Thanh toán thành công ✅",
-                message=f"Đơn hàng #{order_id[-8:].upper()} đã thanh toán {amount:,.0f}đ thành công",
-                reference_id=order_id
-            )
-            
-            logger.info(f"✅ Payment updated for order {order_id[-8:].upper()}")
-            return True, "Success"
-            
-        except Exception as e:
-            logger.error(f"Failed to update payment: {e}")
-            return False, str(e)
+            deleted_count += 1
+        
+        if deleted_count > 0:
+            logger.info(f"Deleted {deleted_count} expired pending_payment orders")
+        
+        return deleted_count
+
+    # ==================== CÁC METHOD KHÁC GIỮ NGUYÊN ====================
     
     async def _delete_cart_async(self, user_id: str):
         """Delete cart safely in background"""
         try:
             await self.cart_collection.delete_one({"user_id": ObjectId(user_id)})
-            logger.info(f"🧹 Cart deleted for user {user_id}")
+            logger.info(f"Cart deleted for user {user_id}")
         except Exception as e:
-            logger.error(f"❌ Delete cart failed: {e}")
+            logger.error(f"Delete cart failed: {e}")
 
     async def _send_notifications_async(
         self, 
@@ -251,9 +258,8 @@ class OrderService:
         order_code: str, 
         shop_ids: Set[str]
     ):
-        """Send notifications in background - PRIORITY 1"""
+        """Send notifications in background"""
         try:
-            # Send to customer
             await self.notification_service.create_notification(
                 user_id=user_id,
                 type="order",
@@ -262,7 +268,6 @@ class OrderService:
                 reference_id=order_id
             )
             
-            # Send to shops
             for shop_id in shop_ids:
                 await self.notification_service.create_notification(
                     user_id=shop_id,
@@ -272,15 +277,14 @@ class OrderService:
                     reference_id=order_id
                 )
             
-            # Update order with notification status
             await self.collection.update_one(
                 {"_id": ObjectId(order_id)},
                 {"$set": {"notification_sent": True, "notification_sent_at": datetime.utcnow()}}
             )
             
-            logger.info(f"✅ Notifications sent for order {order_code}")
+            logger.info(f"Notifications sent for order {order_code}")
         except Exception as e:
-            logger.error(f"❌ Failed to send notifications for order {order_code}: {e}")
+            logger.error(f"Failed to send notifications for order {order_code}: {e}")
 
     async def _send_emails_async(
         self,
@@ -292,26 +296,23 @@ class OrderService:
         items: list,
         shop_ids: Set[str]
     ):
-        """Send emails in background - PRIORITY 2 (after notifications)"""
+        """Send emails in background"""
         try:
-            # Send customer email
             await self._send_customer_order_email(
                 customer_email, customer_name, order_id, order_code, order_data, items
             )
             
-            # Send shop emails
             for shop_id in shop_ids:
                 await self._send_shop_order_email(shop_id, order_id, order_code, order_data, items)
             
-            # Update order with email status
             await self.collection.update_one(
                 {"_id": ObjectId(order_id)},
                 {"$set": {"email_sent": True, "email_sent_at": datetime.utcnow()}}
             )
             
-            logger.info(f"✅ Emails sent for order {order_code}")
+            logger.info(f"Emails sent for order {order_code}")
         except Exception as e:
-            logger.error(f"❌ Failed to send emails for order {order_code}: {e}")
+            logger.error(f"Failed to send emails for order {order_code}: {e}")
 
     async def _update_sold_quantity_async(self, items: list, operation: str = "increase"):
         """Update sold quantity in background"""
@@ -331,9 +332,9 @@ class OrderService:
                         {"_id": item["variant_id"]},
                         {"$inc": {"sold_quantity": quantity}}
                     )
-            logger.info(f"✅ Sold quantity updated ({operation})")
+            logger.info(f"Sold quantity updated ({operation})")
         except Exception as e:
-            logger.error(f"❌ Failed to update sold quantity: {e}")
+            logger.error(f"Failed to update sold quantity: {e}")
 
     async def _send_customer_order_email(
         self, 
@@ -347,7 +348,6 @@ class OrderService:
         """Send customer order confirmation email"""
         subject = f"Xác nhận đơn hàng #{order_code} - Đặc Sản Quê Tôi"
         
-        # Build items HTML
         items_html = ""
         for item in items:
             items_html += f"""
@@ -446,7 +446,6 @@ class OrderService:
         if not shop_email:
             return
         
-        # Filter items for this shop
         shop_items = [item for item in all_items if str(item["shop_id"]) == shop_id]
         
         if not shop_items:
@@ -527,7 +526,6 @@ class OrderService:
         await self.email_service.send_email(shop_email, subject, html_content)
 
     def _format_currency(self, amount: float) -> str:
-        """Format currency"""
         return f"{amount:,.0f}₫".replace(",", ".")
 
     async def _send_notifications_then_emails(
@@ -542,26 +540,20 @@ class OrderService:
         order_data: dict,
         items: list
     ):
-        """Gửi notifications trước, sau đó mới gửi email (cả hai đều background)"""
         try:
-            # 1. Gửi notifications (nhanh)
             await self._send_notifications_async(
                 user_id, customer_name, order_id, order_code, shop_ids
             )
-            # 2. Sau đó gửi emails (chậm, nhưng không block do thread pool)
             if customer_email:
                 await self._send_emails_async(
                     customer_email, customer_name_for_email, order_id, order_code,
                     order_data, items, shop_ids
                 )
-            logger.info(f"✅ Notifications and emails completed for order {order_code}")
+            logger.info(f"Notifications and emails completed for order {order_code}")
         except Exception as e:
-            logger.error(f"❌ Background notification/email failed for order {order_code}: {e}")
+            logger.error(f"Background notification/email failed for order {order_code}: {e}")
 
-    # ==================== OTHER METHODS ====================
-    
     async def get_user_orders(self, user_id: str):
-        """Get user orders list"""
         cursor = self.collection.find(
             {"user_id": ObjectId(user_id)},
             {
@@ -585,7 +577,6 @@ class OrderService:
         return orders
 
     async def get_order(self, order_id: str):
-        """Get order detail"""
         try:
             order = await self.collection.find_one({"_id": ObjectId(order_id)})
             if not order:
@@ -597,7 +588,6 @@ class OrderService:
             return None
         
     def _prepare_full_response(self, order: dict) -> dict:
-        """Prepare full order response"""
         result = {
             "_id": str(order["_id"]),
             "user_id": str(order["user_id"]),
@@ -638,23 +628,7 @@ class OrderService:
         
         return result
 
-    async def update_order_status(self, order_id: str, status: OrderStatus):
-        """Update order status"""
-        await self.collection.update_one(
-            {"_id": ObjectId(order_id)},
-            {"$set": {"status": status.value}}
-        )
-        return await self.get_order(order_id)
-    
-    async def _safe_db_op(self, coro, action: str = "db_op"):
-        """Wrapper để chạy DB operation trong background"""
-        try:
-            await coro
-        except Exception as e:
-            logger.error(f"❌ Background {action} failed: {e}")
-    
     async def update_payment_status(self, order_id: str, status: str):
-        """Update payment status"""
         await self.collection.update_one(
             {"_id": ObjectId(order_id)},
             {"$set": {"payment_status": status}}
@@ -662,7 +636,6 @@ class OrderService:
         return await self.get_order(order_id)
 
     async def cancel_order(self, order_id: str, user_id: str, cancel_reason: str = None):
-        """Cancel order and restore stock"""
         try:
             order = await self.collection.find_one({
                 "_id": ObjectId(order_id),
@@ -677,7 +650,6 @@ class OrderService:
         if order["status"] not in [OrderStatus.pending.value, OrderStatus.paid.value]:
             raise Exception("Không thể hủy đơn hàng ở trạng thái này")
         
-        # Restore stock
         for item in order.get("items", []):
             if item.get("variant_id"):
                 await self.db["product_variants"].update_one(
@@ -690,7 +662,6 @@ class OrderService:
                     {"$inc": {"stock": item["quantity"]}}
                 )
         
-        # Update order status
         update_data = {
             "status": OrderStatus.cancelled.value, 
             "cancelled_at": datetime.utcnow()
@@ -703,7 +674,6 @@ class OrderService:
             {"$set": update_data}
         )
         
-        # Update sold quantity in background
         asyncio.create_task(self._update_sold_quantity_async(
             order.get("items", []), "decrease"
         ))

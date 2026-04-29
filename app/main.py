@@ -103,7 +103,7 @@ sio = socketio.AsyncServer(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Quản lý khởi tạo và đóng server"""
-    global sepay_poller  # Giữ dòng này
+    global sepay_poller
     
     logger.info(" Starting server...")
     
@@ -111,42 +111,18 @@ async def lifespan(app: FastAPI):
     try:
         await connect_to_mongo()
         logger.info(" MongoDB connected successfully")
-        
-        # Log database health
         health = await MongoDB.health_check()
         logger.info(f" MongoDB health: {health}")
-        
     except Exception as e:
         logger.error(f" Failed to connect to MongoDB: {e}")
         raise
 
-    # ========== COMMENT HOẶC XÓA PHẦN NÀY ==========
-    # logger.info(f" SePay API URL: {settings.SEPAY_API_URL}")
-    # logger.info(f" SePay API Key: {'***' + settings.SEPAY_API_KEY[-8:] if settings.SEPAY_API_KEY else 'NOT SET'}")
-    
-    # if settings.SEPAY_API_KEY and settings.SEPAY_API_URL:
-    #     try:
-    #         db = get_database()
-    #         sepay_poller = SePayPoller(
-    #             db=db,
-    #             api_key=settings.SEPAY_API_KEY,
-    #             api_url=settings.SEPAY_API_URL
-    #         )
-    #         asyncio.create_task(sepay_poller.start_polling(interval_seconds=30))
-    #         logger.info(" SePay poller started - checking every 30 seconds")
-    #     except Exception as e:
-    #         logger.error(f" Failed to start SePay poller: {e}")
-    # else:
-    #     logger.warning(" SePay not configured - missing API key or URL")
-    # ========== KẾT THÚC PHẦN COMMENT ==========
-
-    # Background task dọn dẹp
+    # Background task dọn dẹp post (24h)
     async def cleanup_task():
         while True:
             try:
-                await asyncio.sleep(86400)  # 24 giờ
+                await asyncio.sleep(86400)
                 db = get_database()
-                from app.services.cleanup_service import cleanup_expired_posts
                 deleted_count = await cleanup_expired_posts(db)
                 if deleted_count > 0:
                     logger.info(f" Deleted {deleted_count} expired posts")
@@ -155,28 +131,48 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f" Cleanup task error: {e}")
 
-    cleanup = asyncio.create_task(cleanup_task())
-    logger.info(" Cleanup task started")
+    # Background task dọn dẹp order pending_payment (1 phút)
+    async def cleanup_expired_orders_task():
+        while True:
+            try:
+                await asyncio.sleep(60)
+                db = get_database()
+                from app.services.order_service import OrderService
+                order_service = OrderService(db)
+                deleted_count = await order_service.delete_expired_pending_payment_orders()
+                if deleted_count > 0:
+                    logger.info(f"Cleaned up {deleted_count} expired pending_payment orders")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Cleanup expired orders task error: {e}")
 
+    # Start background tasks
+    cleanup = asyncio.create_task(cleanup_task())
+    cleanup_orders = asyncio.create_task(cleanup_expired_orders_task())
+    logger.info(" Cleanup tasks started")
+
+    # ========== SERVER RUNNING ==========
     yield
 
-    # Dọn dẹp khi tắt server
+    # ========== SHUTDOWN ==========
     logger.info(" Shutting down server...")
     
-    # Stop SePay poller (nếu có)
     if sepay_poller:
         await sepay_poller.stop()
-        logger.info(" SePay poller stopped")
     
     cleanup.cancel()
+    cleanup_orders.cancel()
     
     try:
         await cleanup
+        await cleanup_orders
     except asyncio.CancelledError:
         pass
     
     await close_mongo_connection()
     logger.info(" Server shutdown complete")
+
 # ====================== FASTAPI APP ======================
 app = FastAPI(
     title=settings.PROJECT_NAME,
