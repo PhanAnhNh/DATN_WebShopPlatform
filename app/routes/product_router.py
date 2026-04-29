@@ -31,7 +31,7 @@ async def get_hot_products(
 
 @router.get("/", response_model=list[ProductResponse])
 async def get_products(
-    sort: Optional[str] = Query(None, regex="^(hot|new|price_asc|price_desc)$"),
+    sort: Optional[str] = Query(None, pattern="^(hot|new|price_asc|price_desc)$"),
     db = Depends(get_database)
 ):
     service = ProductService(db)

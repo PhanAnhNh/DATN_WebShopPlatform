@@ -79,7 +79,7 @@ async def get_shop_overview(
 
 @router.get("/revenue")
 async def get_revenue_stats(
-    range: str = Query("month", regex="^(week|month|year)$"),
+    range: str = Query("month", pattern="^(week|month|year)$"),
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):

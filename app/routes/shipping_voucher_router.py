@@ -109,7 +109,7 @@ async def update_shipping_voucher(
 @router.patch("/shop/{voucher_id}/status")
 async def update_shipping_voucher_status(
     voucher_id: str,
-    status: str = Query(..., regex="^(active|inactive)$"),
+    status: str = Query(..., pattern="^(active|inactive)$"),
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):

@@ -96,7 +96,7 @@ async def get_my_orders(
     min_amount: Optional[float] = Query(None, ge=0),
     max_amount: Optional[float] = Query(None, ge=0),
     sort_by: str = Query("created_at"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$")
+    sort_order: str = Query("desc", pattern="^(asc|desc)$")
 ):
     """Get user orders with manual cache"""
     
@@ -433,7 +433,7 @@ async def resend_order_email(
 async def export_my_orders(
     db = Depends(get_database),
     current_user = Depends(get_current_user),
-    format: str = Query("json", regex="^(json|csv)$"),
+    format: str = Query("json", pattern="^(json|csv)$"),
     from_date: Optional[str] = None,
     to_date: Optional[str] = None
 ):

@@ -1,7 +1,7 @@
 import json
-
+import logging
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request, logger
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
 from app.models.payment_model import PaymentCreate, MomoPaymentRequest, VNPayPaymentRequest
@@ -13,6 +13,8 @@ from app.services.sepay_service import SePayService
 from app.services.shop_settings_service import ShopSettingsService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
+
+logger = logging.getLogger(__name__)
 
 @router.post("/create")
 async def create_payment(
