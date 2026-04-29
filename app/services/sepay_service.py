@@ -19,33 +19,39 @@ class SePayService:
         try:
             logger.info(f"Processing SePay webhook: {json.dumps(data, indent=2, ensure_ascii=False)}")
             
-            # ✅ LẤY ĐÚNG FIELD TỪ SEPAY
+            # Lấy dữ liệu từ webhook
             amount = float(data.get("transferAmount", 0))
             description = data.get("content", "")
             transaction_id = str(data.get("id", ""))
             gateway = data.get("gateway", "Unknown")
-            account_number = data.get("accountNumber", "")  # Sửa: camelCase
+            account_number = data.get("accountNumber", "")
             transaction_date = data.get("transactionDate", "")
-            reference_code = data.get("referenceCode", "")  # ← QUAN TRỌNG
+            reference_code = data.get("referenceCode", "")
             
             # Kiểm tra số tiền hợp lệ
             if amount <= 0:
                 logger.warning(f"Invalid amount: {amount}")
                 return {"status": "error", "message": "Invalid amount"}
             
-            # ✅ TRÍCH XUẤT ORDER_CODE - Ưu tiên dùng referenceCode
+            # ✅ QUAN TRỌNG: Ưu tiên lấy order_code từ content (sau SEVQR)
             order_code = None
             
-            # Cách 1: Dùng referenceCode trực tiếp (chính xác nhất)
-            if reference_code:
-                # Lấy 8 ký tự cuối của referenceCode (vì order_code lưu trong DB là 8 ký tự)
-                if len(reference_code) >= 8:
-                    order_code = reference_code[-8:]
-                    logger.info(f"Using reference_code last 8 chars: {order_code}")
+            # Cách 1: Tìm SEVQR + 8 ký tự (ƯU TIÊN NHẤT)
+            # Content mẫu: "CT DEN:580T2641C9402KW2 SEVQR 59C801F1"
+            sevqr_match = re.search(r'SEVQR\s+([A-Z0-9]{8})', description, re.IGNORECASE)
+            if sevqr_match:
+                order_code = sevqr_match.group(1).upper()
+                logger.info(f"✅ Found order_code from SEVQR in content: {order_code}")
             
-            # Cách 2: Từ content - tìm mã 8 ký tự sau CT DEN:
+            # Cách 2: Tìm 8 ký tự sau SEVQR (không có space)
             if not order_code:
-                # Pattern: CT DEN:580T2641C7X5TFKV
+                sevqr_match2 = re.search(r'SEVQR([A-Z0-9]{8})', description, re.IGNORECASE)
+                if sevqr_match2:
+                    order_code = sevqr_match2.group(1).upper()
+                    logger.info(f"✅ Found order_code from SEVQR (no space): {order_code}")
+            
+            # Cách 3: Từ content - tìm mã 8 ký tự cuối của CT DEN
+            if not order_code:
                 match = re.search(r'CT DEN:([A-Z0-9]+)', description, re.IGNORECASE)
                 if match:
                     raw_code = match.group(1)
@@ -53,60 +59,49 @@ class SePayService:
                         order_code = raw_code[-8:]
                         logger.info(f"Extracted from CT DEN: {order_code}")
             
-            # Cách 3: Tìm SEVQR + 8 ký tự
-            if not order_code:
-                sevqr_match = re.search(r'SEVQR\s+([A-Z0-9]{8})', description, re.IGNORECASE)
-                if sevqr_match:
-                    order_code = sevqr_match.group(1).upper()
-                    logger.info(f"Found order_code via SEVQR: {order_code}")
+            # Cách 4: Fallback cuối - dùng referenceCode
+            if not order_code and reference_code:
+                if len(reference_code) >= 8:
+                    order_code = reference_code[-8:]
+                    logger.info(f"Fallback to reference_code last 8 chars: {order_code}")
             
             if not order_code:
-                logger.error(f"Cannot extract order_code from: description={description}, reference_code={reference_code}")
+                logger.error(f"Cannot extract order_code from: description={description}")
                 return {"status": "error", "message": "Cannot extract order code"}
             
-            # ✅ TÌM ORDER - Tìm theo order_code (8 ký tự)
+            logger.info(f"🔍 Searching for order with order_code: {order_code}")
+            
+            # TÌM ORDER - Tìm theo order_code (8 ký tự)
             order = await self.order_collection.find_one({
                 "order_code": order_code,
                 "payment_status": {"$ne": "paid"}
             })
             
-            # Fallback: Tìm theo partial match trong order_code
+            # Nếu không tìm thấy, thử tìm với order_code không phân biệt hoa thường
             if not order:
                 order = await self.order_collection.find_one({
-                    "order_code": {"$regex": order_code, "$options": "i"},
+                    "order_code": {"$regex": f"^{order_code}$", "$options": "i"},
                     "payment_status": {"$ne": "paid"}
                 })
             
-            # Fallback cuối: Tìm theo _id
-            if not order and len(order_code) == 24:
-                try:
-                    order = await self.order_collection.find_one({
-                        "_id": ObjectId(order_code),
-                        "payment_status": {"$ne": "paid"}
-                    })
-                    if order:
-                        logger.info(f"Found order by _id: {order_code}")
-                except:
-                    pass
-            
             if not order:
-                logger.warning(f"Order not found for code: {order_code}")
-                # Log để debug: list các order đang pending
+                # Log danh sách order_code đang pending để debug
                 pending_orders = await self.order_collection.find(
                     {"payment_status": {"$ne": "paid"}}
-                ).limit(5).to_list(None)
-                logger.info(f"Pending order_codes: {[o.get('order_code') for o in pending_orders]}")
+                ).limit(10).to_list(None)
+                pending_codes = [o.get('order_code') for o in pending_orders]
+                logger.warning(f"Order not found for code: {order_code}")
+                logger.info(f"Pending order_codes in DB: {pending_codes}")
                 return {"status": "error", "message": f"Order not found: {order_code}"}
             
-            # ✅ KIỂM TRA SỐ TIỀN
+            # KIỂM TRA SỐ TIỀN
             expected_amount = order.get("total_amount", 0)
             
-            # Cho phép chuyển khoản dư (thường gặp)
             if amount < expected_amount:
                 logger.warning(f"Amount insufficient: received {amount}, expected {expected_amount}")
                 return {"status": "error", "message": f"Insufficient amount: {amount} < {expected_amount}"}
             
-            # ✅ CẬP NHẬT ĐƠN HÀNG
+            # CẬP NHẬT ĐƠN HÀNG
             update_result = await self.order_collection.update_one(
                 {"_id": order["_id"]},
                 {
@@ -136,7 +131,7 @@ class SePayService:
             
             logger.info(f"✅ Payment successful for order {order_code}: {amount:,.0f}đ")
             
-            # ✅ GỬI THÔNG BÁO
+            # GỬI THÔNG BÁO
             try:
                 from app.services.notification_service import NotificationService
                 noti_service = NotificationService(self.db)
@@ -171,6 +166,7 @@ class SePayService:
             logger.warning("BANK_NUMBER not configured")
             return None
         
+        # Nội dung chuyển khoản - đảm bảo SEVQR + space + order_code
         transfer_content = f"SEVQR {order_code}"
         
         qr_url = f"https://img.vietqr.io/image/{bank_bin}-{bank_number}-compact.png"
@@ -186,7 +182,7 @@ class SePayService:
             {"$set": {
                 "qr_code_url": full_url,
                 "transfer_content": transfer_content,
-                "order_code": order_code  # Lưu order_code để dễ tra cứu
+                "order_code": order_code
             }}
         )
         
