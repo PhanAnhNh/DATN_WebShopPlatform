@@ -1,4 +1,6 @@
 # app/routes/chat_routes.py
+from venv import logger
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from app.services.chat_service import ChatService
@@ -36,22 +38,24 @@ async def send_message(
         # Phát socket realtime cho cả 2 bên
         if sio_server:
             message_data = {
-                "id": result.get("_id"),
+                "id": str(result["_id"]),
                 "sender_id": str(current_user.id),
                 "receiver_id": receiver_id,
                 "content": content,
                 "message_type": message_type,
-                "created_at": result.get("created_at").isoformat() if result.get("created_at") else None
+                "created_at": result["created_at"].isoformat() if result.get("created_at") else None,
+                "is_read": False
             }
-            # Gửi đến room của receiver
+            # Quan trọng: Gửi đến room của receiver (có thể là user hoặc shop)
             await sio_server.emit('new_message', message_data, room=receiver_id)
             # Gửi đến room của sender
             await sio_server.emit('new_message', message_data, room=str(current_user.id))
+            
+            logger.info(f"Socket emitted to rooms: {receiver_id} and {current_user.id}")
         
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.post("/shop/send")
 async def shop_send_message(

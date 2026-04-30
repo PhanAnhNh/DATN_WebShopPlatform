@@ -245,14 +245,19 @@ async def join(sid, data):
             if data.get('user_id'):
                 user_id = str(data['user_id'])
                 await sio.enter_room(sid, user_id)
-                logger.info(f"User {user_id} joined room {user_id}")
+                logger.info(f"✅ User {user_id} joined room {user_id}")
+                # Log số lượng rooms hiện tại
+                rooms = sio.rooms(sid)
+                logger.info(f"   Rooms for {sid}: {rooms}")
                 await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
             
             # Shop join
             if data.get('shop_id'):
                 shop_id = str(data['shop_id'])
                 await sio.enter_room(sid, shop_id)
-                logger.info(f"Shop {shop_id} joined room {shop_id}")
+                logger.info(f"✅ Shop {shop_id} joined room {shop_id}")
+                rooms = sio.rooms(sid)
+                logger.info(f"   Rooms for {sid}: {rooms}")
                 await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
     except Exception as e:
         logger.error(f"Join error: {e}")
