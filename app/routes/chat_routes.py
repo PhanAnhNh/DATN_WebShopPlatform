@@ -4,8 +4,15 @@ from typing import List, Optional
 from app.services.chat_service import ChatService
 from app.core.security import get_current_user, get_current_shop_owner, CurrentUser
 from app.db.mongodb import get_database
+import socketio
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
+
+sio_server = None
+
+def set_socket_server(sio):
+    global sio_server
+    sio_server = sio
 
 @router.post("/send")
 async def send_message(
@@ -25,9 +32,26 @@ async def send_message(
             sender_type="user",
             message_type=message_type
         )
+        
+        # Phát socket realtime cho cả 2 bên
+        if sio_server:
+            message_data = {
+                "id": result.get("_id"),
+                "sender_id": str(current_user.id),
+                "receiver_id": receiver_id,
+                "content": content,
+                "message_type": message_type,
+                "created_at": result.get("created_at").isoformat() if result.get("created_at") else None
+            }
+            # Gửi đến room của receiver
+            await sio_server.emit('new_message', message_data, room=receiver_id)
+            # Gửi đến room của sender
+            await sio_server.emit('new_message', message_data, room=str(current_user.id))
+        
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.post("/shop/send")
 async def shop_send_message(
@@ -47,10 +71,26 @@ async def shop_send_message(
             sender_type="shop",
             message_type=message_type
         )
+        
+        # Phát socket realtime cho cả 2 bên
+        if sio_server:
+            message_data = {
+                "id": result.get("_id"),
+                "sender_id": str(current_shop.shop_id),
+                "receiver_id": receiver_id,
+                "content": content,
+                "message_type": message_type,
+                "created_at": result.get("created_at").isoformat() if result.get("created_at") else None
+            }
+            # Gửi đến room của receiver (user)
+            await sio_server.emit('new_message', message_data, room=receiver_id)
+            # Gửi đến room của sender (shop)
+            await sio_server.emit('new_message', message_data, room=str(current_shop.shop_id))
+        
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
+    
 @router.get("/conversation/{other_id}")
 async def get_conversation(
     other_id: str,

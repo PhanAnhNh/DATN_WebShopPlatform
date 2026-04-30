@@ -238,33 +238,24 @@ async def handle_ping(sid, data):
 
 @sio.event
 async def join(sid, data):
-    """User join room theo user_id"""
+    """User hoặc Shop join room"""
     try:
-        if data and isinstance(data, dict) and data.get('user_id'):
-            user_id = str(data['user_id'])
-            await sio.enter_room(sid, user_id)
-            logger.info(f" User {user_id} joined room {user_id}")
-            await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
-        else:
-            await sio.emit('error', {'message': 'Invalid join data'}, room=sid)
+        if data and isinstance(data, dict):
+            # User join
+            if data.get('user_id'):
+                user_id = str(data['user_id'])
+                await sio.enter_room(sid, user_id)
+                logger.info(f"User {user_id} joined room {user_id}")
+                await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
+            
+            # Shop join
+            if data.get('shop_id'):
+                shop_id = str(data['shop_id'])
+                await sio.enter_room(sid, shop_id)
+                logger.info(f"Shop {shop_id} joined room {shop_id}")
+                await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
     except Exception as e:
-        logger.error(f" Join error: {e}")
-        await sio.emit('error', {'message': str(e)}, room=sid)
-
-@sio.event
-async def join_shop_room(sid, data):
-    """Shop join room theo shop_id"""
-    try:
-        if data and isinstance(data, dict) and data.get('shop_id'):
-            shop_id = str(data['shop_id'])
-            await sio.enter_room(sid, shop_id)
-            logger.info(f" Shop {shop_id} joined room {shop_id}")
-            await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
-        else:
-            await sio.emit('error', {'message': 'Invalid join data'}, room=sid)
-    except Exception as e:
-        logger.error(f" Join shop error: {e}")
-        await sio.emit('error', {'message': str(e)}, room=sid)
+        logger.error(f"Join error: {e}")
 
 @sio.event
 async def leave(sid, data):
@@ -281,50 +272,33 @@ async def leave(sid, data):
 
 @sio.event
 async def send_chat_message(sid, data):
-    """Nhận tin nhắn từ client (user hoặc shop) và phát realtime"""
+    """Gửi tin nhắn giữa user và shop (chỉ xử lý socket, không lưu database)"""
     try:
-        # Validate data
         required_fields = ['sender_id', 'receiver_id', 'content']
         for field in required_fields:
             if field not in data:
                 await sio.emit('error', {'message': f'Missing field: {field}'}, room=sid)
                 return
 
-        db = get_database()
-        chat_service = ChatService(db)
-
-        # Send message
-        saved_msg = await chat_service.send_message(
-            sender_id=data['sender_id'],
-            receiver_id=data['receiver_id'],
-            content=data['content']
-        )
-
-        if not saved_msg:
-            await sio.emit('error', {'message': 'Failed to send message'}, room=sid)
-            return
-
-        # Prepare message data for realtime
+        # Chuẩn bị dữ liệu để gửi realtime (không lưu database ở đây vì API đã lưu rồi)
         message_data = {
-            "id": str(saved_msg.get("_id")),
+            "id": 'socket-' + str(datetime.utcnow().timestamp()),
             "sender_id": data['sender_id'],
             "receiver_id": data['receiver_id'],
             "content": data['content'],
             "message_type": "text",
-            "created_at": saved_msg["created_at"].isoformat() if saved_msg.get("created_at") else datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat()
         }
 
-        # Emit to both sender and receiver rooms
+        # Gửi đến cả sender và receiver
         await sio.emit('new_message', message_data, room=data['receiver_id'])
         await sio.emit('new_message', message_data, room=data['sender_id'])
-        
-        # Also send delivery receipt
         await sio.emit('message_sent', {'id': message_data['id'], 'status': 'delivered'}, room=sid)
 
-        logger.info(f" Message from {data['sender_id']} to {data['receiver_id']}")
+        logger.info(f"Socket message from {data['sender_id']} to {data['receiver_id']}")
 
     except Exception as e:
-        logger.error(f" Socket send_chat_message error: {e}")
+        logger.error(f"Socket send_chat_message error: {e}")
         await sio.emit('error', {"message": str(e)}, room=sid)
 
 @sio.event
@@ -356,80 +330,6 @@ async def typing_stop(sid, data):
                 }, room=receiver_id)
     except Exception as e:
         logger.error(f" Typing stop error: {e}")
-
-@sio.event
-async def join(sid, data):
-    """User hoặc Shop join room"""
-    try:
-        if data and isinstance(data, dict):
-            # User join
-            if data.get('user_id'):
-                user_id = str(data['user_id'])
-                await sio.enter_room(sid, user_id)
-                logger.info(f"User {user_id} joined room {user_id}")
-                await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
-            
-            # Shop join
-            if data.get('shop_id'):
-                shop_id = str(data['shop_id'])
-                await sio.enter_room(sid, shop_id)
-                logger.info(f"Shop {shop_id} joined room {shop_id}")
-                await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
-    except Exception as e:
-        logger.error(f"Join error: {e}")
-
-@sio.event
-async def send_chat_message(sid, data):
-    """Gửi tin nhắn giữa user và shop"""
-    try:
-        required_fields = ['sender_id', 'receiver_id', 'content']
-        for field in required_fields:
-            if field not in data:
-                await sio.emit('error', {'message': f'Missing field: {field}'}, room=sid)
-                return
-
-        db = get_database()
-        chat_service = ChatService(db)
-        
-        # Xác định loại người gửi (user hay shop)
-        from bson import ObjectId
-        sender_type = "user"
-        shop = await db["shops"].find_one({"_id": ObjectId(data['sender_id'])})
-        if shop:
-            sender_type = "shop"
-
-        # Lưu tin nhắn vào database
-        saved_msg = await chat_service.send_message(
-            sender_id=data['sender_id'],
-            receiver_id=data['receiver_id'],
-            content=data['content'],
-            sender_type=sender_type
-        )
-
-        if not saved_msg:
-            await sio.emit('error', {'message': 'Failed to send message'}, room=sid)
-            return
-
-        # Chuẩn bị dữ liệu để gửi realtime
-        message_data = {
-            "id": str(saved_msg.get("_id")),
-            "sender_id": data['sender_id'],
-            "receiver_id": data['receiver_id'],
-            "content": data['content'],
-            "message_type": "text",
-            "created_at": saved_msg["created_at"].isoformat() if saved_msg.get("created_at") else datetime.utcnow().isoformat()
-        }
-
-        # Gửi đến cả sender và receiver (cả user và shop đều nhận được)
-        await sio.emit('new_message', message_data, room=data['receiver_id'])
-        await sio.emit('new_message', message_data, room=data['sender_id'])
-        await sio.emit('message_sent', {'id': message_data['id'], 'status': 'delivered'}, room=sid)
-
-        logger.info(f"Message from {data['sender_id']} ({sender_type}) to {data['receiver_id']}")
-
-    except Exception as e:
-        logger.error(f"Socket send_chat_message error: {e}")
-        await sio.emit('error', {"message": str(e)}, room=sid)
 # ====================== INCLUDE ROUTERS ======================
 app.include_router(user_routes.router, prefix=API_PREFIX)
 app.include_router(auth_routes.router, prefix=API_PREFIX)
