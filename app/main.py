@@ -272,7 +272,7 @@ async def leave(sid, data):
 
 @sio.event
 async def send_chat_message(sid, data):
-    """Gửi tin nhắn giữa user và shop (chỉ xử lý socket, không lưu database)"""
+    """Gửi tin nhắn realtime (KHÔNG lưu database, chỉ phát)"""
     try:
         required_fields = ['sender_id', 'receiver_id', 'content']
         for field in required_fields:
@@ -280,7 +280,7 @@ async def send_chat_message(sid, data):
                 await sio.emit('error', {'message': f'Missing field: {field}'}, room=sid)
                 return
 
-        # Chuẩn bị dữ liệu để gửi realtime (không lưu database ở đây vì API đã lưu rồi)
+        # Chuẩn bị dữ liệu để gửi realtime (KHÔNG lưu database)
         message_data = {
             "id": 'socket-' + str(datetime.utcnow().timestamp()),
             "sender_id": data['sender_id'],
@@ -290,12 +290,12 @@ async def send_chat_message(sid, data):
             "created_at": datetime.utcnow().isoformat()
         }
 
-        # Gửi đến cả sender và receiver
+        # Gửi đến receiver và sender
         await sio.emit('new_message', message_data, room=data['receiver_id'])
         await sio.emit('new_message', message_data, room=data['sender_id'])
         await sio.emit('message_sent', {'id': message_data['id'], 'status': 'delivered'}, room=sid)
 
-        logger.info(f"Socket message from {data['sender_id']} to {data['receiver_id']}")
+        logger.info(f"Socket realtime message from {data['sender_id']} to {data['receiver_id']}")
 
     except Exception as e:
         logger.error(f"Socket send_chat_message error: {e}")
