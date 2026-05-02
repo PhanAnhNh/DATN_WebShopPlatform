@@ -1,4 +1,5 @@
 # app/routes/chat_routes.py
+import datetime
 from venv import logger
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -245,3 +246,114 @@ async def shop_mark_as_read(
     service = ChatService(db)
     await service.mark_messages_as_read(str(current_shop.shop_id), user_id)
     return {"message": "Đã đánh dấu đã đọc"}
+
+# Thêm vào cuối file app/routes/chat_routes.py
+
+@router.put("/{message_id}")
+async def edit_message(
+    message_id: str,
+    content: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Sửa tin nhắn (chỉ người gửi mới được sửa)"""
+    from bson import ObjectId
+    
+    service = ChatService(db)
+    result = await service.edit_message(message_id, str(current_user.id), content)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tin nhắn hoặc không có quyền sửa")
+    
+    # Phát socket để cập nhật realtime
+    if sio_server:
+        message_data = {
+            "id": message_id,
+            "content": content,
+            "edited": True,
+            "edited_at": datetime.utcnow().isoformat()
+        }
+        # Gửi đến cả sender và receiver
+        await sio_server.emit('message_edited', message_data, room=f'user_{result["sender_id"]}')
+        await sio_server.emit('message_edited', message_data, room=f'user_{result["receiver_id"]}')
+        if result.get("sender_type") == "shop":
+            await sio_server.emit('message_edited', message_data, room=f'shop_{result["sender_id"]}')
+        if result.get("receiver_type") == "shop":
+            await sio_server.emit('message_edited', message_data, room=f'shop_{result["receiver_id"]}')
+    
+    return {"message": "Đã sửa tin nhắn"}
+
+@router.put("/shop/{message_id}")
+async def shop_edit_message(
+    message_id: str,
+    content: str,
+    current_shop: CurrentUser = Depends(get_current_shop_owner),
+    db = Depends(get_database)
+):
+    """Shop sửa tin nhắn"""
+    from bson import ObjectId
+    
+    service = ChatService(db)
+    result = await service.edit_message(message_id, str(current_shop.shop_id), content)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tin nhắn hoặc không có quyền sửa")
+    
+    if sio_server:
+        message_data = {
+            "id": message_id,
+            "content": content,
+            "edited": True,
+            "edited_at": datetime.utcnow().isoformat()
+        }
+        await sio_server.emit('message_edited', message_data, room=f'user_{result["receiver_id"]}')
+        await sio_server.emit('message_edited', message_data, room=f'shop_{result["sender_id"]}')
+    
+    return {"message": "Đã sửa tin nhắn"}
+
+@router.delete("/{message_id}")
+async def delete_message(
+    message_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Xóa tin nhắn (chỉ người gửi mới được xóa)"""
+    from bson import ObjectId
+    
+    service = ChatService(db)
+    result = await service.delete_message(message_id, str(current_user.id))
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tin nhắn hoặc không có quyền xóa")
+    
+    # Phát socket để cập nhật realtime
+    if sio_server:
+        await sio_server.emit('message_deleted', {"id": message_id}, room=f'user_{result["sender_id"]}')
+        await sio_server.emit('message_deleted', {"id": message_id}, room=f'user_{result["receiver_id"]}')
+        if result.get("sender_type") == "shop":
+            await sio_server.emit('message_deleted', {"id": message_id}, room=f'shop_{result["sender_id"]}')
+        if result.get("receiver_type") == "shop":
+            await sio_server.emit('message_deleted', {"id": message_id}, room=f'shop_{result["receiver_id"]}')
+    
+    return {"message": "Đã xóa tin nhắn"}
+
+@router.delete("/shop/{message_id}")
+async def shop_delete_message(
+    message_id: str,
+    current_shop: CurrentUser = Depends(get_current_shop_owner),
+    db = Depends(get_database)
+):
+    """Shop xóa tin nhắn"""
+    from bson import ObjectId
+    
+    service = ChatService(db)
+    result = await service.delete_message(message_id, str(current_shop.shop_id))
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tin nhắn hoặc không có quyền xóa")
+    
+    if sio_server:
+        await sio_server.emit('message_deleted', {"id": message_id}, room=f'user_{result["receiver_id"]}')
+        await sio_server.emit('message_deleted', {"id": message_id}, room=f'shop_{result["sender_id"]}')
+    
+    return {"message": "Đã xóa tin nhắn"}
