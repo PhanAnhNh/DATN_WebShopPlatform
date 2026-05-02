@@ -1,5 +1,5 @@
 # app/routes/chat_routes.py
-import datetime
+from datetime import datetime, timezone
 from venv import logger
 
 from fastapi import APIRouter, Depends, HTTPException, Query
