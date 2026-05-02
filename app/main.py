@@ -3,6 +3,7 @@ from datetime import datetime
 import socketio
 import uvicorn
 import asyncio
+from app.routes import chat_routes
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -238,40 +239,47 @@ async def handle_ping(sid, data):
 
 @sio.event
 async def join(sid, data):
-    """User hoặc Shop join room"""
+    """User hoặc Shop join room của chính họ"""
     try:
         if data and isinstance(data, dict):
-            # User join
+            # User join room bằng user_id
             if data.get('user_id'):
                 user_id = str(data['user_id'])
-                await sio.enter_room(sid, user_id)
-                logger.info(f"✅ User {user_id} joined room {user_id}")
-                # Log số lượng rooms hiện tại
+                # Rời khỏi các room cũ (trừ room hiện tại)
                 rooms = sio.rooms(sid)
-                logger.info(f"   Rooms for {sid}: {rooms}")
+                for room in list(rooms):
+                    if room != sid and room.startswith('user_'):
+                        await sio.leave_room(sid, room)
+                await sio.enter_room(sid, f'user_{user_id}')
+                logger.info(f"✅ User {user_id} joined room user_{user_id}")
                 await sio.emit('joined', {'user_id': user_id, 'status': 'success'}, room=sid)
             
-            # Shop join
+            # Shop join room bằng shop_id
             if data.get('shop_id'):
                 shop_id = str(data['shop_id'])
-                await sio.enter_room(sid, shop_id)
-                logger.info(f"✅ Shop {shop_id} joined room {shop_id}")
                 rooms = sio.rooms(sid)
-                logger.info(f"   Rooms for {sid}: {rooms}")
+                for room in list(rooms):
+                    if room != sid and room.startswith('shop_'):
+                        await sio.leave_room(sid, room)
+                await sio.enter_room(sid, f'shop_{shop_id}')
+                logger.info(f"✅ Shop {shop_id} joined room shop_{shop_id}")
                 await sio.emit('joined', {'shop_id': shop_id, 'status': 'success'}, room=sid)
     except Exception as e:
         logger.error(f"Join error: {e}")
 
 @sio.event
 async def leave(sid, data):
-    """User leave room"""
+    """User rời room"""
     try:
         if data and isinstance(data, dict):
-            room = data.get('user_id') or data.get('shop_id')
-            if room:
-                await sio.leave_room(sid, str(room))
-                logger.info(f" Client {sid} left room {room}")
-                await sio.emit('left', {'room': room, 'status': 'success'}, room=sid)
+            user_id = data.get('user_id')
+            shop_id = data.get('shop_id')
+            if user_id:
+                await sio.leave_room(sid, f'user_{user_id}')
+                logger.info(f" User {sid} left room user_{user_id}")
+            if shop_id:
+                await sio.leave_room(sid, f'shop_{shop_id}')
+                logger.info(f" Shop {sid} left room shop_{shop_id}")
     except Exception as e:
         logger.error(f" Leave error: {e}")
 
@@ -285,22 +293,46 @@ async def send_chat_message(sid, data):
                 await sio.emit('error', {'message': f'Missing field: {field}'}, room=sid)
                 return
 
-        # Chuẩn bị dữ liệu để gửi realtime (KHÔNG lưu database)
+        # Xác định loại người gửi và người nhận
+        sender_id = str(data['sender_id'])
+        receiver_id = str(data['receiver_id'])
+        
+        # Chuẩn bị dữ liệu để gửi realtime
         message_data = {
             "id": 'socket-' + str(datetime.utcnow().timestamp()),
-            "sender_id": data['sender_id'],
-            "receiver_id": data['receiver_id'],
+            "sender_id": sender_id,
+            "receiver_id": receiver_id,
             "content": data['content'],
             "message_type": "text",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "is_read": False
         }
 
-        # Gửi đến receiver và sender
-        await sio.emit('new_message', message_data, room=data['receiver_id'])
-        await sio.emit('new_message', message_data, room=data['sender_id'])
+        # Xác định room của người nhận (có thể là user_xxx hoặc shop_xxx)
+        # Kiểm tra receiver_id là user hay shop
+        from bson import ObjectId
+        db = get_database()
+        
+        # Thử tìm trong collection users
+        user_exists = await db["users"].find_one({"_id": ObjectId(receiver_id)}) if ObjectId.is_valid(receiver_id) else None
+        if user_exists:
+            receiver_room = f'user_{receiver_id}'
+        else:
+            receiver_room = f'shop_{receiver_id}'
+        
+        # Xác định room của người gửi
+        sender_exists = await db["users"].find_one({"_id": ObjectId(sender_id)}) if ObjectId.is_valid(sender_id) else None
+        if sender_exists:
+            sender_room = f'user_{sender_id}'
+        else:
+            sender_room = f'shop_{sender_id}'
+        
+        # Gửi đến room của người nhận
+        await sio.emit('new_message', message_data, room=receiver_room)
+        logger.info(f"📨 Socket sent to room: {receiver_room}")
+        
+        # Gửi lại xác nhận cho người gửi
         await sio.emit('message_sent', {'id': message_data['id'], 'status': 'delivered'}, room=sid)
-
-        logger.info(f"Socket realtime message from {data['sender_id']} to {data['receiver_id']}")
 
     except Exception as e:
         logger.error(f"Socket send_chat_message error: {e}")
@@ -411,6 +443,10 @@ socket_app = socketio.ASGIApp(
     other_asgi_app=app,
     socketio_path="/socket.io"
 )
+
+# THÊM DÒNG NÀY ĐỂ GÁN SOCKET SERVER VÀO CHAT ROUTES
+chat_routes.set_socket_server(sio)
+
 app.mount("/socket.io", socket_app)
 
 # ====================== ROOT ENDPOINTS ======================

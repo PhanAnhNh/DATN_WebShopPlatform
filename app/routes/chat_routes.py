@@ -37,6 +37,12 @@ async def send_message(
         
         # Phát socket realtime cho cả 2 bên
         if sio_server:
+            # Lấy thông tin người gửi
+            from bson import ObjectId
+            user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
+            sender_name = user.get("full_name") or user.get("username", "Người dùng") if user else "Người dùng"
+            sender_avatar = user.get("avatar_url") if user else None
+            
             message_data = {
                 "id": str(result["_id"]),
                 "sender_id": str(current_user.id),
@@ -44,14 +50,30 @@ async def send_message(
                 "content": content,
                 "message_type": message_type,
                 "created_at": result["created_at"].isoformat() if result.get("created_at") else None,
-                "is_read": False
+                "is_read": False,
+                "sender_name": sender_name,
+                "sender_avatar": sender_avatar
             }
-            # Quan trọng: Gửi đến room của receiver (có thể là user hoặc shop)
-            await sio_server.emit('new_message', message_data, room=receiver_id)
-            # Gửi đến room của sender
-            await sio_server.emit('new_message', message_data, room=str(current_user.id))
             
-            logger.info(f"Socket emitted to rooms: {receiver_id} and {current_user.id}")
+            # Xác định room của người nhận (user hoặc shop)
+            receiver_room = None
+            # Kiểm tra receiver_id có phải shop không
+            shop = await db["shops"].find_one({"_id": ObjectId(receiver_id)}) if ObjectId.is_valid(receiver_id) else None
+            if shop:
+                receiver_room = f'shop_{receiver_id}'
+                logger.info(f"📨 Emitting to shop room: {receiver_room}")
+            else:
+                receiver_room = f'user_{receiver_id}'
+                logger.info(f"📨 Emitting to user room: {receiver_room}")
+            
+            # Gửi đến room của receiver
+            await sio_server.emit('new_message', message_data, room=receiver_room)
+            
+            # Gửi đến room của sender
+            sender_room = f'user_{current_user.id}'
+            await sio_server.emit('new_message', message_data, room=sender_room)
+            
+            logger.info(f"✅ Socket emitted: sender_room={sender_room}, receiver_room={receiver_room}")
         
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
@@ -78,18 +100,33 @@ async def shop_send_message(
         
         # Phát socket realtime cho cả 2 bên
         if sio_server:
+            # Lấy thông tin shop
+            from bson import ObjectId
+            shop = await db["shops"].find_one({"_id": ObjectId(current_shop.shop_id)})
+            sender_name = shop.get("name", "Cửa hàng") if shop else "Cửa hàng"
+            sender_avatar = shop.get("logo_url") if shop else None
+            
             message_data = {
-                "id": result.get("_id"),
+                "id": str(result["_id"]),
                 "sender_id": str(current_shop.shop_id),
                 "receiver_id": receiver_id,
                 "content": content,
                 "message_type": message_type,
-                "created_at": result.get("created_at").isoformat() if result.get("created_at") else None
+                "created_at": result["created_at"].isoformat() if result.get("created_at") else None,
+                "is_read": False,
+                "sender_name": sender_name,
+                "sender_avatar": sender_avatar
             }
-            # Gửi đến room của receiver (user)
-            await sio_server.emit('new_message', message_data, room=receiver_id)
-            # Gửi đến room của sender (shop)
-            await sio_server.emit('new_message', message_data, room=str(current_shop.shop_id))
+            
+            # Room của receiver (user)
+            receiver_room = f'user_{receiver_id}'
+            await sio_server.emit('new_message', message_data, room=receiver_room)
+            logger.info(f"📨 Shop sent to user room: {receiver_room}")
+            
+            # Room của sender (shop)
+            sender_room = f'shop_{current_shop.shop_id}'
+            await sio_server.emit('new_message', message_data, room=sender_room)
+            logger.info(f"📨 Shop sent to shop room: {sender_room}")
         
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
