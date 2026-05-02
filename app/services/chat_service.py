@@ -221,3 +221,58 @@ class ChatService:
             "is_read": False
         })
         return count
+    
+    # Thêm vào cuối class ChatService trong app/services/chat_service.py
+
+    async def edit_message(self, message_id: str, user_id: str, new_content: str) -> Optional[Dict]:
+        """Sửa tin nhắn (chỉ người gửi mới được sửa)"""
+        from bson import ObjectId
+        
+        try:
+            message = await self.message_collection.find_one({"_id": ObjectId(message_id)})
+            if not message:
+                return None
+            
+            # Chỉ người gửi mới được sửa
+            if message["sender_id"] != user_id:
+                return None
+            
+            # Cập nhật nội dung
+            await self.message_collection.update_one(
+                {"_id": ObjectId(message_id)},
+                {
+                    "$set": {
+                        "content": new_content,
+                        "is_edited": True,
+                        "edited_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            message["content"] = new_content
+            message["is_edited"] = True
+            return message
+        except Exception as e:
+            print(f"Error editing message: {e}")
+            return None
+
+    async def delete_message(self, message_id: str, user_id: str) -> Optional[Dict]:
+        """Xóa tin nhắn (chỉ người gửi mới được xóa)"""
+        from bson import ObjectId
+        
+        try:
+            message = await self.message_collection.find_one({"_id": ObjectId(message_id)})
+            if not message:
+                return None
+            
+            # Chỉ người gửi mới được xóa
+            if message["sender_id"] != user_id:
+                return None
+            
+            # Xóa tin nhắn
+            await self.message_collection.delete_one({"_id": ObjectId(message_id)})
+            
+            return message
+        except Exception as e:
+            print(f"Error deleting message: {e}")
+            return None
