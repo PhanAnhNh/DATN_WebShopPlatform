@@ -82,6 +82,7 @@ async def create_order(
 
 # ==================== GET ORDERS - WITH MANUAL CACHE ====================
 
+
 @router.get("/my", response_model=OrderListResponse)
 async def get_my_orders(
     db = Depends(get_database),
@@ -153,7 +154,6 @@ async def get_my_orders(
             except:
                 pass
         else:
-            # Tìm kiếm theo order_code hoặc tên sản phẩm
             query["$or"] = [
                 {"order_code": {"$regex": search, "$options": "i"}},
                 {"items.product_name": {"$regex": search, "$options": "i"}}
@@ -180,34 +180,43 @@ async def get_my_orders(
         skip = (page - 1) * limit
         total_pages = (total + limit - 1) // limit
         
-        # Lấy nhiều items hơn để hiển thị
         cursor = db["orders"].find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)
         
         orders = []
         async for order in cursor:
-            # Lấy image_url cho từng item
             items_with_images = []
-            for item in order.get("items", [])[:3]:  # Lấy tối đa 3 item
+            
+            # Lấy tất cả product_id từ order
+            product_ids = [item["product_id"] for item in order.get("items", [])]
+            
+            # Query một lần để lấy tất cả sản phẩm (tránh query N lần)
+            products_map = {}
+            if product_ids:
+                product_cursor = db["products"].find(
+                    {"_id": {"$in": product_ids}},
+                    {"name": 1, "image_url": 1, "images": 1}
+                )
+                async for product in product_cursor:
+                    products_map[product["_id"]] = product
+            
+            for item in order.get("items", [])[:3]:
+                product_id = item["product_id"]
+                product_info = products_map.get(product_id, {})
+                
+                # Lấy tên sản phẩm từ products collection
+                product_name = product_info.get("name", "")
+                
                 # Lấy ảnh sản phẩm
-                product_image = None
-                try:
-                    product = await db["products"].find_one(
-                        {"_id": item["product_id"]},
-                        {"image_url": 1, "images": 1}
-                    )
-                    if product:
-                        product_image = product.get("image_url") or (product.get("images", [])[0] if product.get("images") else None)
-                except:
-                    pass
+                product_image = product_info.get("image_url") or (product_info.get("images", [])[0] if product_info.get("images") else None)
                 
                 items_with_images.append({
                     "_id": str(item.get("_id", "")),
-                    "product_id": str(item["product_id"]),
-                    "product_name": item.get("product_name", "Sản phẩm"),
+                    "product_id": str(product_id),
+                    "product_name": product_name,  # ✅ Lấy từ products collection
                     "quantity": item.get("quantity", 0),
                     "price": item.get("price", 0),
-                    "variant_name": item.get("variant_name"),
-                    "image_url": product_image  # Thêm image_url
+                    "variant_name": item.get("variant_name"),  # Giữ variant_name nếu có
+                    "image_url": product_image
                 })
             
             order_dict = {
@@ -222,7 +231,7 @@ async def get_my_orders(
                 "payment_status": order.get("payment_status", "unpaid"),
                 "payment_method": order.get("payment_method", "cod"),
                 "created_at": order.get("created_at"),
-                "items": items_with_images,  # Trả về items đầy đủ có ảnh
+                "items": items_with_images,
                 "item_count": len(order.get("items", []))
             }
             orders.append(order_dict)
@@ -252,6 +261,8 @@ async def get_my_orders(
     except Exception as e:
         logger.error(f"Error fetching orders: {str(e)}")
         raise HTTPException(status_code=500, detail="Lỗi khi lấy danh sách đơn hàng")
+    
+
 # ==================== STATS - WITH MANUAL CACHE ====================
 
 @router.get("/stats", response_model=OrderStatsResponse)
