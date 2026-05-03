@@ -203,7 +203,7 @@ async def get_my_orders(
                 items_with_images.append({
                     "_id": str(item.get("_id", "")),
                     "product_id": str(item["product_id"]),
-                    "product_name": item.get("variant_name") or item.get("product_name", "Sản phẩm"),
+                    "product_name": item.get("product_name", "Sản phẩm"),
                     "quantity": item.get("quantity", 0),
                     "price": item.get("price", 0),
                     "variant_name": item.get("variant_name"),
