@@ -100,10 +100,8 @@ async def get_my_orders(
 ):
     """Get user orders with manual cache"""
     
-    # Generate cache key from all params
     cache_key = f"user_orders:{current_user.id}:{page}:{limit}:{status}:{payment_status}:{search}:{from_date}:{to_date}:{min_amount}:{max_amount}:{sort_by}:{sort_order}"
     
-    # Try to get from cache
     cached_result = await get_cached(cache_key)
     if cached_result:
         logger.debug(f"Cache hit for orders")
@@ -155,7 +153,11 @@ async def get_my_orders(
             except:
                 pass
         else:
-            query["_id"] = {"$regex": f".*{search}.*", "$options": "i"}
+            # Tìm kiếm theo order_code hoặc tên sản phẩm
+            query["$or"] = [
+                {"order_code": {"$regex": search, "$options": "i"}},
+                {"items.product_name": {"$regex": search, "$options": "i"}}
+            ]
     
     # Validate sort
     allowed_sort_fields = ["created_at", "total_amount", "status", "updated_at"]
@@ -178,20 +180,39 @@ async def get_my_orders(
         skip = (page - 1) * limit
         total_pages = (total + limit - 1) // limit
         
-        cursor = db["orders"].find(
-            query,
-            {
-                "_id": 1, "user_id": 1, "total_amount": 1, "status": 1,
-                "payment_status": 1, "payment_method": 1, "created_at": 1,
-                "items": {"$slice": 2}, "subtotal": 1, "discount": 1, "shipping_fee": 1
-            }
-        ).sort(sort_by, sort_direction).skip(skip).limit(limit)
+        # Lấy nhiều items hơn để hiển thị
+        cursor = db["orders"].find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)
         
         orders = []
         async for order in cursor:
+            # Lấy image_url cho từng item
+            items_with_images = []
+            for item in order.get("items", [])[:3]:  # Lấy tối đa 3 item
+                # Lấy ảnh sản phẩm
+                product_image = None
+                try:
+                    product = await db["products"].find_one(
+                        {"_id": item["product_id"]},
+                        {"image_url": 1, "images": 1}
+                    )
+                    if product:
+                        product_image = product.get("image_url") or (product.get("images", [])[0] if product.get("images") else None)
+                except:
+                    pass
+                
+                items_with_images.append({
+                    "_id": str(item.get("_id", "")),
+                    "product_id": str(item["product_id"]),
+                    "product_name": item.get("variant_name") or item.get("product_name", "Sản phẩm"),
+                    "quantity": item.get("quantity", 0),
+                    "price": item.get("price", 0),
+                    "variant_name": item.get("variant_name"),
+                    "image_url": product_image  # Thêm image_url
+                })
+            
             order_dict = {
                 "_id": str(order["_id"]),
-                "order_code": str(order["_id"])[-8:].upper(),
+                "order_code": order.get("order_code") or str(order["_id"])[-8:].upper(),
                 "user_id": str(order["user_id"]),
                 "total_amount": order.get("total_amount", 0),
                 "subtotal": order.get("subtotal", 0),
@@ -201,15 +222,8 @@ async def get_my_orders(
                 "payment_status": order.get("payment_status", "unpaid"),
                 "payment_method": order.get("payment_method", "cod"),
                 "created_at": order.get("created_at"),
-                "item_count": len(order.get("items", [])),
-                "items_preview": [
-                    {
-                        "product_name": item.get("variant_name") or item.get("product_name", "Sản phẩm"),
-                        "quantity": item.get("quantity", 0),
-                        "price": item.get("price", 0)
-                    }
-                    for item in order.get("items", [])[:2]
-                ]
+                "items": items_with_images,  # Trả về items đầy đủ có ảnh
+                "item_count": len(order.get("items", []))
             }
             orders.append(order_dict)
         
@@ -231,7 +245,6 @@ async def get_my_orders(
             }
         }
         
-        # Save to cache
         await set_cached(cache_key, result_data, ttl=30)
         
         return OrderListResponse(**result_data)
@@ -239,8 +252,6 @@ async def get_my_orders(
     except Exception as e:
         logger.error(f"Error fetching orders: {str(e)}")
         raise HTTPException(status_code=500, detail="Lỗi khi lấy danh sách đơn hàng")
-
-
 # ==================== STATS - WITH MANUAL CACHE ====================
 
 @router.get("/stats", response_model=OrderStatsResponse)
