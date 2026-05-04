@@ -3,7 +3,7 @@ import os
 
 def generate_product_qr(product_id: str):
 
-    url = f"http://localhost:8000/products/{product_id}"
+    url = f"https://www.dacsanvietplatform.shop/products/{product_id}"
 
     qr = qrcode.make(url)
 
