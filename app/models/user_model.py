@@ -32,6 +32,7 @@ class UserBase(BaseModel):
     posts_count: int = 0
 
     shop_id: Optional[str] = None
+    google_id: Optional[str] = None
 
 
 class UserCreate(BaseModel):

@@ -1,4 +1,8 @@
 # app/routes/auth_routes.py
+from typing import Optional
+
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from app.services.user_service import UserService
@@ -7,6 +11,7 @@ from datetime import timedelta
 from app.core.config import settings
 from app.db.mongodb import get_database
 from bson import ObjectId
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["Xác thực (Login)"])
 
@@ -54,7 +59,6 @@ async def login(
             "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     }
-
 
 @router.get("/me")
 async def get_my_profile(
@@ -105,7 +109,6 @@ async def get_my_profile(
     
     return user_data
 
-
 @router.put("/update-profile")
 async def update_profile(
     profile_data: dict,
@@ -146,3 +149,102 @@ async def update_profile(
             updated_user["id"] = str(updated_user["_id"])
     
     return {"message": "Profile updated successfully", "user": updated_user}
+
+
+class GoogleLoginRequest(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    google_id: str
+
+@router.post("/google-login")
+async def google_login(
+    request: GoogleLoginRequest,
+    db = Depends(get_database)
+):
+    user_service = UserService(db)
+    
+    # Tìm user theo email
+    user = await user_service.get_user_by_email(request.email)
+    
+    if not user:
+        # Tạo tài khoản mới nếu chưa tồn tại
+        import random
+        import string
+        
+        # Tạo username từ email
+        base_username = request.email.split('@')[0]
+        username = base_username
+        
+        # Kiểm tra username đã tồn tại chưa
+        existing_user = await user_service.get_user_by_username(username)
+        if existing_user:
+            # Thêm số ngẫu nhiên vào username
+            random_suffix = ''.join(random.choices(string.digits, k=4))
+            username = f"{base_username}_{random_suffix}"
+        
+        from app.models.user_model import UserCreate
+        import secrets
+        import string as string_module
+        
+        # Tạo mật khẩu ngẫu nhiên
+        alphabet = string_module.ascii_letters + string_module.digits
+        random_password = ''.join(secrets.choice(alphabet) for _ in range(32))
+        
+        user_create = UserCreate(
+            username=username,
+            email=request.email,
+            password=random_password,
+            full_name=request.full_name or username,
+            avatar_url=request.avatar_url
+        )
+        
+        # Tạo user mới
+        user_id = await user_service.create_user(user_create)
+        user = await user_service.get_user_by_id(user_id)
+        
+        if not user:
+            raise HTTPException(status_code=500, detail="Không thể tạo tài khoản")
+        
+        # Lưu google_id vào user (tùy chọn)
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"google_id": request.google_id}}
+        )
+    
+    # Tạo access token
+    access_token = create_access_token(
+        subject=str(user["_id"]),
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    # Cập nhật last_login
+    await user_service.update_last_login(str(user["_id"]))
+    
+    # Trả về response
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user["_id"]),
+            "username": user.get("username", ""),
+            "full_name": user.get("full_name", ""),
+            "avatar_url": user.get("avatar_url", ""),
+            "cover_url": user.get("cover_url", ""),
+            "email": user.get("email", ""),
+            "gender": user.get("gender", ""),
+            "phone": user.get("phone", ""),
+            "address": user.get("address", ""),
+            "dob": user.get("dob").isoformat() if user.get("dob") else None,
+            "role": user.get("role", "user"),
+            "default_address_id": user.get("default_address_id"),
+            "is_active": user.get("is_active", True),
+            "is_verified": user.get("is_verified", False),
+            "followers_count": user.get("followers_count", 0),
+            "following_count": user.get("following_count", 0),
+            "posts_count": user.get("posts_count", 0),
+            "shop_id": user.get("shop_id"),
+            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+            "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
+        }
+    }
