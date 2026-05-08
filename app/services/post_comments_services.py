@@ -23,7 +23,7 @@ class PostCommentService:
         data["post_id"] = ObjectId(data["post_id"])
         data["created_at"] = datetime.utcnow()
         data["updated_at"] = None
-        data["is_hidden_by_ai"] = is_hidden
+        data["is_hidden_by_ai"] = is_hidden  # Đánh dấu đã bị ẩn bởi AI
         data["ai_moderation"] = {
             "is_spam": moderation_result["is_spam"],
             "is_toxic": moderation_result["is_toxic"],
@@ -62,8 +62,7 @@ class PostCommentService:
 
     async def get_comments_by_post(self, post_id: str, current_user_id: Optional[str] = None):
         """
-        Lấy tất cả bình luận của bài viết - KHÔNG thay đổi nội dung
-        Chỉ gửi flag is_hidden_by_ai để frontend xử lý
+        Lấy tất cả bình luận của bài viết - TRẢ VỀ is_hidden_by_ai ĐÚNG
         """
         pipeline = [
             {"$match": {"post_id": ObjectId(post_id)}},
@@ -87,10 +86,13 @@ class PostCommentService:
             doc["author_name"] = doc["user_info"].get("full_name") or doc["user_info"].get("username", "Người dùng")
             doc["author_avatar"] = doc["user_info"].get("avatar_url")
             
-            # === QUAN TRỌNG: GIỮ NGUYÊN nội dung gốc ===
-            # KHÔNG thay thế nội dung bằng text "[Bình luận này bị ẩn...]"
-            # Chỉ gửi flag để frontend quyết định hiển thị
+            # === QUAN TRỌNG: Giữ nguyên giá trị is_hidden_by_ai từ database ===
+            # KHÔNG set thành False cho tất cả
             doc["is_hidden_by_ai"] = doc.get("is_hidden_by_ai", False)
+            
+            # Thêm thông tin AI moderation nếu có
+            if "ai_moderation" in doc:
+                doc["ai_moderation"] = doc["ai_moderation"]
             
             if "user_info" in doc:
                 del doc["user_info"]
@@ -98,80 +100,6 @@ class PostCommentService:
             comments.append(doc)
         
         return comments
-
-    async def get_comments_by_post_v2(self, post_id: str, current_user_id: Optional[str] = None):
-        """
-        Version 2: Trả về comment kèm quyền hiển thị
-        """
-        pipeline = [
-            {"$match": {"post_id": ObjectId(post_id)}},
-            {"$sort": {"created_at": 1}},
-            {"$lookup": {
-                "from": "users",
-                "localField": "user_id",
-                "foreignField": "_id",
-                "as": "user_info"
-            }},
-            {"$unwind": "$user_info"}
-        ]
-        
-        # Lấy thông tin bài viết
-        post = await self.db["social_posts"].find_one({"_id": ObjectId(post_id)})
-        is_post_owner = current_user_id and post and str(post["author_id"]) == current_user_id
-        
-        # Kiểm tra admin
-        is_admin = False
-        if current_user_id:
-            user = await self.db["users"].find_one({"_id": ObjectId(current_user_id)})
-            is_admin = user and user.get("role") == "admin"
-        
-        cursor = self.collection.aggregate(pipeline)
-        comments = []
-        async for doc in cursor:
-            doc["_id"] = str(doc["_id"])
-            doc["post_id"] = str(doc["post_id"])
-            doc["user_id"] = str(doc["user_id"])
-            doc["author_id"] = doc["user_id"]
-            doc["author_name"] = doc["user_info"].get("full_name") or doc["user_info"].get("username", "Người dùng")
-            doc["author_avatar"] = doc["user_info"].get("avatar_url")
-            doc["is_hidden_by_ai"] = doc.get("is_hidden_by_ai", False)
-            
-            # Thêm flag để frontend biết người dùng hiện tại có quyền xem comment bị ẩn không
-            doc["can_see_hidden"] = is_post_owner or is_admin or (current_user_id == doc["user_id"])
-            
-            if "user_info" in doc:
-                del doc["user_info"]
-            
-            comments.append(doc)
-        
-        return comments
-
-    async def unhide_comment(self, comment_id: str, current_user_id: str):
-        """Bỏ ẩn comment (chỉ chủ bài viết hoặc admin)"""
-        comment = await self.collection.find_one({"_id": ObjectId(comment_id)})
-        if not comment:
-            return False
-        
-        # Lấy bài viết để kiểm tra quyền
-        post = await self.db["social_posts"].find_one({"_id": comment["post_id"]})
-        if not post:
-            return False
-        
-        is_post_owner = str(post["author_id"]) == current_user_id
-        
-        # Kiểm tra admin
-        user = await self.db["users"].find_one({"_id": ObjectId(current_user_id)})
-        is_admin = user and user.get("role") == "admin"
-        
-        if not is_post_owner and not is_admin:
-            return False
-        
-        result = await self.collection.update_one(
-            {"_id": ObjectId(comment_id)},
-            {"$set": {"is_hidden_by_ai": False}}
-        )
-        
-        return result.modified_count > 0
 
     async def update_comment(self, comment_id: str, user_id: str, update_data):
         update_dict = {
@@ -227,3 +155,30 @@ class PostCommentService:
             return True
 
         return False
+
+    async def unhide_comment(self, comment_id: str, current_user_id: str):
+        """Bỏ ẩn comment (chỉ chủ bài viết hoặc admin)"""
+        comment = await self.collection.find_one({"_id": ObjectId(comment_id)})
+        if not comment:
+            return False
+        
+        # Lấy bài viết để kiểm tra quyền
+        post = await self.db["social_posts"].find_one({"_id": comment["post_id"]})
+        if not post:
+            return False
+        
+        is_post_owner = str(post["author_id"]) == current_user_id
+        
+        # Kiểm tra admin
+        user = await self.db["users"].find_one({"_id": ObjectId(current_user_id)})
+        is_admin = user and user.get("role") == "admin"
+        
+        if not is_post_owner and not is_admin:
+            return False
+        
+        result = await self.collection.update_one(
+            {"_id": ObjectId(comment_id)},
+            {"$set": {"is_hidden_by_ai": False}}
+        )
+        
+        return result.modified_count > 0
