@@ -20,6 +20,7 @@ class PostCommentResponse(PostCommentBase):
     user_id: str  # Thêm user_id
     author_id: Optional[str] = None  # Thêm author_id để tương thích
     parent_id: Optional[str] = None
+    is_hidden_by_ai: bool = False
     
     # Thông tin người dùng để hiện lên giao diện
     author_name: Optional[str] = None

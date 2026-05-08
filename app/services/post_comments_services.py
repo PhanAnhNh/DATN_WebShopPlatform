@@ -62,7 +62,7 @@ class PostCommentService:
 
     async def get_comments_by_post(self, post_id: str, current_user_id: Optional[str] = None):
         """
-        Lấy tất cả bình luận của bài viết - TRẢ VỀ is_hidden_by_ai ĐÚNG
+        Lấy tất cả bình luận của bài viết
         """
         pipeline = [
             {"$match": {"post_id": ObjectId(post_id)}},
@@ -86,22 +86,17 @@ class PostCommentService:
             doc["author_name"] = doc["user_info"].get("full_name") or doc["user_info"].get("username", "Người dùng")
             doc["author_avatar"] = doc["user_info"].get("avatar_url")
             
-            # === QUAN TRỌNG: Lấy trực tiếp giá trị từ database ===
-            # SỬA: Lấy giá trị gốc, KHÔNG set mặc định là False
-            if "is_hidden_by_ai" in doc:
-                doc["is_hidden_by_ai"] = doc["is_hidden_by_ai"]  # Giữ nguyên
-            else:
-                doc["is_hidden_by_ai"] = False  # Chỉ khi field không tồn tại
+            # ===== QUAN TRỌNG: Thêm trường is_hidden_by_ai vào response =====
+            # Lấy giá trị từ database, mặc định là False nếu không có
+            doc["is_hidden_by_ai"] = doc.get("is_hidden_by_ai", False)
             
-            # Thêm thông tin AI moderation nếu có
+            # Thêm AI moderation nếu có
             if "ai_moderation" in doc:
                 doc["ai_moderation"] = doc["ai_moderation"]
             
+            # Xóa user_info
             if "user_info" in doc:
                 del doc["user_info"]
-            
-            # Debug log
-            print(f"Comment {doc['_id']}: is_hidden_by_ai = {doc['is_hidden_by_ai']}")
             
             comments.append(doc)
         
