@@ -86,9 +86,12 @@ class PostCommentService:
             doc["author_name"] = doc["user_info"].get("full_name") or doc["user_info"].get("username", "Người dùng")
             doc["author_avatar"] = doc["user_info"].get("avatar_url")
             
-            # === QUAN TRỌNG: Giữ nguyên giá trị is_hidden_by_ai từ database ===
-            # KHÔNG set thành False cho tất cả
-            doc["is_hidden_by_ai"] = doc.get("is_hidden_by_ai", False)
+            # === QUAN TRỌNG: Lấy trực tiếp giá trị từ database ===
+            # SỬA: Lấy giá trị gốc, KHÔNG set mặc định là False
+            if "is_hidden_by_ai" in doc:
+                doc["is_hidden_by_ai"] = doc["is_hidden_by_ai"]  # Giữ nguyên
+            else:
+                doc["is_hidden_by_ai"] = False  # Chỉ khi field không tồn tại
             
             # Thêm thông tin AI moderation nếu có
             if "ai_moderation" in doc:
@@ -96,6 +99,9 @@ class PostCommentService:
             
             if "user_info" in doc:
                 del doc["user_info"]
+            
+            # Debug log
+            print(f"Comment {doc['_id']}: is_hidden_by_ai = {doc['is_hidden_by_ai']}")
             
             comments.append(doc)
         
