@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Optional
 from app.models.post_comments_model import PostCommentCreate, PostCommentResponse, PostCommentUpdate
 from app.services.post_comments_services import PostCommentService
 from app.db.mongodb import get_database
-from app.core.security import get_current_user
+from app.core.security import CurrentUser, get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/comments", tags=["Comments"])
 
@@ -17,9 +17,14 @@ async def post_comment(
     return await service.create_comment(str(current_user.id), comment_in.dict())
 
 @router.get("/{post_id}", response_model=List[PostCommentResponse])
-async def get_comments(post_id: str, db = Depends(get_database)):
+async def get_comments(
+    post_id: str, 
+    db = Depends(get_database),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
+):
     service = PostCommentService(db)
-    comments = await service.get_comments_by_post(post_id)
+    current_user_id = str(current_user.id) if current_user else None
+    comments = await service.get_comments_by_post(post_id, current_user_id)
     return comments
 
 @router.put("/{comment_id}")
