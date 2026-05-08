@@ -9,9 +9,8 @@ from bson import ObjectId
 class AIModerationService:
     def __init__(self, db):
         self.db = db
-        # Bạn có thể thay thế bằng API key của mình (OpenAI, Google, hoặc free API)
-        self.api_key = os.getenv("OPENAI_API_KEY", "")  # Thay bằng API key thật
-        self.api_url = "https://api.openai.com/v1/moderations"  # Ví dụ dùng OpenAI
+        self.api_key = os.getenv("OPENAI_API_KEY", "")  
+        self.api_url = "https://api.openai.com/v1/moderations" 
         
     async def moderate_comment(self, content: str) -> Dict[str, Any]:
         """
