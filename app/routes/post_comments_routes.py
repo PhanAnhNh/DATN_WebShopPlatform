@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from app.models.post_comments_model import PostCommentCreate, PostCommentResponse, PostCommentUpdate
@@ -64,3 +66,44 @@ async def delete_comment(
             detail="Comment không tồn tại hoặc bạn không có quyền xóa"
         )
     return {"message": "Xóa comment thành công"}
+
+@router.post("/migrate/hide-old-spam")
+async def hide_old_spam_comments(
+    db = Depends(get_database),
+    current_user = Depends(get_current_user)
+):
+    """Cập nhật comment cũ bị spam (chỉ admin)"""
+    # Kiểm tra admin
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới có quyền")
+    
+    service = PostCommentService(db)
+    
+    # Tìm comment có từ khóa xấu
+    spam_keywords = ["ngu", "điên", "khùng", "chết", "địt", "cặc", "lồn", "đm", "vcl", "kiếm tiền", "click link"]
+    
+    result = await service.collection.update_many(
+        {
+            "$or": [
+                {"content": {"$regex": "|".join(spam_keywords), "$options": "i"}},
+                {"is_hidden_by_ai": {"$exists": False}}
+            ]
+        },
+        {
+            "$set": {
+                "is_hidden_by_ai": True,
+                "ai_moderation": {
+                    "is_spam": True,
+                    "is_toxic": True,
+                    "confidence": 0.9,
+                    "categories": ["spam", "toxic"],
+                    "moderated_at": datetime.utcnow()
+                }
+            }
+        }
+    )
+    
+    return {
+        "message": f"Đã cập nhật {result.modified_count} comment",
+        "modified_count": result.modified_count
+    }

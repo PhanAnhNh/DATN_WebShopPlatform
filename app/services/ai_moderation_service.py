@@ -23,14 +23,19 @@ class AIModerationService:
         """
         Kiểm tra comment có bị spam hoặc tiêu cực không
         """
+        print(f"🔍 Đang kiểm duyệt comment: '{content}'")
+        
         try:
             if self.use_gemini:
-                return await self._gemini_moderation(content)
+                result = await self._gemini_moderation(content)
+                print(f"✅ Gemini kết luận: {result}")
+                return result
             else:
-                return self._rule_based_moderation(content)
-                
+                result = self._rule_based_moderation(content)
+                print(f"⚠️ Rule-based kết luận: {result}")
+                return result
         except Exception as e:
-            print(f"Error moderating comment: {e}")
+            print(f"❌ Error moderating comment: {e}")
             return self._rule_based_moderation(content)
     
     async def _gemini_moderation(self, content: str) -> Dict[str, Any]:
