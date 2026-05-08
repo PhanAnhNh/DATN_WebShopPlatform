@@ -4,10 +4,13 @@ from typing import Optional
 from bson import ObjectId
 from datetime import datetime
 
+from app.services.ai_moderation_service import AIModerationService
+
 class PostCommentService:
     def __init__(self, db):
         self.db = db
         self.collection = db["post_comments"]
+        self.ai_moderation = AIModerationService(db)
 
     async def create_comment(self, user_id: str, data: dict):
         # AI MODERATION: Kiểm tra comment
