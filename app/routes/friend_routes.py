@@ -52,6 +52,47 @@ async def reject_friend_request(
         raise HTTPException(status_code=404, detail="Không tìm thấy lời mời")
     return {"message": "Đã từ chối lời mời"}
 
+@router.get("/request/{request_id}")
+async def get_friend_request(
+    request_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Lấy thông tin chi tiết của một lời mời kết bạn"""
+    service = FriendService(db)
+    request = await service.get_friend_request_by_id(request_id)
+    
+    if not request:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lời mời")
+    
+    # Kiểm tra quyền: chỉ người gửi hoặc người nhận mới được xem
+    if request["user_id"] != str(current_user.id) and request["friend_id"] != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+    
+    # Lấy thông tin user
+    sender = await db["users"].find_one({"_id": ObjectId(request["user_id"])})
+    receiver = await db["users"].find_one({"_id": ObjectId(request["friend_id"])})
+    
+    return {
+        "_id": request["_id"],
+        "user_id": request["user_id"],
+        "friend_id": request["friend_id"],
+        "status": request["status"],
+        "sender": {
+            "_id": str(sender["_id"]),
+            "full_name": sender.get("full_name"),
+            "username": sender.get("username"),
+            "avatar_url": sender.get("avatar_url")
+        },
+        "receiver": {
+            "_id": str(receiver["_id"]),
+            "full_name": receiver.get("full_name"),
+            "username": receiver.get("username"),
+            "avatar_url": receiver.get("avatar_url")
+        },
+        "created_at": request["created_at"]
+    }
+
 @router.get("/list")
 async def get_friends(
     limit: int = 20,

@@ -66,7 +66,7 @@ class FriendService:
                 type="friend_request",
                 title="Lời mời kết bạn",
                 message=f"{sender_name} đã gửi lời mời kết bạn",
-                reference_id=str(result.inserted_id),
+                reference_id=user_id,
                 image_url=sender.get('avatar_url')
             )
         
@@ -98,7 +98,7 @@ class FriendService:
                     type="friend_accepted",
                     title="Đã chấp nhận lời mời",
                     message=f"{sender_name} đã chấp nhận lời mời kết bạn",
-                    reference_id=str(request["_id"])
+                    reference_id=user_id
                 )
             return True
         return False
