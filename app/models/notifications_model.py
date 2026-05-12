@@ -23,7 +23,6 @@ class Notification(BaseModel):
     is_read: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     image_url: Optional[str] = None  # Thêm ảnh đại diện cho thông báo
-    extra_data: Optional[dict] = None
 
 class NotificationCreate(BaseModel):
     type: NotificationType
