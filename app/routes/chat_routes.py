@@ -36,16 +36,18 @@ async def send_message(
             message_type=message_type
         )
         
-        # Phát socket realtime cho cả 2 bên
+        # Phát socket realtime cho người NHẬN (KHÔNG emit cho người gửi)
         if sio_server:
-            # Lấy thông tin người gửi
             from bson import ObjectId
+            
+            # Lấy thông tin người gửi
             user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
             sender_name = user.get("full_name") or user.get("username", "Người dùng") if user else "Người dùng"
             sender_avatar = user.get("avatar_url") if user else None
             
             message_data = {
                 "id": str(result["_id"]),
+                "_id": str(result["_id"]),
                 "sender_id": str(current_user.id),
                 "receiver_id": receiver_id,
                 "content": content,
@@ -56,9 +58,9 @@ async def send_message(
                 "sender_avatar": sender_avatar
             }
             
-            # Xác định room của người nhận (user hoặc shop)
+            # Xác định room của người nhận
+            from bson import ObjectId
             receiver_room = None
-            # Kiểm tra receiver_id có phải shop không
             shop = await db["shops"].find_one({"_id": ObjectId(receiver_id)}) if ObjectId.is_valid(receiver_id) else None
             if shop:
                 receiver_room = f'shop_{receiver_id}'
@@ -67,14 +69,9 @@ async def send_message(
                 receiver_room = f'user_{receiver_id}'
                 logger.info(f"📨 Emitting to user room: {receiver_room}")
             
-            # Gửi đến room của receiver
+            # CHỈ gửi đến room của người nhận (KHÔNG gửi cho người gửi)
             await sio_server.emit('new_message', message_data, room=receiver_room)
-            
-            # Gửi đến room của sender
-            sender_room = f'user_{current_user.id}'
-            await sio_server.emit('new_message', message_data, room=sender_room)
-            
-            logger.info(f"✅ Socket emitted: sender_room={sender_room}, receiver_room={receiver_room}")
+            logger.info(f"✅ Socket emitted to receiver: {receiver_room}")
         
         return {"message": "Tin nhắn đã gửi", "data": result}
     except ValueError as e:
