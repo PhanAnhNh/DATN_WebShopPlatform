@@ -15,29 +15,24 @@ class NotificationService:
         title: str, 
         message: str, 
         reference_id: Optional[str] = None,
-        image_url: Optional[str] = None
-    ):
-        """
-        Tạo thông báo mới
-        """
+        image_url: Optional[str] = None,
+        extra_data: Optional[dict] = None  # Thêm tham số này
+    ) -> str:
+        """Tạo thông báo mới"""
         notification = {
-            "user_id": ObjectId(user_id),
+            "user_id": user_id,
             "type": type,
             "title": title,
             "message": message,
             "reference_id": reference_id,
             "image_url": image_url,
             "is_read": False,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "extra_data": extra_data or {}  # Lưu extra_data
         }
         
         result = await self.collection.insert_one(notification)
-        
-        # Trả về thông báo vừa tạo
-        notification["_id"] = str(result.inserted_id)
-        notification["user_id"] = str(user_id)
-        
-        return notification
+        return str(result.inserted_id)
 
     async def get_notifications(
         self, 

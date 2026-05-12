@@ -56,7 +56,7 @@ class FriendService:
         result = await self.collection.insert_one(friend_request)
         friend_request["_id"] = str(result.inserted_id)
         
-        # Gửi thông báo
+        # Gửi thông báo - THÊM TRƯỜNG sender_id
         if self.notification_service:
             sender = await self.user_collection.find_one({"_id": ObjectId(user_id)})
             sender_name = sender.get('full_name') or sender.get('username', 'Ai đó')
@@ -67,7 +67,12 @@ class FriendService:
                 title="Lời mời kết bạn",
                 message=f"{sender_name} đã gửi lời mời kết bạn",
                 reference_id=str(result.inserted_id),
-                image_url=sender.get('avatar_url')
+                image_url=sender.get('avatar_url'),
+                extra_data={  # Thêm extra_data để lưu thông tin người gửi
+                    "sender_id": user_id,
+                    "sender_name": sender_name,
+                    "sender_avatar": sender.get('avatar_url')
+                }
             )
         
         return friend_request
