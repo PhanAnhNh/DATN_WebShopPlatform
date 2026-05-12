@@ -72,6 +72,24 @@ class FriendService:
         
         return friend_request
     
+    async def get_friend_request_by_id(self, request_id: str) -> Optional[Dict]:
+        """Lấy thông tin chi tiết của một lời mời kết bạn theo ID"""
+        try:
+            friend_request = await self.collection.find_one({"_id": ObjectId(request_id)})
+            if friend_request:
+                return {
+                    "_id": str(friend_request["_id"]),
+                    "user_id": str(friend_request["user_id"]),
+                    "friend_id": str(friend_request["friend_id"]),
+                    "status": friend_request["status"],
+                    "created_at": friend_request["created_at"],
+                    "updated_at": friend_request.get("updated_at")
+                }
+            return None
+        except Exception as e:
+            print(f"Error getting friend request by id: {e}")
+            return None
+    
     async def accept_friend_request(self, request_id: str, user_id: str) -> bool:
         """Chấp nhận lời mời kết bạn"""
         result = await self.collection.update_one(
