@@ -222,8 +222,6 @@ class ChatService:
         })
         return count
     
-    # Thêm vào cuối class ChatService trong app/services/chat_service.py
-
     async def edit_message(self, message_id: str, user_id: str, new_content: str) -> Optional[Dict]:
         """Sửa tin nhắn (chỉ người gửi mới được sửa)"""
         from bson import ObjectId
@@ -276,3 +274,21 @@ class ChatService:
         except Exception as e:
             print(f"Error deleting message: {e}")
             return None
+        
+    async def delete_conversation(self, user_id: str, other_id: str) -> bool:
+        """Xóa toàn bộ tin nhắn giữa 2 người dùng"""
+        from bson import ObjectId
+        
+        try:
+            # Xóa tất cả tin nhắn giữa 2 người
+            result = await self.message_collection.delete_many({
+                "$or": [
+                    {"sender_id": user_id, "receiver_id": other_id},
+                    {"sender_id": other_id, "receiver_id": user_id}
+                ]
+            })
+            
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f"Error deleting conversation: {e}")
+            return False

@@ -247,8 +247,6 @@ async def shop_mark_as_read(
     await service.mark_messages_as_read(str(current_shop.shop_id), user_id)
     return {"message": "Đã đánh dấu đã đọc"}
 
-# Thêm vào cuối file app/routes/chat_routes.py
-
 @router.put("/{message_id}")
 async def edit_message(
     message_id: str,
@@ -357,3 +355,47 @@ async def shop_delete_message(
         await sio_server.emit('message_deleted', {"id": message_id}, room=f'shop_{result["sender_id"]}')
     
     return {"message": "Đã xóa tin nhắn"}
+
+# app/routes/chat_routes.py - Thêm vào cuối file
+
+@router.delete("/conversation/{other_id}")
+async def delete_conversation(
+    other_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Xóa toàn bộ hội thoại giữa user và người khác"""
+    service = ChatService(db)
+    result = await service.delete_conversation(str(current_user.id), other_id)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hội thoại")
+    
+    # Phát socket để cập nhật realtime
+    if sio_server:
+        await sio_server.emit('conversation_deleted', {
+            "deleted_with": other_id
+        }, room=f'user_{current_user.id}')
+    
+    return {"message": "Đã xóa hội thoại"}
+
+@router.delete("/shop/conversation/{user_id}")
+async def delete_shop_conversation(
+    user_id: str,
+    current_shop: CurrentUser = Depends(get_current_shop_owner),
+    db = Depends(get_database)
+):
+    """Shop xóa toàn bộ hội thoại với user"""
+    service = ChatService(db)
+    result = await service.delete_conversation(str(current_shop.shop_id), user_id)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hội thoại")
+    
+    # Phát socket để cập nhật realtime
+    if sio_server:
+        await sio_server.emit('conversation_deleted', {
+            "deleted_with": user_id
+        }, room=f'shop_{current_shop.shop_id}')
+    
+    return {"message": "Đã xóa hội thoại"}
