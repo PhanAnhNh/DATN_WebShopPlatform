@@ -54,6 +54,7 @@ class SocialPostBase(BaseModel):
     post_type: PostType = "text"
 
     group_id: Optional[str] = None
+    is_group_post: bool = False
 
     product_category: Optional[CategoryType] = Field(
         default="general",

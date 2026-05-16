@@ -182,32 +182,63 @@ class SocialPostService:
         return posts
 
     async def get_feed(
-    self,
-    limit: int = 10,
-    skip: int = 0,
-    category: Optional[str] = None,
-    current_user_id: Optional[str] = None
-) -> List[dict]:
+        self,
+        limit: int = 10,
+        skip: int = 0,
+        category: Optional[str] = None,
+        current_user_id: Optional[str] = None
+    ) -> List[dict]:
         try:
+            # Lấy danh sách nhóm user đã tham gia (nếu có current_user)
+            user_group_ids = []
+            user_joined_groups = []  # Lưu thông tin nhóm để kiểm tra privacy
+            
+            if current_user_id:
+                try:
+                    # Lấy tất cả nhóm user đã tham gia (role: admin hoặc member)
+                    groups_cursor = self.db["groups"].find({
+                        "members": {
+                            "$elemMatch": {
+                                "user_id": current_user_id,
+                                "role": {"$in": ["admin", "member"]}
+                            }
+                        },
+                        "is_active": True
+                    })
+                    
+                    async for group in groups_cursor:
+                        user_group_ids.append(str(group["_id"]))
+                        user_joined_groups.append({
+                            "_id": str(group["_id"]),
+                            "privacy": group.get("privacy", "public")
+                        })
+                        
+                    print(f"📌 User is a member of {len(user_group_ids)} groups")
+                    
+                except Exception as e:
+                    print(f"Error fetching user groups: {e}")
+
             # Xây dựng query cơ bản
             match_query = {
                 "is_active": True,
                 "is_permanently_deleted": False,
-                "author_type": {"$in": ["user", "admin"]},
-                "$or": [
-                    {"hidden_by_report": {"$ne": True}},
-                    {"hidden_by_report": {"$exists": False}}
-                ]
+                "author_type": {"$in": ["user", "admin"]}
             }
+            
+            # Thêm điều kiện hidden_by_report
+            match_query["$or"] = [
+                {"hidden_by_report": {"$ne": True}},
+                {"hidden_by_report": {"$exists": False}}
+            ]
             
             # 🔧 Lọc theo category
             if category and category != "general":
                 match_query["product_category"] = category
             
-            # 🔧 Tạo visibility conditions RIÊNG
-            visibility_conditions = []
+            # 🔧 Tạo visibility conditions cho bài viết cá nhân
+            personal_visibility_conditions = []
             
-            # Xử lý visibility dựa trên user hiện tại
+            # Xử lý visibility dựa trên user hiện tại cho bài viết cá nhân
             if current_user_id:
                 try:
                     user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
@@ -221,7 +252,6 @@ class SocialPostService:
                             ]
                         })
                         async for friendship in friends_cursor:
-                            # Xác định ID của người bạn
                             if friendship["user_id"] == current_user_id:
                                 friend_ids.append(friendship["friend_id"])
                             else:
@@ -231,8 +261,8 @@ class SocialPostService:
                         friend_ids = [ObjectId(fid) for fid in friend_ids]
                         friend_ids.append(ObjectId(current_user_id))
                         
-                        # Visibility conditions
-                        visibility_conditions = [
+                        # Visibility conditions cho bài viết cá nhân
+                        personal_visibility_conditions = [
                             {"visibility": "public"},
                             {"author_id": ObjectId(current_user_id)},
                             {
@@ -241,26 +271,112 @@ class SocialPostService:
                             }
                         ]
                     else:
-                        visibility_conditions = [{"visibility": "public"}]
+                        personal_visibility_conditions = [{"visibility": "public"}]
                 except Exception as e:
                     print(f"Error processing friends: {e}")
-                    visibility_conditions = [{"visibility": "public"}]
+                    personal_visibility_conditions = [{"visibility": "public"}]
             else:
-                visibility_conditions = [{"visibility": "public"}]
+                personal_visibility_conditions = [{"visibility": "public"}]
             
-            # 🔧 QUAN TRỌNG: Kết hợp category filter và visibility conditions
-            # Dùng $and để kết hợp
-            if visibility_conditions:
-                final_match = {
-                    "$and": [
-                        match_query,
-                        {"$or": visibility_conditions}
-                    ]
-                }
+            # 🔧 Tạo điều kiện cho bài viết từ nhóm
+            group_posts_conditions = []
+            
+            if user_group_ids:
+                # Bài viết trong nhóm mà user đã tham gia
+                # Chỉ hiển thị bài viết từ nhóm user là thành viên
+                group_posts_conditions.append({
+                    "group_id": {"$in": user_group_ids},
+                    "is_group_post": True
+                })
+                
+                # Đối với nhóm công khai, user chưa tham gia cũng có thể thấy bài viết
+                # Lấy danh sách nhóm công khai user chưa tham gia
+                public_groups_not_joined = []
+                try:
+                    all_public_groups = await self.db["groups"].find({
+                        "privacy": "public",
+                        "is_active": True
+                    }).to_list(length=None)
+                    
+                    for group in all_public_groups:
+                        group_id_str = str(group["_id"])
+                        if group_id_str not in user_group_ids:
+                            public_groups_not_joined.append(group_id_str)
+                    
+                    if public_groups_not_joined:
+                        group_posts_conditions.append({
+                            "group_id": {"$in": public_groups_not_joined},
+                            "is_group_post": True
+                        })
+                except Exception as e:
+                    print(f"Error fetching public groups: {e}")
             else:
-                final_match = match_query
+                # Nếu user chưa tham gia nhóm nào, vẫn hiển thị bài viết từ nhóm công khai
+                try:
+                    public_groups = await self.db["groups"].find({
+                        "privacy": "public",
+                        "is_active": True
+                    }).to_list(length=None)
+                    
+                    public_group_ids = [str(group["_id"]) for group in public_groups]
+                    
+                    if public_group_ids:
+                        group_posts_conditions.append({
+                            "group_id": {"$in": public_group_ids},
+                            "is_group_post": True
+                        })
+                except Exception as e:
+                    print(f"Error fetching public groups: {e}")
+            
+            # Kết hợp các điều kiện
+            # Một bài viết có thể là:
+            # 1. Bài viết cá nhân (không có group_id hoặc is_group_post = false)
+            # 2. Bài viết trong nhóm (có group_id và is_group_post = true)
+            
+            # Tạo conditions cho bài viết cá nhân
+            personal_post_condition = {
+                "$or": [
+                    {"group_id": {"$exists": False}},
+                    {"group_id": None},
+                    {"is_group_post": {"$ne": True}}
+                ]
+            }
+            
+            # Kết hợp tất cả điều kiện
+            if group_posts_conditions:
+                # Nếu có điều kiện nhóm, kết hợp với bài viết cá nhân
+                final_or_conditions = [
+                    # Bài viết cá nhân với visibility conditions
+                    {
+                        "$and": [
+                            personal_post_condition,
+                            {"$or": personal_visibility_conditions}
+                        ]
+                    },
+                    # Bài viết từ nhóm (đã có điều kiện riêng)
+                    {"$or": group_posts_conditions}
+                ]
+            else:
+                # Chỉ có bài viết cá nhân
+                final_or_conditions = [
+                    {
+                        "$and": [
+                            personal_post_condition,
+                            {"$or": personal_visibility_conditions}
+                        ]
+                    }
+                ]
+            
+            # Xây dựng final_match
+            final_match = {
+                "$and": [
+                    match_query,
+                    {"$or": final_or_conditions}
+                ]
+            }
             
             print(f"🔍 Category: {category}")
+            print(f"🔍 User groups: {user_group_ids}")
             print(f"🔍 Final match: {final_match}")
             
             # Thực hiện aggregation
@@ -280,6 +396,20 @@ class SocialPostService:
                 {
                     "$unwind": {
                         "path": "$author_info",
+                        "preserveNullAndEmptyArrays": True
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "groups",
+                        "localField": "group_id",
+                        "foreignField": "_id",
+                        "as": "group_info"
+                    }
+                },
+                {
+                    "$unwind": {
+                        "path": "$group_info",
                         "preserveNullAndEmptyArrays": True
                     }
                 },
@@ -315,7 +445,12 @@ class SocialPostService:
                         "report_count": 1,
                         "feed_score": 1,
                         "shared_post_id": 1,
-                        "product_id": 1
+                        "product_id": 1,
+                        "group_id": {"$toString": "$group_id"},
+                        "is_group_post": 1,
+                        # Thêm thông tin nhóm
+                        "group_name": "$group_info.name",
+                        "group_avatar": "$group_info.avatar_url"
                     }
                 }
             ]
@@ -336,14 +471,19 @@ class SocialPostService:
                 if "author_type" not in doc or not doc["author_type"]:
                     doc["author_type"] = "user"
                 
+                # Thêm flag để FE biết đây là bài viết trong nhóm
+                if doc.get("is_group_post") and doc.get("group_id"):
+                    doc["post_type_display"] = "group_post"
+                
                 post = await self.get_post_with_shared_info(doc)
                 posts.append(post)
 
             print(f"✅ Found {len(posts)} posts for category: {category}")
+            print(f"   - Including posts from {len(user_group_ids)} groups")
             
-            # Debug: In ra product_category của từng post
-            for post in posts:
-                print(f"Post: {post.get('_id')}, product_category: {post.get('product_category')}")
+            # Thống kê số lượng bài viết từ nhóm
+            group_post_count = sum(1 for p in posts if p.get("is_group_post"))
+            print(f"   - Group posts: {group_post_count}, Personal posts: {len(posts) - group_post_count}")
             
             return posts
             
@@ -352,7 +492,7 @@ class SocialPostService:
             import traceback
             traceback.print_exc()
             return []
-    
+
     async def update_post(
         self,
         post_id: str,
