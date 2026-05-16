@@ -17,6 +17,8 @@ class SocialPostService:
         self.db = db
         self.admin_notification_service = AdminNotificationService(db)
 
+    # Trong app/services/social_posts_service.py - cập nhật create_post
+
     async def create_post(self, post_data: SocialPostCreate, current_user) -> dict:
         new_post = post_data.dict()
         new_post["author_id"] = ObjectId(current_user.id)
@@ -36,15 +38,30 @@ class SocialPostService:
         new_post["feed_score"] = 0.0
         new_post["deleted_at"] = None
         new_post["is_permanently_deleted"] = False
+        
+        # Xử lý group post
+        if post_data.group_id:
+            new_post["group_id"] = ObjectId(post_data.group_id)
+            new_post["is_group_post"] = True
+            
+            # Tăng post_count trong group
+            await self.db["groups"].update_one(
+                {"_id": ObjectId(post_data.group_id)},
+                {"$inc": {"post_count": 1}}
+            )
+        else:
+            new_post["is_group_post"] = False
 
         result = await self.collection.insert_one(new_post)
         post_id = str(result.inserted_id)
 
+        # Tăng posts_count của user
         await self.user_collection.update_one(
             {"_id": ObjectId(current_user.id)},
             {"$inc": {"posts_count": 1}}
         )
 
+        # Gửi notification cho admin (nếu cần)
         admin_users = await self.user_collection.find({"role": "admin"}).to_list(length=None)
         
         author_name = current_user.full_name or current_user.username
@@ -54,12 +71,15 @@ class SocialPostService:
                 user_id=str(admin["_id"]),
                 type="new_post",
                 title="Bài viết mới được đăng",
-                message=f"{author_name} vừa đăng bài viết mới: {post_data.content[:50] if post_data.content else '...'}",
+                message=f"{author_name} vừa đăng bài viết mới trong {'nhóm' if post_data.group_id else 'trang cá nhân'}: {post_data.content[:50] if post_data.content else '...'}",
                 reference_id=post_id
             )
             
         new_post["_id"] = str(result.inserted_id)
         new_post["author_id"] = str(new_post["author_id"])
+        if new_post.get("group_id"):
+            new_post["group_id"] = str(new_post["group_id"])
+        
         return new_post
 
     async def get_user_posts(
