@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-from app.models.teams_model import GroupCreate, GroupMember, GroupPrivacy, GroupRole, GroupUpdate
+from app.models.group_model import GroupCreate, GroupMember, GroupPrivacy, GroupRole, GroupUpdate
 
 
 

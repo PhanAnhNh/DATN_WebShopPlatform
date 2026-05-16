@@ -6,8 +6,8 @@ from bson import ObjectId
 
 from app.db.mongodb import get_database
 from app.core.security import get_current_user, CurrentUser, get_current_user_optional
-from app.models.teams_model import GroupCreate, GroupResponse, GroupUpdate
-from app.services.teams_service import GroupService
+from app.models.group_model import GroupCreate, GroupResponse, GroupUpdate
+from app.services.group_service import GroupService
 
 router = APIRouter(prefix="/groups", tags=["Groups"])
 

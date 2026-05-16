@@ -3,7 +3,7 @@ from datetime import datetime
 import socketio
 import uvicorn
 import asyncio
-from app.routes import chat_routes, teams_router
+from app.routes import chat_routes, group_router
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -381,7 +381,7 @@ app.include_router(friend_routes.router, prefix=API_PREFIX)
 app.include_router(save_router.router, prefix=API_PREFIX)
 app.include_router(share_router.router, prefix=API_PREFIX)
 app.include_router(chat_routes.router, prefix=API_PREFIX)
-app.include_router(teams_router.router, prefix=API_PREFIX)
+app.include_router(group_router.router, prefix=API_PREFIX)
 
 # Shop & Product
 app.include_router(shop_router.router, prefix=API_PREFIX)
