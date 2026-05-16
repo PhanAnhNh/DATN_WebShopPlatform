@@ -53,6 +53,8 @@ class SocialPostBase(BaseModel):
 
     post_type: PostType = "text"
 
+    group_id: Optional[str] = None
+
     product_category: Optional[CategoryType] = Field(
         default="general",
         description="Loại sản phẩm: nông sản / hải sản / đặc sản"
