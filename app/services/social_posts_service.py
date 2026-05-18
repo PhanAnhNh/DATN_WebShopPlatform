@@ -459,6 +459,18 @@ class SocialPostService:
             return []
 
 
+    async def _get_public_group_ids(self) -> List[str]:
+        """Lấy danh sách ID của các group công khai"""
+        try:
+            public_groups = await self.db["groups"].find({
+                "privacy": "public",
+                "is_active": True
+            }).to_list(length=None)
+            return [str(group["_id"]) for group in public_groups]
+        except Exception as e:
+            print(f"Error getting public group IDs: {e}")
+            return []
+
     async def update_post(
         self,
         post_id: str,
