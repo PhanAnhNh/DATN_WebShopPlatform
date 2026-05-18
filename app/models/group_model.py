@@ -25,7 +25,7 @@ class GroupPost(BaseModel):
 
 class GroupBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=2000)
     privacy: GroupPrivacy = GroupPrivacy.PUBLIC
     avatar_url: Optional[str] = None
     cover_url: Optional[str] = None
@@ -35,7 +35,7 @@ class GroupCreate(GroupBase):
 
 class GroupUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=2000)
     privacy: Optional[GroupPrivacy] = None
     avatar_url: Optional[str] = None
     cover_url: Optional[str] = None
