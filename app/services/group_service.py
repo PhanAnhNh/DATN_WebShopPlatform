@@ -401,7 +401,11 @@ class GroupService:
 
     async def can_view_group_post(self, group_id: str, user_id: Optional[str], post_author_id: str) -> bool:
         """Kiểm tra user có thể xem bài viết trong nhóm không"""
-        group = await self.collection.find_one({"_id": ObjectId(group_id)})
+        try:
+            group = await self.collection.find_one({"_id": ObjectId(group_id)})
+        except:
+            return False
+            
         if not group:
             return False
 
@@ -424,9 +428,15 @@ class GroupService:
         if not can_view:
             return []
 
+        # Chuyển đổi group_id sang ObjectId
+        try:
+            group_object_id = ObjectId(group_id)
+        except:
+            return []
+
         pipeline = [
             {"$match": {
-                "group_id": group_id,
+                "group_id": group_object_id,  # Sửa: so sánh với ObjectId
                 "is_active": True,
                 "is_permanently_deleted": False
             }},
@@ -454,6 +464,8 @@ class GroupService:
         async for doc in cursor:
             doc["_id"] = str(doc["_id"])
             doc["author_id"] = str(doc["author_id"])
+            # Thêm group_id vào response
+            doc["group_id"] = str(doc["group_id"]) if doc.get("group_id") else None
             doc["author_name"] = doc.get("author_info", {}).get("full_name") or doc.get("author_info", {}).get("username", "Người dùng")
             doc["author_avatar"] = doc.get("author_info", {}).get("avatar_url")
             
