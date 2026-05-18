@@ -17,8 +17,6 @@ class SocialPostService:
         self.db = db
         self.admin_notification_service = AdminNotificationService(db)
 
-    # Trong app/services/social_posts_service.py - cập nhật create_post
-
     async def create_post(self, post_data: SocialPostCreate, current_user) -> dict:
         new_post = post_data.dict()
         new_post["author_id"] = ObjectId(current_user.id)
@@ -211,7 +209,6 @@ class SocialPostService:
         try:
             # Lấy danh sách nhóm user đã tham gia (nếu có current_user)
             user_group_ids = []
-            user_joined_groups = []  # Lưu thông tin nhóm để kiểm tra privacy
             
             if current_user_id:
                 try:
@@ -228,12 +225,8 @@ class SocialPostService:
                     
                     async for group in groups_cursor:
                         user_group_ids.append(str(group["_id"]))
-                        user_joined_groups.append({
-                            "_id": str(group["_id"]),
-                            "privacy": group.get("privacy", "public")
-                        })
                         
-                    print(f"📌 User is a member of {len(user_group_ids)} groups")
+                    print(f"📌 User {current_user_id} is a member of {len(user_group_ids)} groups: {user_group_ids}")
                     
                 except Exception as e:
                     print(f"Error fetching user groups: {e}")
@@ -251,157 +244,117 @@ class SocialPostService:
                 {"hidden_by_report": {"$exists": False}}
             ]
             
-            # 🔧 Lọc theo category
+            # Lọc theo category
             if category and category != "general":
                 match_query["product_category"] = category
             
-            # 🔧 Tạo visibility conditions cho bài viết cá nhân
-            personal_visibility_conditions = []
+            # Tạo điều kiện cho bài viết (bao gồm cả group posts)
+            # Quan trọng: Cần bao gồm cả bài viết trong group mà user là thành viên
+            # VÀ bài viết cá nhân với visibility phù hợp
             
-            # Xử lý visibility dựa trên user hiện tại cho bài viết cá nhân
             if current_user_id:
                 try:
                     user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
                     if user_exists:
-                        friend_ids = []
-                        # Tìm tất cả các mối quan hệ "accepted" mà current_user tham gia
-                        friends_cursor = self.db["friends"].find({
+                        # Lấy danh sách bạn bè
+                        friendships = await self.db["friends"].find({
                             "$or": [
                                 {"user_id": current_user_id, "status": "accepted"},
                                 {"friend_id": current_user_id, "status": "accepted"}
                             ]
-                        })
-                        async for friendship in friends_cursor:
+                        }).to_list(length=None)
+                        
+                        friend_ids = []
+                        for friendship in friendships:
                             if friendship["user_id"] == current_user_id:
                                 friend_ids.append(friendship["friend_id"])
                             else:
                                 friend_ids.append(friendship["user_id"])
-
-                        # Chuyển đổi sang ObjectId và thêm chính user hiện tại
-                        friend_ids = [ObjectId(fid) for fid in friend_ids]
-                        friend_ids.append(ObjectId(current_user_id))
                         
-                        # Visibility conditions cho bài viết cá nhân
-                        personal_visibility_conditions = [
-                            {"visibility": "public"},
-                            {"author_id": ObjectId(current_user_id)},
-                            {
+                        # Chuyển đổi sang ObjectId
+                        friend_ids = [ObjectId(fid) for fid in friend_ids]
+                        
+                        # Điều kiện cho bài viết cá nhân (không phải group post)
+                        personal_conditions = [
+                            {"visibility": "public"},  # Công khai
+                            {"author_id": ObjectId(current_user_id)},  # Bài của chính user
+                        ]
+                        
+                        # Nếu có bạn bè, thêm điều kiện friends
+                        if friend_ids:
+                            personal_conditions.append({
                                 "visibility": "friends",
                                 "author_id": {"$in": friend_ids}
-                            }
-                        ]
+                            })
+                        
+                        # Tạo điều kiện chính
+                        # Bài viết được hiển thị nếu:
+                        # 1. Là bài viết cá nhân thỏa mãn personal_conditions
+                        # 2. HOẶC là bài viết trong group mà user là thành viên
+                        # 3. HOẶC là bài viết trong group công khai
+                        
+                        final_or_conditions = []
+                        
+                        # Condition 1: Bài viết cá nhân
+                        final_or_conditions.append({
+                            "$and": [
+                                {"$or": [
+                                    {"group_id": {"$exists": False}},
+                                    {"group_id": None},
+                                    {"is_group_post": {"$ne": True}}
+                                ]},
+                                {"$or": personal_conditions}
+                            ]
+                        })
+                        
+                        # Condition 2: Bài viết trong group mà user là thành viên
+                        if user_group_ids:
+                            final_or_conditions.append({
+                                "group_id": {"$in": user_group_ids},
+                                "is_group_post": True
+                            })
+                        
+                        # Condition 3: Bài viết trong group công khai (user chưa tham gia)
+                        # Lấy danh sách group công khai
+                        public_groups = await self.db["groups"].find({
+                            "privacy": "public",
+                            "is_active": True
+                        }).to_list(length=None)
+                        
+                        public_group_ids = [str(group["_id"]) for group in public_groups]
+                        # Loại bỏ các group user đã tham gia để tránh trùng
+                        public_group_ids_not_joined = [gid for gid in public_group_ids if gid not in user_group_ids]
+                        
+                        if public_group_ids_not_joined:
+                            final_or_conditions.append({
+                                "group_id": {"$in": public_group_ids_not_joined},
+                                "is_group_post": True
+                            })
+                        
+                        match_query["$or"] = final_or_conditions
+                        
                     else:
-                        personal_visibility_conditions = [{"visibility": "public"}]
-                except Exception as e:
-                    print(f"Error processing friends: {e}")
-                    personal_visibility_conditions = [{"visibility": "public"}]
-            else:
-                personal_visibility_conditions = [{"visibility": "public"}]
-            
-            # 🔧 Tạo điều kiện cho bài viết từ nhóm
-            group_posts_conditions = []
-            
-            if user_group_ids:
-                # Bài viết trong nhóm mà user đã tham gia
-                # Chỉ hiển thị bài viết từ nhóm user là thành viên
-                group_posts_conditions.append({
-                    "group_id": {"$in": user_group_ids},
-                    "is_group_post": True
-                })
-                
-                # Đối với nhóm công khai, user chưa tham gia cũng có thể thấy bài viết
-                # Lấy danh sách nhóm công khai user chưa tham gia
-                public_groups_not_joined = []
-                try:
-                    all_public_groups = await self.db["groups"].find({
-                        "privacy": "public",
-                        "is_active": True
-                    }).to_list(length=None)
-                    
-                    for group in all_public_groups:
-                        group_id_str = str(group["_id"])
-                        if group_id_str not in user_group_ids:
-                            public_groups_not_joined.append(group_id_str)
-                    
-                    if public_groups_not_joined:
-                        group_posts_conditions.append({
-                            "group_id": {"$in": public_groups_not_joined},
-                            "is_group_post": True
-                        })
-                except Exception as e:
-                    print(f"Error fetching public groups: {e}")
-            else:
-                # Nếu user chưa tham gia nhóm nào, vẫn hiển thị bài viết từ nhóm công khai
-                try:
-                    public_groups = await self.db["groups"].find({
-                        "privacy": "public",
-                        "is_active": True
-                    }).to_list(length=None)
-                    
-                    public_group_ids = [str(group["_id"]) for group in public_groups]
-                    
-                    if public_group_ids:
-                        group_posts_conditions.append({
-                            "group_id": {"$in": public_group_ids},
-                            "is_group_post": True
-                        })
-                except Exception as e:
-                    print(f"Error fetching public groups: {e}")
-            
-            # Kết hợp các điều kiện
-            # Một bài viết có thể là:
-            # 1. Bài viết cá nhân (không có group_id hoặc is_group_post = false)
-            # 2. Bài viết trong nhóm (có group_id và is_group_post = true)
-            
-            # Tạo conditions cho bài viết cá nhân
-            personal_post_condition = {
-                "$or": [
-                    {"group_id": {"$exists": False}},
-                    {"group_id": None},
-                    {"is_group_post": {"$ne": True}}
-                ]
-            }
-            
-            # Kết hợp tất cả điều kiện
-            if group_posts_conditions:
-                # Nếu có điều kiện nhóm, kết hợp với bài viết cá nhân
-                final_or_conditions = [
-                    # Bài viết cá nhân với visibility conditions
-                    {
-                        "$and": [
-                            personal_post_condition,
-                            {"$or": personal_visibility_conditions}
+                        # User không tồn tại, chỉ hiển thị public và group public
+                        match_query["$or"] = [
+                            {"visibility": "public", "$or": [{"group_id": {"$exists": False}}, {"group_id": None}, {"is_group_post": {"$ne": True}}]},
+                            {"is_group_post": True, "group_id": {"$in": await self._get_public_group_ids()}}
                         ]
-                    },
-                    # Bài viết từ nhóm (đã có điều kiện riêng)
-                    {"$or": group_posts_conditions}
-                ]
+                except Exception as e:
+                    print(f"Error processing user: {e}")
+                    match_query["visibility"] = "public"
             else:
-                # Chỉ có bài viết cá nhân
-                final_or_conditions = [
-                    {
-                        "$and": [
-                            personal_post_condition,
-                            {"$or": personal_visibility_conditions}
-                        ]
-                    }
+                # Không có user đăng nhập, chỉ hiển thị bài viết công khai và group công khai
+                public_group_ids = await self._get_public_group_ids()
+                match_query["$or"] = [
+                    {"visibility": "public", "$or": [{"group_id": {"$exists": False}}, {"group_id": None}, {"is_group_post": {"$ne": True}}]},
+                    {"is_group_post": True, "group_id": {"$in": public_group_ids}}
                 ]
             
-            # Xây dựng final_match
-            final_match = {
-                "$and": [
-                    match_query,
-                    {"$or": final_or_conditions}
-                ]
-            }
-            
-            print(f"🔍 Category: {category}")
-            print(f"🔍 User groups: {user_group_ids}")
-            print(f"🔍 Final match: {final_match}")
+            print(f"🔍 Final match query: {match_query}")
             
             # Thực hiện aggregation
             pipeline = [
-                {"$match": final_match},
+                {"$match": match_query},
                 {"$sort": {"created_at": -1}},
                 {"$skip": skip},
                 {"$limit": limit},
@@ -468,7 +421,6 @@ class SocialPostService:
                         "product_id": 1,
                         "group_id": {"$toString": "$group_id"},
                         "is_group_post": 1,
-                        # Thêm thông tin nhóm
                         "group_name": "$group_info.name",
                         "group_avatar": "$group_info.avatar_url"
                     }
@@ -491,17 +443,10 @@ class SocialPostService:
                 if "author_type" not in doc or not doc["author_type"]:
                     doc["author_type"] = "user"
                 
-                # Thêm flag để FE biết đây là bài viết trong nhóm
-                if doc.get("is_group_post") and doc.get("group_id"):
-                    doc["post_type_display"] = "group_post"
-                
                 post = await self.get_post_with_shared_info(doc)
                 posts.append(post)
 
-            print(f"✅ Found {len(posts)} posts for category: {category}")
-            print(f"   - Including posts from {len(user_group_ids)} groups")
-            
-            # Thống kê số lượng bài viết từ nhóm
+            print(f"✅ Found {len(posts)} posts for feed")
             group_post_count = sum(1 for p in posts if p.get("is_group_post"))
             print(f"   - Group posts: {group_post_count}, Personal posts: {len(posts) - group_post_count}")
             
@@ -512,6 +457,7 @@ class SocialPostService:
             import traceback
             traceback.print_exc()
             return []
+
 
     async def update_post(
         self,
