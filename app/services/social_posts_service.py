@@ -224,7 +224,7 @@ class SocialPostService:
                     })
                     
                     async for group in groups_cursor:
-                        user_group_ids.append(str(group["_id"]))
+                        user_group_ids.append(group["_id"])
                         
                     print(f"📌 User {current_user_id} is a member of {len(user_group_ids)} groups: {user_group_ids}")
                     
@@ -287,7 +287,6 @@ class SocialPostService:
                                 "author_id": {"$in": friend_ids}
                             })
                         
-                        # Tạo điều kiện chính
                         # Bài viết được hiển thị nếu:
                         # 1. Là bài viết cá nhân thỏa mãn personal_conditions
                         # 2. HOẶC là bài viết trong group mà user là thành viên
