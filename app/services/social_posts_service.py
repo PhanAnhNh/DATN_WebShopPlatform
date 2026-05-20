@@ -120,7 +120,6 @@ class SocialPostService:
             friend_ids = []
             try:
                 # Tìm các mối quan hệ bạn bè đã được chấp nhận
-                # Kiểm tra cả 2 chiều: current_user là user_id hoặc friend_id
                 friendships = await self.db["friends"].find({
                     "$or": [
                         {"user_id": current_user_id, "friend_id": user_id, "status": "accepted"},
@@ -128,32 +127,25 @@ class SocialPostService:
                     ]
                 }).to_list(length=None)
                 
-                # Nếu có friendship, họ là bạn bè
                 is_friend = len(friendships) > 0
                 print(f"Is friend: {is_friend}")
                 
-                # Nếu là bạn bè, cho phép xem bài viết "friends"
                 if is_friend:
-                    # Thêm current_user vào danh sách bạn bè để hiển thị bài viết "friends"
                     friend_ids = [ObjectId(current_user_id)]
             except Exception as e:
                 print(f"Error getting friends: {e}")
             
-            # Thêm điều kiện visibility
             if is_friend:
                 match_query["$or"] = [
-                    {"visibility": "public"},  # Bài viết công khai
-                    {"visibility": "friends"}   # Bài viết bạn bè
+                    {"visibility": "public"},
+                    {"visibility": "friends"}
                 ]
             else:
-                # Không phải bạn bè, chỉ xem public
                 match_query["visibility"] = "public"
             
         elif is_own_profile:
-            # Là chính chủ: hiển thị tất cả bài viết (không thêm điều kiện visibility)
             pass
         else:
-            # Không có current_user, chỉ hiển thị public
             match_query["visibility"] = "public"
 
         print(f"Final match query: {match_query}")
@@ -175,6 +167,12 @@ class SocialPostService:
                 "$unwind": {
                     "path": "$author_info",
                     "preserveNullAndEmptyArrays": True
+                }
+            },
+            # THÊM STAGE NÀY ĐỂ CHUYỂN ĐỔI group_id TỪ ObjectId SANG string
+            {
+                "$addFields": {
+                    "group_id": {"$toString": "$group_id"}
                 }
             }
         ]
