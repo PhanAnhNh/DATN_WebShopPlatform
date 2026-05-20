@@ -458,7 +458,6 @@ class SocialPostService:
             traceback.print_exc()
             return []
 
-
     async def _get_public_group_ids(self) -> List[str]:
         """Lấy danh sách ID của các group công khai"""
         try:
@@ -637,7 +636,6 @@ class SocialPostService:
             return None
 
     async def get_all_posts_admin(self, filter_query: dict, skip: int = 0, limit: int = 20):
-        # Admin có thể xem cả bài đã xóa tạm thời
         pipeline = [
             {"$match": filter_query},
             {"$sort": {"created_at": -1}},
@@ -656,6 +654,13 @@ class SocialPostService:
                     "path": "$author_info",
                     "preserveNullAndEmptyArrays": True
                 }
+            },
+            # THÊM STAGE NÀY ĐỂ CHUYỂN ĐỔI ObjectId SANG string
+            {
+                "$addFields": {
+                    "group_id": {"$toString": "$group_id"},
+                    "author_id": {"$toString": "$author_id"}
+                }
             }
         ]
         
@@ -663,14 +668,13 @@ class SocialPostService:
         posts = []
         async for doc in cursor:
             doc["_id"] = str(doc["_id"])
-            doc["author_id"] = str(doc["author_id"])
+            # Không cần convert ở đây nữa vì đã convert ở aggregate
             author = doc.get("author_info", {})
             doc["author_name"] = author.get("full_name", "Người dùng")
             doc["author_avatar"] = author.get("avatar_url")
             posts.append(doc)
         
         return posts
-
     async def update_post_admin(self, post_id: str, update_data: dict):
         """Admin cập nhật bài viết"""
         update_data["updated_at"] = datetime.utcnow()
