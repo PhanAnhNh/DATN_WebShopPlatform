@@ -180,3 +180,61 @@ async def get_group_posts(
     user_id = str(current_user.id) if current_user else None
     posts = await service.get_group_posts(group_id, user_id, limit, skip)
     return posts
+
+# app/routes/group_routes.py - Thêm endpoint tìm kiếm
+
+@router.get("/search", response_model=List[GroupResponse])
+async def search_groups(
+    keyword: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+    db = Depends(get_database)
+):
+    """Tìm kiếm nhóm theo tên hoặc mô tả"""
+    service = GroupService(db)
+    user_id = str(current_user.id) if current_user else None
+    
+    # Tìm kiếm nhóm công khai hoặc nhóm user đã tham gia
+    pipeline = [
+        {
+            "$match": {
+                "$or": [
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}}
+                ],
+                "is_active": True
+            }
+        },
+        {"$limit": limit},
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "owner_id",
+                "foreignField": "_id",
+                "as": "owner_info"
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$owner_info",
+                "preserveNullAndEmptyArrays": True
+            }
+        }
+    ]
+    
+    groups = []
+    cursor = service.collection.aggregate(pipeline)
+    async for doc in cursor:
+        # Chỉ hiển thị nhóm công khai hoặc nhóm user đã tham gia
+        if doc["privacy"] == "public" or (user_id and any(m["user_id"] == user_id for m in doc.get("members", []))):
+            doc["_id"] = str(doc["_id"])
+            doc["owner_id"] = str(doc["owner_id"])
+            doc["owner_name"] = doc.get("owner_info", {}).get("full_name") or doc.get("owner_info", {}).get("username")
+            doc["owner_avatar"] = doc.get("owner_info", {}).get("avatar_url")
+            
+            if "owner_info" in doc:
+                del doc["owner_info"]
+            
+            groups.append(doc)
+    
+    return groups

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Query, status, Depends
 from app.core.security import CurrentUser, get_current_user, get_current_user_optional
 from app.db.mongodb import get_database
 from app.models.user_model import UserCreate, UserUpdate
@@ -86,3 +86,45 @@ async def get_user_profile(
         "friends_count": friends_count,
         "posts_count": user.get("posts_count", 0)
     }
+
+# app/routes/user_routes.py - Thêm endpoint tìm kiếm
+
+@router.get("/search")
+async def search_users(
+    keyword: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Tìm kiếm người dùng theo tên hoặc username"""
+    users_collection = db["users"]
+    
+    # Tìm kiếm với regex (không phân biệt hoa thường)
+    pipeline = [
+        {
+            "$match": {
+                "$or": [
+                    {"full_name": {"$regex": keyword, "$options": "i"}},
+                    {"username": {"$regex": keyword, "$options": "i"}}
+                ],
+                "is_active": True
+            }
+        },
+        {"$limit": limit},
+        {
+            "$project": {
+                "_id": {"$toString": "$_id"},
+                "full_name": 1,
+                "username": 1,
+                "avatar_url": 1,
+                "bio": 1
+            }
+        }
+    ]
+    
+    users = []
+    cursor = users_collection.aggregate(pipeline)
+    async for user in cursor:
+        users.append(user)
+    
+    return users
