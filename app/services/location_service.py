@@ -5,7 +5,7 @@ from datetime import datetime
 import math
 from app.db.mongodb import get_database
 from app.models.location_model import Location, Province, District
-from app.schemas.locations import LocationCreate, LocationUpdate, ProvinceCreate, ProvinceUpdate
+from app.models.locations import LocationCreate, LocationUpdate, ProvinceCreate, ProvinceUpdate
 
 class LocationService:
     def __init__(self):

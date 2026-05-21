@@ -1,6 +1,6 @@
 # app/schemas/__init__.py
 from .base import PyObjectId, BaseSchema, ResponseSchema, PaginatedResponse
-from .locations import (
+from ..models.locations import (
     LocationBase, 
     LocationCreate, 
     LocationUpdate,

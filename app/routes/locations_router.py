@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from app.db.mongodb import get_database
-from app.schemas.locations import (
+from app.models.locations import (
     LocationCreate, LocationUpdate,
     ProvinceCreate, ProvinceUpdate,
 )
