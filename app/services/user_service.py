@@ -5,7 +5,9 @@ from app.models.user_model import UserCreate, UserUpdate
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional
-
+from app.services import email_service
+from app.services.token_service import VerificationTokenService
+from app.core.config import settings
 from app.services.admin_notification_service import AdminNotificationService
 
 class UserService:
@@ -16,6 +18,8 @@ class UserService:
         else:
             self.db = get_database()
             self.collection = self.db.users
+        self.email_service = email_service()
+        self.token_service = VerificationTokenService(self.db)
         self.admin_notification_service = AdminNotificationService(self.db)
 
     async def create_user(self, user_in: UserCreate):
@@ -33,7 +37,7 @@ class UserService:
         user_dict.update({
             "role": "user", 
             "is_active": True,
-            "is_verified": False,
+            "is_verified": False,  # Mặc định chưa xác thực
             "followers_count": 0,
             "following_count": 0,
             "posts_count": 0,
@@ -53,7 +57,24 @@ class UserService:
 
         result = await self.collection.insert_one(user_dict)
         user_id = str(result.inserted_id)
-
+        
+        # Tạo verification token và gửi email xác thực
+        verification_token = await self.token_service.create_verification_token(user_id)
+        
+        # Tạo URL xác thực
+        verification_url = f"{settings.BACKEND_URL}/api/v1/auth/verify-email?token={verification_token}"
+        
+        # Gửi email xác thực (fire-and-forget, không block response)
+        import asyncio
+        asyncio.create_task(
+            self.email_service.send_verification_email(
+                to_email=user_in.email,
+                username=user_in.username,
+                verification_url=verification_url
+            )
+        )
+        
+        # Thông báo cho admin
         admin_users = await self.collection.find({"role": "admin"}).to_list(length=None)
         
         for admin in admin_users:
@@ -142,3 +163,45 @@ class UserService:
             {"_id": ObjectId(user_id)},
             {"$set": {"last_login": datetime.utcnow()}}
         )
+
+    async def verify_user_email(self, token: str) -> bool:
+        """Xác thực email user qua token"""
+        token_data = await self.token_service.verify_token(token)
+        
+        if not token_data:
+            return False
+        
+        user_id = token_data["user_id"]
+        
+        # Cập nhật user thành đã xác thực
+        result = await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"is_verified": True, "updated_at": datetime.utcnow()}}
+        )
+        
+        return result.modified_count > 0
+    
+    async def resend_verification_email(self, email: str) -> bool:
+        """Gửi lại email xác thực"""
+        user = await self.get_user_by_email(email)
+        
+        if not user:
+            return False
+        
+        if user.get("is_verified"):
+            return False  # Đã xác thực rồi
+        
+        # Tạo token mới
+        verification_token = await self.token_service.create_verification_token(user["id"])
+        
+        # Tạo URL xác thực
+        verification_url = f"{settings.BACKEND_URL}/api/v1/auth/verify-email?token={verification_token}"
+        
+        # Gửi email
+        await self.email_service.send_verification_email(
+            to_email=email,
+            username=user.get("username"),
+            verification_url=verification_url
+        )
+        
+        return True

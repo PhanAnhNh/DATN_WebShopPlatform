@@ -124,3 +124,93 @@ class EmailService:
         </html>
         """
         await self.send_email(to_email, subject, html_content)
+
+    async def send_verification_email(self, to_email: str, username: str, verification_url: str):
+        """Gửi email xác thực tài khoản"""
+        subject = "Xác thực tài khoản - Đặc Sản Quê Tôi"
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f5eee1;
+                }}
+                .header {{
+                    background-color: #2e7d32;
+                    color: white;
+                    padding: 20px;
+                    text-align: center;
+                    border-radius: 8px 8px 0 0;
+                }}
+                .content {{
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 0 0 8px 8px;
+                }}
+                .button {{
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background-color: #2e7d32;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    margin: 20px 0;
+                }}
+                .button:hover {{
+                    background-color: #1b5e20;
+                }}
+                .warning {{
+                    color: #ff6b6b;
+                    font-size: 12px;
+                    text-align: center;
+                    margin-top: 20px;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #777;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>Đặc Sản Quê Tôi</h2>
+                </div>
+                <div class="content">
+                    <h3>Xin chào {username},</h3>
+                    <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>Đặc Sản Quê Tôi</strong>!</p>
+                    <p>Vui lòng nhấp vào nút bên dưới để xác thực địa chỉ email của bạn:</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="{verification_url}" class="button">Xác thực tài khoản</a>
+                    </div>
+                    
+                    <p>Hoặc copy đường link sau vào trình duyệt:</p>
+                    <p style="word-break: break-all; color: #2e7d32;">{verification_url}</p>
+                    
+                    <p>Liên kết này có hiệu lực trong vòng <strong>24 giờ</strong>.</p>
+                    
+                    <div class="warning">
+                        ⚠️ Nếu bạn không đăng ký tài khoản, vui lòng bỏ qua email này.
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>© 2024 Đặc Sản Quê Tôi. Tất cả các quyền được bảo lưu.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        await self.send_email(to_email, subject, html_content)

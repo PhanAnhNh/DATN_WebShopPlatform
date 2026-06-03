@@ -1,4 +1,3 @@
-# app/db/mongodb.py
 import os
 import asyncio
 from typing import Optional, Dict, Any
@@ -7,7 +6,6 @@ from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class MongoDB:
     """
@@ -267,10 +265,7 @@ class MongoDB:
         
         raise last_error
 
-
-# Singleton instance for backward compatibility
 db_instance = MongoDB()
-
 
 async def connect_to_mongo():
     """
@@ -278,20 +273,17 @@ async def connect_to_mongo():
     """
     await MongoDB.connect()
 
-
 async def close_mongo_connection():
     """
     Close MongoDB connection (backward compatible function)
     """
     await MongoDB.disconnect()
 
-
 def get_database():
     """
     Get database instance (backward compatible function)
     """
     return MongoDB.db
-
 
 async def get_db_connection():
     """
@@ -313,8 +305,6 @@ async def get_db_connection():
     
     return MongoDB.db
 
-
-# FastAPI dependency
 async def get_db():
     """
     Dependency for FastAPI routes
@@ -325,3 +315,19 @@ async def get_db():
     except Exception as e:
         logger.error(f"Database error in request: {e}")
         raise
+
+async def create_verification_tokens_collection(db):
+    """Tạo collection verification_tokens và index"""
+    await db.create_collection("verification_tokens")
+    
+    # Tạo index cho token để tìm nhanh
+    await db.verification_tokens.create_index("token", unique=True)
+    
+    # Tạo TTL index để tự động xóa token hết hạn sau 24h
+    await db.verification_tokens.create_index(
+        "expires_at", 
+        expireAfterSeconds=0
+    )
+    
+    # Index cho user_id
+    await db.verification_tokens.create_index("user_id")

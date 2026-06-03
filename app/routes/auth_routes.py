@@ -1,8 +1,6 @@
 # app/routes/auth_routes.py
 from typing import Optional
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from app.services.user_service import UserService
@@ -15,6 +13,51 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["Xác thực (Login)"])
 
+@router.get("/verify-email")
+async def verify_email(
+    token: str,
+    db = Depends(get_database)
+):
+    """
+    Xác thực email qua token
+    """
+    user_service = UserService(db)
+    
+    success = await user_service.verify_user_email(token)
+    
+    if not success:
+        raise HTTPException(
+            status_code=400, 
+            detail="Token không hợp lệ hoặc đã hết hạn"
+        )
+    
+    # Redirect về frontend với thông báo thành công
+    from fastapi.responses import RedirectResponse
+    frontend_url = settings.BACKEND_URL.replace("/api/v1", "")
+    return RedirectResponse(
+        url=f"{frontend_url}/email-verified?success=true",
+        status_code=302
+    )
+
+@router.post("/resend-verification")
+async def resend_verification_email(
+    email: str,
+    db = Depends(get_database)
+):
+    """
+    Gửi lại email xác thực
+    """
+    user_service = UserService(db)
+    
+    success = await user_service.resend_verification_email(email)
+    
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể gửi email xác thực. Vui lòng kiểm tra email hoặc tài khoản đã được xác thực."
+        )
+    
+    return {"message": "Email xác thực đã được gửi, vui lòng kiểm tra hộp thư của bạn"}
 
 @router.post("/login")
 async def login(
@@ -30,8 +73,15 @@ async def login(
     
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Tài khoản hoặc mật khẩu không chính xác")
+    
+    # Kiểm tra email đã xác thực chưa (trừ admin)
+    if not user.get("is_verified", False) and user.get("role") != "admin":
+        raise HTTPException(
+            status_code=403, 
+            detail="Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt tài khoản."
+        )
 
-    # Kiểm tra role (giữ nguyên logic cũ)
+    # Kiểm tra role
     if user.get("role") == "shop_owner":
         raise HTTPException(status_code=403, detail="Vui lòng đăng nhập qua cổng dành cho shop")
     
@@ -43,7 +93,6 @@ async def login(
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Trả về access_token và thông tin user (giữ nguyên phần này)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -258,3 +307,4 @@ async def google_login(
             "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None
         }
     }
+

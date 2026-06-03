@@ -87,8 +87,6 @@ async def get_user_profile(
         "posts_count": user.get("posts_count", 0)
     }
 
-# app/routes/user_routes.py - Thêm endpoint tìm kiếm
-
 @router.get("/search")
 async def search_users(
     keyword: str = Query(..., min_length=1),
