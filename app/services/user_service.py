@@ -5,7 +5,7 @@ from app.models.user_model import UserCreate, UserUpdate
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional
-from app.services import email_service
+from app.services.email_service import EmailService
 from app.services.token_service import VerificationTokenService
 from app.core.config import settings
 from app.services.admin_notification_service import AdminNotificationService
@@ -18,7 +18,7 @@ class UserService:
         else:
             self.db = get_database()
             self.collection = self.db.users
-        self.email_service = email_service()
+        self.email_service = EmailService()
         self.token_service = VerificationTokenService(self.db)
         self.admin_notification_service = AdminNotificationService(self.db)
 
