@@ -22,17 +22,28 @@ async def login(
     db = Depends(get_database)
 ):
     user_service = UserService(db)
-    user = await user_service.get_user_by_username(form_data.username)
+    
+    if "@" in form_data.username:
+        user = await user_service.get_user_by_email(form_data.username)
+    else:
+        user = await user_service.get_user_by_username(form_data.username)
     
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Tài khoản hoặc mật khẩu không chính xác")
+
+    # Kiểm tra role (giữ nguyên logic cũ)
+    if user.get("role") == "shop_owner":
+        raise HTTPException(status_code=403, detail="Vui lòng đăng nhập qua cổng dành cho shop")
+    
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Vui lòng đăng nhập qua cổng dành cho admin")
 
     access_token = create_access_token(
         subject=str(user["_id"]), 
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Trả về access_token và thông tin user
+    # Trả về access_token và thông tin user (giữ nguyên phần này)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -149,7 +160,6 @@ async def update_profile(
             updated_user["id"] = str(updated_user["_id"])
     
     return {"message": "Profile updated successfully", "user": updated_user}
-
 
 class GoogleLoginRequest(BaseModel):
     email: str

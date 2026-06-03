@@ -129,7 +129,7 @@ class MongoDB:
     @classmethod
     async def health_check(cls) -> Dict[str, Any]:
         """
-        Kiểm tra sức khỏe kết nối MongoDB
+        Kiểm tra kết nối MongoDB
         """
         if cls.client is None:
             return {"status": "disconnected", "error": "No connection"}
