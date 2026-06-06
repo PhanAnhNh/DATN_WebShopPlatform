@@ -5,8 +5,6 @@ from typing import Dict, Any, List, Optional
 import json
 from datetime import datetime
 from bson import ObjectId
-from google.cloud import vision_v1
-from google.oauth2 import service_account
 import requests
 
 class AIModerationService:
