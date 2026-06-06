@@ -7,6 +7,7 @@ from requests import post
 
 from app.models.social_posts_model import SocialPostCreate, SocialPostUpdate
 from app.services.admin_notification_service import AdminNotificationService
+from app.services.ai_moderation_service import AIModerationService
 
 
 class SocialPostService:
@@ -16,8 +17,11 @@ class SocialPostService:
         self.user_collection = db["users"]
         self.db = db
         self.admin_notification_service = AdminNotificationService(db)
+        self.ai_moderation = AIModerationService(db)
+        self.ai_moderation.set_notification_service(self.admin_notification_service)
 
     async def create_post(self, post_data: SocialPostCreate, current_user) -> dict:
+        """Tạo bài viết mới với kiểm duyệt AI"""
         new_post = post_data.dict()
         new_post["author_id"] = ObjectId(current_user.id)
         new_post["author_type"] = current_user.role
@@ -29,7 +33,7 @@ class SocialPostService:
             "save_count": 0,
             "view_count": 0
         }
-        new_post["is_active"] = True
+        new_post["is_active"] = True  # Sẽ được cập nhật sau kiểm duyệt
         new_post["is_approved"] = True
         new_post["is_pinned"] = False
         new_post["report_count"] = 0
@@ -37,12 +41,15 @@ class SocialPostService:
         new_post["deleted_at"] = None
         new_post["is_permanently_deleted"] = False
         
+        # Thêm các field cho AI moderation
+        new_post["hidden_by_ai"] = False
+        new_post["ai_moderation_result"] = None
+        new_post["hidden_at"] = None
+        
         # Xử lý group post
         if post_data.group_id:
             new_post["group_id"] = ObjectId(post_data.group_id)
             new_post["is_group_post"] = True
-            
-            # Tăng post_count trong group
             await self.db["groups"].update_one(
                 {"_id": ObjectId(post_data.group_id)},
                 {"$inc": {"post_count": 1}}
@@ -59,19 +66,38 @@ class SocialPostService:
             {"$inc": {"posts_count": 1}}
         )
 
-        # Gửi notification cho admin (nếu cần)
+        # ⭐ KIỂM DUYỆT BÀI VIẾT BẰNG AI ⭐
+        content = post_data.content or ""
+        image_urls = post_data.images or []
+        
+        was_hidden = await self.ai_moderation.process_and_hide_post_if_needed(
+            post_id=post_id,
+            content=content,
+            image_urls=image_urls,
+            author_id=str(current_user.id),
+            author_name=current_user.full_name or current_user.username
+        )
+        
+        # Nếu bài viết bị ẩn, cập nhật lại is_active trong response
+        if was_hidden:
+            new_post["is_active"] = False
+            new_post["hidden_by_ai"] = True
+        
+        # Gửi thông báo cho các admin khác (không phải AI notification)
         admin_users = await self.user_collection.find({"role": "admin"}).to_list(length=None)
         
         author_name = current_user.full_name or current_user.username
         
         for admin in admin_users:
-            await self.admin_notification_service.create_notification(
-                user_id=str(admin["_id"]),
-                type="new_post",
-                title="Bài viết mới được đăng",
-                message=f"{author_name} vừa đăng bài viết mới trong {'nhóm' if post_data.group_id else 'trang cá nhân'}: {post_data.content[:50] if post_data.content else '...'}",
-                reference_id=post_id
-            )
+            # Chỉ gửi thông báo bài viết mới nếu không bị ẩn bởi AI
+            if not was_hidden:
+                await self.admin_notification_service.create_notification(
+                    user_id=str(admin["_id"]),
+                    type="new_post",
+                    title="Bài viết mới được đăng",
+                    message=f"{author_name} vừa đăng bài viết mới trong {'nhóm' if post_data.group_id else 'trang cá nhân'}: {content[:50] if content else '...'}",
+                    reference_id=post_id
+                )
             
         new_post["_id"] = str(result.inserted_id)
         new_post["author_id"] = str(new_post["author_id"])
@@ -79,6 +105,7 @@ class SocialPostService:
             new_post["group_id"] = str(new_post["group_id"])
         
         return new_post
+
 
     async def get_user_posts(
         self,

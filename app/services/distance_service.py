@@ -16,8 +16,6 @@ class DistanceService:
         """
         Sử dụng Mapbox Directions API để tính khoảng cách đường đi thực tế
         """
-        # Mapbox yêu cầu format: lng,lat;lng,lat
-        # LƯU Ý: Không có dấu cách, phân cách bằng dấu chấm phẩy
         coordinates = f"{lng1},{lat1};{lng2},{lat2}"
         
         # URL đầy đủ

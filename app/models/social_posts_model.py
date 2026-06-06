@@ -132,7 +132,7 @@ class SocialPostInDB(SocialPostBase):
     is_pinned: bool = False
 
     report_count: int = 0
-
+    hidden_by_ai: bool = False
     feed_score: float = 0.0  # dùng cho ranking feed
     deleted_at: Optional[datetime] = None
     is_permanently_deleted: bool = False 
