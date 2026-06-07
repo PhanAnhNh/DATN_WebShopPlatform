@@ -1,3 +1,4 @@
+# app/routes/shop_profile_routes.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.db.mongodb import get_database
 from app.core.security import get_current_user
@@ -6,42 +7,83 @@ from app.models.shops_model import ShopUpdate
 from app.services.user_service import UserService
 from app.services.shop_service import ShopService
 from bson import ObjectId
-import os
-import shutil
 from datetime import datetime
 from typing import Optional
+import uuid
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError, NoCredentialsError
+from app.core.r2_config import R2Config
 
 router = APIRouter(prefix="/shop/profile", tags=["Shop Profile"])
+
+# ==================== R2 UPLOAD FUNCTION ====================
+
+def get_r2_client():
+    """Khởi tạo S3 client cho R2"""
+    if not R2Config.ACCESS_KEY_ID or not R2Config.SECRET_ACCESS_KEY:
+        raise ValueError("R2 credentials not configured! Check .env file")
+    
+    return boto3.client(
+        "s3",
+        endpoint_url=R2Config.ENDPOINT_URL,
+        aws_access_key_id=R2Config.ACCESS_KEY_ID,
+        aws_secret_access_key=R2Config.SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4"),
+        region_name="auto"
+    )
+
+async def upload_to_r2(file: UploadFile, folder: str) -> str:
+    """Upload file lên R2 và trả về URL công khai"""
+    # Kiểm tra file
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File phải là ảnh")
+    
+    content = await file.read()
+    
+    # Kiểm tra kích thước (tối đa 5MB)
+    MAX_SIZE = 5 * 1024 * 1024
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail=f"File quá lớn. Tối đa {MAX_SIZE // (1024*1024)}MB")
+    
+    # Tạo tên file unique
+    file_extension = file.filename.split(".")[-1].lower()
+    if file_extension not in ["jpg", "jpeg", "png", "gif", "webp"]:
+        raise HTTPException(status_code=400, detail="Định dạng ảnh không được hỗ trợ")
+    
+    unique_filename = f"{folder}/{uuid.uuid4()}.{file_extension}"
+    
+    # Upload lên R2
+    s3 = get_r2_client()
+    s3.put_object(
+        Bucket=R2Config.BUCKET_NAME,
+        Key=unique_filename,
+        Body=content,
+        ContentType=file.content_type,
+        CacheControl="public, max-age=31536000"
+    )
+    
+    # Trả về URL công khai
+    return f"{R2Config.PUBLIC_URL_BASE}/{unique_filename}"
+
+# ==================== GET & UPDATE ====================
 
 @router.get("/")
 async def get_shop_profile(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Lấy thông tin profile của shop và chủ shop
-    """
+    """Lấy thông tin profile của shop và chủ shop"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền truy cập"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
     
     if not current_user.shop_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Bạn chưa có shop"
-        )
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
     
-    # Lấy thông tin shop
     shop = await db["shops"].find_one({"_id": ObjectId(current_user.shop_id)})
     if not shop:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy thông tin shop"
-        )
+        raise HTTPException(status_code=404, detail="Không tìm thấy thông tin shop")
     
-    # Format shop data
     shop_data = {
         "id": str(shop["_id"]),
         "name": shop["name"],
@@ -65,7 +107,6 @@ async def get_shop_profile(
         "updated_at": shop.get("updated_at")
     }
     
-    # Format user data
     user_data = {
         "id": str(current_user.id),
         "username": current_user.username,
@@ -81,10 +122,7 @@ async def get_shop_profile(
         "created_at": current_user.created_at
     }
     
-    return {
-        "shop": shop_data,
-        "owner": user_data
-    }
+    return {"shop": shop_data, "owner": user_data}
 
 @router.put("/shop")
 async def update_shop_info(
@@ -92,29 +130,18 @@ async def update_shop_info(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Cập nhật thông tin shop
-    """
+    """Cập nhật thông tin shop"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
     
     if not current_user.shop_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Bạn chưa có shop"
-        )
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
     
     service = ShopService(db)
     updated_shop = await service.update_shop(current_user.shop_id, shop_update)
     
     if not updated_shop:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy shop"
-        )
+        raise HTTPException(status_code=404, detail="Không tìm thấy shop")
     
     return updated_shop
 
@@ -124,31 +151,21 @@ async def update_owner_info(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Cập nhật thông tin chủ shop
-    """
+    """Cập nhật thông tin chủ shop"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
     
     service = UserService(db)
     success = await service.update_user(str(current_user.id), owner_update)
     
     if not success:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy người dùng"
-        )
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     
-    # Lấy thông tin mới
     updated_user = await service.get_user_by_id(str(current_user.id))
     
-    return {
-        "message": "Cập nhật thông tin thành công",
-        "user": updated_user
-    }
+    return {"message": "Cập nhật thông tin thành công", "user": updated_user}
+
+# ==================== UPLOAD FUNCTIONS DÙNG R2 ====================
 
 @router.post("/upload-avatar")
 async def upload_avatar(
@@ -156,46 +173,25 @@ async def upload_avatar(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Upload avatar cho chủ shop
-    """
+    """Upload avatar cho chủ shop lên R2"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
+    
+    try:
+        avatar_url = await upload_to_r2(file, "shop_avatars")
+        
+        await db["users"].update_one(
+            {"_id": ObjectId(current_user.id)},
+            {"$set": {"avatar_url": avatar_url}}
         )
-    
-    # Kiểm tra file
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=400,
-            detail="File phải là ảnh"
-        )
-    
-    # Tạo thư mục nếu chưa có
-    upload_dir = "static/avatars"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Tạo tên file
-    file_ext = os.path.splitext(file.filename)[1]
-    file_name = f"user_{current_user.id}_{datetime.now().timestamp()}{file_ext}"
-    file_path = os.path.join(upload_dir, file_name)
-    
-    # Lưu file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # Cập nhật database
-    avatar_url = f"/static/avatars/{file_name}"
-    await db["users"].update_one(
-        {"_id": ObjectId(current_user.id)},
-        {"$set": {"avatar_url": avatar_url}}
-    )
-    
-    return {
-        "avatar_url": avatar_url,
-        "message": "Upload avatar thành công"
-    }
+        
+        return {
+            "avatar_url": avatar_url,
+            "message": "Upload avatar thành công"
+        }
+    except Exception as e:
+        print(f"Upload avatar error: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi upload: {str(e)}")
 
 @router.post("/upload-logo")
 async def upload_shop_logo(
@@ -203,52 +199,28 @@ async def upload_shop_logo(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Upload logo cho shop
-    """
+    """Upload logo cho shop lên R2"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
     
     if not current_user.shop_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Bạn chưa có shop"
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    try:
+        logo_url = await upload_to_r2(file, "shop_logos")
+        
+        await db["shops"].update_one(
+            {"_id": ObjectId(current_user.shop_id)},
+            {"$set": {"logo_url": logo_url}}
         )
-    
-    # Kiểm tra file
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=400,
-            detail="File phải là ảnh"
-        )
-    
-    # Tạo thư mục nếu chưa có
-    upload_dir = "static/shop_logos"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Tạo tên file
-    file_ext = os.path.splitext(file.filename)[1]
-    file_name = f"shop_{current_user.shop_id}_{datetime.now().timestamp()}{file_ext}"
-    file_path = os.path.join(upload_dir, file_name)
-    
-    # Lưu file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # Cập nhật database
-    logo_url = f"/static/shop_logos/{file_name}"
-    await db["shops"].update_one(
-        {"_id": ObjectId(current_user.shop_id)},
-        {"$set": {"logo_url": logo_url}}
-    )
-    
-    return {
-        "logo_url": logo_url,
-        "message": "Upload logo thành công"
-    }
+        
+        return {
+            "logo_url": logo_url,
+            "message": "Upload logo thành công"
+        }
+    except Exception as e:
+        print(f"Upload logo error: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi upload: {str(e)}")
 
 @router.post("/upload-banner")
 async def upload_shop_banner(
@@ -256,52 +228,28 @@ async def upload_shop_banner(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Upload banner cho shop
-    """
+    """Upload banner cho shop lên R2"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
     
     if not current_user.shop_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Bạn chưa có shop"
+        raise HTTPException(status_code=400, detail="Bạn chưa có shop")
+    
+    try:
+        banner_url = await upload_to_r2(file, "shop_banners")
+        
+        await db["shops"].update_one(
+            {"_id": ObjectId(current_user.shop_id)},
+            {"$set": {"banner_url": banner_url}}
         )
-    
-    # Kiểm tra file
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=400,
-            detail="File phải là ảnh"
-        )
-    
-    # Tạo thư mục nếu chưa có
-    upload_dir = "static/shop_banners"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Tạo tên file
-    file_ext = os.path.splitext(file.filename)[1]
-    file_name = f"shop_{current_user.shop_id}_{datetime.now().timestamp()}{file_ext}"
-    file_path = os.path.join(upload_dir, file_name)
-    
-    # Lưu file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # Cập nhật database
-    banner_url = f"/static/shop_banners/{file_name}"
-    await db["shops"].update_one(
-        {"_id": ObjectId(current_user.shop_id)},
-        {"$set": {"banner_url": banner_url}}
-    )
-    
-    return {
-        "banner_url": banner_url,
-        "message": "Upload banner thành công"
-    }
+        
+        return {
+            "banner_url": banner_url,
+            "message": "Upload banner thành công"
+        }
+    except Exception as e:
+        print(f"Upload banner error: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi upload: {str(e)}")
 
 @router.post("/change-password")
 async def change_password(
@@ -309,53 +257,31 @@ async def change_password(
     db = Depends(get_database),
     current_user: UserInDB = Depends(get_current_user)
 ):
-    """
-    Đổi mật khẩu
-    """
+    """Đổi mật khẩu"""
     if current_user.role != "shop_owner":
-        raise HTTPException(
-            status_code=403,
-            detail="Không có quyền thực hiện"
-        )
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện")
     
     old_password = data.get("old_password")
     new_password = data.get("new_password")
     
     if not old_password or not new_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Vui lòng nhập đầy đủ mật khẩu"
-        )
+        raise HTTPException(status_code=400, detail="Vui lòng nhập đầy đủ mật khẩu")
     
     if len(new_password) < 6:
-        raise HTTPException(
-            status_code=400,
-            detail="Mật khẩu mới phải có ít nhất 6 ký tự"
-        )
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 6 ký tự")
     
-    # Lấy user từ DB
     user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy người dùng"
-        )
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     
-    # Kiểm tra mật khẩu cũ
     from app.core.security import verify_password, get_password_hash
     if not verify_password(old_password, user["hashed_password"]):
-        raise HTTPException(
-            status_code=400,
-            detail="Mật khẩu cũ không chính xác"
-        )
+        raise HTTPException(status_code=400, detail="Mật khẩu cũ không chính xác")
     
-    # Cập nhật mật khẩu mới
     new_hashed = get_password_hash(new_password)
     await db["users"].update_one(
         {"_id": ObjectId(current_user.id)},
         {"$set": {"hashed_password": new_hashed}}
     )
     
-    return {
-        "message": "Đổi mật khẩu thành công"
-    }
+    return {"message": "Đổi mật khẩu thành công"}
