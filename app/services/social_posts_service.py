@@ -271,7 +271,7 @@ class SocialPostService:
             match_query = {
                 "is_active": True,
                 "is_permanently_deleted": False,
-                "author_type": {"$in": ["user", "admin"]}
+                "author_type": {"$in": ["user", "admin","shop_owner"]}
             }
             
             match_query["$or"] = [
@@ -670,7 +670,7 @@ class SocialPostService:
                 "$or": search_conditions,
                 "is_active": True,
                 "is_permanently_deleted": False,
-                "author_type": {"$in": ["user", "admin"]}
+                "author_type": {"$in": ["user", "admin", "shop_owner"]}
             }
             
             visibility_conditions = []
