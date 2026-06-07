@@ -320,7 +320,6 @@ class SocialPostService:
                 if author:
                     post["author_name"] = author.get("full_name") or author.get("username", "Người dùng")
                     post["author_avatar"] = author.get("avatar_url")
-                    # ⭐ THÊM SHOP_ID VÀ AUTHOR_TYPE
                     post["author_type"] = author.get("role", "user")
                     if author.get("role") == "shop_owner" and author.get("shop_id"):
                         post["shop_id"] = str(author["shop_id"])
