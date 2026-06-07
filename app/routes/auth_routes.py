@@ -81,12 +81,8 @@ async def login(
             detail="Tài khoản chưa được xác thực. Vui lòng kiểm tra email để kích hoạt tài khoản."
         )
 
-    # Kiểm tra role
-    if user.get("role") == "shop_owner":
-        raise HTTPException(status_code=403, detail="Vui lòng đăng nhập qua cổng dành cho shop")
-    
-    if user.get("role") == "admin":
-        raise HTTPException(status_code=403, detail="Vui lòng đăng nhập qua cổng dành cho admin")
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Tài khoản đã bị khóa")
 
     access_token = create_access_token(
         subject=str(user["_id"]), 
