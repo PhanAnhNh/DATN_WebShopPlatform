@@ -326,6 +326,11 @@ class SocialPostService:
                 post["_id"] = str(post["_id"])
                 post["author_id"] = str(post["author_id"])
                 
+                if post.get("group_id"):
+                    post["group_id"] = str(post["group_id"])
+                else:
+                    post["group_id"] = None
+                
                 # Lấy thông tin tác giả
                 author = await self.user_collection.find_one({"_id": ObjectId(post["author_id"])})
                 if author:
