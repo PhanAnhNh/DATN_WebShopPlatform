@@ -231,13 +231,19 @@ class SocialPostService:
         category: Optional[str] = None,
         current_user_id: Optional[str] = None
     ) -> List[dict]:
+        """
+        Lấy feed với thuật toán ưu tiên:
+        - Điểm số = (cùng nhóm? 3 : 0) + (bạn bè? 2 : 0) + (độ mới của bài viết)
+        - Bài viết có điểm cao nhất lên đầu
+        """
         try:
-            # Lấy danh sách nhóm user đã tham gia (nếu có current_user)
+            # Lấy danh sách nhóm user đã tham gia
             user_group_ids = []
+            friend_ids = []
             
             if current_user_id:
                 try:
-                    # Lấy tất cả nhóm user đã tham gia (role: admin hoặc member)
+                    # Lấy danh sách nhóm user tham gia
                     groups_cursor = self.db["groups"].find({
                         "members": {
                             "$elemMatch": {
@@ -249,12 +255,28 @@ class SocialPostService:
                     })
                     
                     async for group in groups_cursor:
-                        user_group_ids.append(group["_id"])
+                        user_group_ids.append(str(group["_id"]))
                         
-                    print(f"📌 User {current_user_id} is a member of {len(user_group_ids)} groups: {user_group_ids}")
+                    print(f"📌 User {current_user_id} is a member of {len(user_group_ids)} groups")
+                    
+                    # Lấy danh sách bạn bè
+                    friendships = await self.db["friends"].find({
+                        "$or": [
+                            {"user_id": current_user_id, "status": "accepted"},
+                            {"friend_id": current_user_id, "status": "accepted"}
+                        ]
+                    }).to_list(length=None)
+                    
+                    for friendship in friendships:
+                        if friendship["user_id"] == current_user_id:
+                            friend_ids.append(friendship["friend_id"])
+                        else:
+                            friend_ids.append(friendship["user_id"])
+                            
+                    print(f"👥 User {current_user_id} has {len(friend_ids)} friends")
                     
                 except Exception as e:
-                    print(f"Error fetching user groups: {e}")
+                    print(f"Error fetching user data: {e}")
 
             # Xây dựng query cơ bản
             match_query = {
@@ -263,7 +285,7 @@ class SocialPostService:
                 "author_type": {"$in": ["user", "admin"]}
             }
             
-            # Thêm điều kiện hidden_by_report
+            # Thêm điều kiện ẩn bài viết bị báo cáo
             match_query["$or"] = [
                 {"hidden_by_report": {"$ne": True}},
                 {"hidden_by_report": {"$exists": False}}
@@ -273,208 +295,88 @@ class SocialPostService:
             if category and category != "general":
                 match_query["product_category"] = category
             
-            # Tạo điều kiện cho bài viết (bao gồm cả group posts)
-            # Quan trọng: Cần bao gồm cả bài viết trong group mà user là thành viên
-            # VÀ bài viết cá nhân với visibility phù hợp
-            
+            # Điều kiện visibility (bài viết user có thể xem)
             if current_user_id:
-                try:
-                    user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
-                    if user_exists:
-                        # Lấy danh sách bạn bè
-                        friendships = await self.db["friends"].find({
-                            "$or": [
-                                {"user_id": current_user_id, "status": "accepted"},
-                                {"friend_id": current_user_id, "status": "accepted"}
-                            ]
-                        }).to_list(length=None)
-                        
-                        friend_ids = []
-                        for friendship in friendships:
-                            if friendship["user_id"] == current_user_id:
-                                friend_ids.append(friendship["friend_id"])
-                            else:
-                                friend_ids.append(friendship["user_id"])
-                        
-                        # Chuyển đổi sang ObjectId
-                        friend_ids = [ObjectId(fid) for fid in friend_ids]
-                        
-                        # Điều kiện cho bài viết cá nhân (không phải group post)
-                        personal_conditions = [
-                            {"visibility": "public"},  # Công khai
-                            {"author_id": ObjectId(current_user_id)},  # Bài của chính user
-                        ]
-                        
-                        # Nếu có bạn bè, thêm điều kiện friends
-                        if friend_ids:
-                            personal_conditions.append({
-                                "visibility": "friends",
-                                "author_id": {"$in": friend_ids}
-                            })
-                        
-                        # Bài viết được hiển thị nếu:
-                        # 1. Là bài viết cá nhân thỏa mãn personal_conditions
-                        # 2. HOẶC là bài viết trong group mà user là thành viên
-                        # 3. HOẶC là bài viết trong group công khai
-                        
-                        final_or_conditions = []
-                        
-                        # Condition 1: Bài viết cá nhân
-                        final_or_conditions.append({
-                            "$and": [
-                                {"$or": [
-                                    {"group_id": {"$exists": False}},
-                                    {"group_id": None},
-                                    {"is_group_post": {"$ne": True}}
-                                ]},
-                                {"$or": personal_conditions}
-                            ]
-                        })
-                        
-                        # Condition 2: Bài viết trong group mà user là thành viên
-                        if user_group_ids:
-                            final_or_conditions.append({
-                                "group_id": {"$in": user_group_ids},
-                                "is_group_post": True
-                            })
-                        
-                        # Condition 3: Bài viết trong group công khai (user chưa tham gia)
-                        # Lấy danh sách group công khai
-                        public_groups = await self.db["groups"].find({
-                            "privacy": "public",
-                            "is_active": True
-                        }).to_list(length=None)
-                        
-                        public_group_ids = [str(group["_id"]) for group in public_groups]
-                        # Loại bỏ các group user đã tham gia để tránh trùng
-                        public_group_ids_not_joined = [gid for gid in public_group_ids if gid not in user_group_ids]
-                        
-                        if public_group_ids_not_joined:
-                            final_or_conditions.append({
-                                "group_id": {"$in": public_group_ids_not_joined},
-                                "is_group_post": True
-                            })
-                        
-                        match_query["$or"] = final_or_conditions
-                        
-                    else:
-                        # User không tồn tại, chỉ hiển thị public và group public
-                        match_query["$or"] = [
-                            {"visibility": "public", "$or": [{"group_id": {"$exists": False}}, {"group_id": None}, {"is_group_post": {"$ne": True}}]},
-                            {"is_group_post": True, "group_id": {"$in": await self._get_public_group_ids()}}
-                        ]
-                except Exception as e:
-                    print(f"Error processing user: {e}")
-                    match_query["visibility"] = "public"
-            else:
-                # Không có user đăng nhập, chỉ hiển thị bài viết công khai và group công khai
-                public_group_ids = await self._get_public_group_ids()
-                match_query["$or"] = [
-                    {"visibility": "public", "$or": [{"group_id": {"$exists": False}}, {"group_id": None}, {"is_group_post": {"$ne": True}}]},
-                    {"is_group_post": True, "group_id": {"$in": public_group_ids}}
+                visibility_conditions = [
+                    {"visibility": "public"},
+                    {"author_id": ObjectId(current_user_id)},
                 ]
+                
+                if friend_ids:
+                    friend_object_ids = [ObjectId(fid) for fid in friend_ids]
+                    visibility_conditions.append({
+                        "visibility": "friends",
+                        "author_id": {"$in": friend_object_ids}
+                    })
+                
+                match_query["$or"] = visibility_conditions
+            else:
+                match_query["visibility"] = "public"
             
-            print(f"🔍 Final match query: {match_query}")
+            print(f"🔍 Match query: {match_query}")
             
-            # Thực hiện aggregation
-            pipeline = [
-                {"$match": match_query},
-                {"$sort": {"created_at": -1}},
-                {"$skip": skip},
-                {"$limit": limit},
-                {
-                    "$lookup": {
-                        "from": "users",
-                        "localField": "author_id",
-                        "foreignField": "_id",
-                        "as": "author_info"
-                    }
-                },
-                {
-                    "$unwind": {
-                        "path": "$author_info",
-                        "preserveNullAndEmptyArrays": True
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "groups",
-                        "localField": "group_id",
-                        "foreignField": "_id",
-                        "as": "group_info"
-                    }
-                },
-                {
-                    "$unwind": {
-                        "path": "$group_info",
-                        "preserveNullAndEmptyArrays": True
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": {"$toString": "$_id"},
-                        "author_id": {"$toString": "$author_id"},
-                        "author_type": "$author_type",
-                        "author_name": {
-                            "$ifNull": [
-                                "$author_info.full_name",
-                                "$author_info.username",
-                                "Người dùng"
-                            ]
-                        },
-                        "author_avatar": "$author_info.avatar_url",
-                        "content": 1,
-                        "images": 1,
-                        "videos": 1,
-                        "tags": 1,
-                        "location": 1,
-                        "visibility": 1,
-                        "post_type": 1,
-                        "product_category": 1,
-                        "allow_comment": 1,
-                        "allow_share": 1,
-                        "stats": 1,
-                        "created_at": 1,
-                        "updated_at": 1,
-                        "is_active": 1,
-                        "is_approved": 1,
-                        "is_pinned": 1,
-                        "report_count": 1,
-                        "feed_score": 1,
-                        "shared_post_id": 1,
-                        "product_id": 1,
-                        "group_id": {"$toString": "$group_id"},
-                        "is_group_post": 1,
-                        "group_name": "$group_info.name",
-                        "group_avatar": "$group_info.avatar_url"
-                    }
-                }
-            ]
-
-            cursor = self.collection.aggregate(pipeline)
+            # Lấy tất cả bài viết thỏa mãn (không giới hạn limit ở đây)
+            cursor = self.collection.find(match_query)
+            
             posts = []
+            current_time = datetime.utcnow()
             
-            async for doc in cursor:
-                if "stats" not in doc:
-                    doc["stats"] = {
-                        "like_count": 0,
-                        "comment_count": 0,
-                        "share_count": 0,
-                        "save_count": 0,
-                        "view_count": 0
-                    }
+            async for post in cursor:
+                # Chuyển đổi ObjectId sang string
+                post["_id"] = str(post["_id"])
+                post["author_id"] = str(post["author_id"])
                 
-                if "author_type" not in doc or not doc["author_type"]:
-                    doc["author_type"] = "user"
+                # Lấy thông tin tác giả
+                author = await self.user_collection.find_one({"_id": ObjectId(post["author_id"])})
+                if author:
+                    post["author_name"] = author.get("full_name") or author.get("username", "Người dùng")
+                    post["author_avatar"] = author.get("avatar_url")
+                else:
+                    post["author_name"] = "Người dùng"
+                    post["author_avatar"] = None
                 
-                post = await self.get_post_with_shared_info(doc)
+                # ========== TÍNH ĐIỂM ƯU TIÊN ==========
+                score = 0
+                
+                # 1. Yếu tố thời gian (0-10 điểm)
+                post_age = (current_time - post["created_at"]).total_seconds() / 3600  # tuổi bài viết (giờ)
+                # Bài mới đăng trong 24h: 10 điểm, càng cũ điểm càng thấp
+                time_score = max(0, 10 - post_age / 2.4)  # Sau 24h = 0 điểm
+                score += time_score
+                
+                # 2. Yếu tố bạn bè (2 điểm nếu là bạn bè)
+                author_id_str = str(post["author_id"])
+                if author_id_str in friend_ids:
+                    score += 2
+                    print(f"   +2 điểm (bạn bè) cho bài {post['_id']}")
+                
+                # 3. Yếu tố cùng nhóm (3 điểm nếu cùng nhóm)
+                post_group_id = post.get("group_id")
+                if post_group_id and str(post_group_id) in user_group_ids:
+                    score += 3
+                    print(f"   +3 điểm (cùng nhóm) cho bài {post['_id']}")
+                
+                # Lưu điểm
+                post["feed_score"] = score
                 posts.append(post)
-
-            print(f"✅ Found {len(posts)} posts for feed")
-            group_post_count = sum(1 for p in posts if p.get("is_group_post"))
-            print(f"   - Group posts: {group_post_count}, Personal posts: {len(posts) - group_post_count}")
+                
+                print(f"📊 Bài {post['_id'][-8:]}: time={time_score:.1f}, total={score:.1f}")
             
-            return posts
+            # Sắp xếp theo điểm số giảm dần (cao nhất lên đầu)
+            posts.sort(key=lambda x: x.get("feed_score", 0), reverse=True)
+            
+            # Áp dụng phân trang
+            paginated_posts = posts[skip:skip + limit]
+            
+            # Lấy thông tin shared post (nếu có)
+            final_posts = []
+            for post in paginated_posts:
+                final_post = await self.get_post_with_shared_info(post)
+                final_posts.append(final_post)
+            
+            print(f"✅ Found {len(posts)} posts, returning {len(final_posts)} after pagination")
+            
+            return final_posts
             
         except Exception as e:
             print(f"Error in get_feed: {e}")
