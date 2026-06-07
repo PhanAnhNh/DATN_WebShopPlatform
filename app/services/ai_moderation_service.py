@@ -159,15 +159,24 @@ class AIModerationService:
         Dùng Gemini AI để kiểm duyệt nội dung bài đăng (18+, bạo lực, quấy rối)
         """
         prompt = f"""
-        Bạn là một hệ thống kiểm duyệt nội dung mạng xã hội. Hãy phân tích bài đăng sau và trả về JSON:
+        Bạn là một hệ thống kiểm duyệt nội dung mạng xã hội. Hãy phân tích bài đăng sau và trả về JSON.
+        
+        LƯU Ý QUAN TRỌNG:
+        - Đây là bài đăng BÁN HÀNG/HÀNG HÓA bình thường (rao bán nông sản, thực phẩm, sản phẩm...)
+        - Các cụm từ như "inbox", "liên hệ", "đặt hàng", "báo giá" là hành vi KINH DOANH bình thường, KHÔNG phải quấy rối
+        - Chỉ đánh giá "is_harassment": true khi có nội dung:
+        * Nhắn tin rác, spam liên tục
+        * Quấy rối tình dục
+        * Đe dọa, xúc phạm cá nhân
+        * Gửi tin nhắn không mong muốn dạng lừa đảo
         
         Nội dung: "{content}"
         
         Đánh giá các tiêu chí:
         1. is_adult: true nếu nội dung có nội dung người lớn (18+), khiêu dâm, nhạy cảm về giới tính
         2. is_violent: true nếu nội dung có bạo lực, đe dọa, kích động thù địch
-        3. is_harassment: true nếu nội dung quấy rối, xúc phạm cá nhân hoặc tập thể
-        4. reason: lý do ngắn gọn bằng tiếng Việt
+        3. is_harassment: true nếu nội dung quấy rối (theo định nghĩa trên), KHÔNG tính các hành vi bán hàng hợp pháp
+        4. reason: lý do ngắn gọn bằng tiếng Việt (chỉ ghi lý do nếu vi phạm)
         
         Chỉ trả về JSON, không giải thích thêm. Ví dụ:
         {{"is_adult": false, "is_violent": false, "is_harassment": false, "reason": "bình thường"}}
