@@ -39,7 +39,7 @@ class ProductService:
         product_id = str(result.inserted_id)
 
         # Tạo QR code
-        qr_url = f"http://localhost:8000/products/{product_id}/trace"
+        qr_url = f"https://www.dacsanvietplatform.shop/products/{product_id}/trace"
         img = qrcode.make(qr_url)
         
         dir_path = "static/qr_codes"
@@ -83,6 +83,15 @@ class ProductService:
         # Thêm variants vào response
         product["variants"] = created_variants
         product["qr_code_url"] = qr_path
+
+        shop_id = product_data["shop_id"]
+        if isinstance(shop_id, str):
+            shop_id = ObjectId(shop_id)
+        
+        await self.db["shops"].update_one(
+            {"_id": shop_id},
+            {"$inc": {"products_count": 1}}
+        )
         
         
         return product
@@ -208,7 +217,21 @@ class ProductService:
         return products
 
     async def delete_product(self, product_id):
-        # Xóa cả variants của sản phẩm
-        await self.variant_collection.delete_many({"product_id": ObjectId(product_id)})
-        await self.collection.delete_one({"_id": ObjectId(product_id)})
+        # Lấy thông tin sản phẩm trước khi xóa để biết shop_id
+        product = await self.collection.find_one({"_id": ObjectId(product_id)})
+        if product:
+            shop_id = product.get("shop_id")
+            
+            # Xóa variants
+            await self.variant_collection.delete_many({"product_id": ObjectId(product_id)})
+            # Xóa sản phẩm
+            await self.collection.delete_one({"_id": ObjectId(product_id)})
+            
+            # CẬP NHẬT products_count TRONG SHOP (giảm đi 1)
+            if shop_id:
+                await self.db["shops"].update_one(
+                    {"_id": shop_id},
+                    {"$inc": {"products_count": -1}}
+                )
+        
         return {"message": "Product deleted"}
