@@ -323,13 +323,12 @@ class SocialPostService:
                     post["author_type"] = author.get("role", "user")
                     if author.get("role") == "shop_owner" and author.get("shop_id"):
                         post["shop_id"] = str(author["shop_id"])
+                        print(f"✅ Set shop_id={post['shop_id']} for post {post['_id']}")  # Debug log
                     else:
                         post["shop_id"] = None
+                        print(f"⚠️ No shop_id for post {post['_id']}, author role={author.get('role')}, shop_id={author.get('shop_id')}")
                 else:
-                    post["author_name"] = "Người dùng"
-                    post["author_avatar"] = None
-                    post["author_type"] = "user"
-                    post["shop_id"] = None
+                    print(f"❌ No author found for post {post['_id']}")
                 
                 # Tính điểm
                 score = 0
