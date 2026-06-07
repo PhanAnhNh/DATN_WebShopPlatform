@@ -75,18 +75,29 @@ class FavoriteService:
             {"$sort": {"created_at": -1}},
             {"$skip": skip},
             {"$limit": limit},
-            {"$lookup": {
-                "from": "products",
-                "localField": "product_id",
-                "foreignField": "_id",
-                "as": "product"
-            }},
+            {
+                "$lookup": {
+                    "from": "products",
+                    "localField": "product_id",
+                    "foreignField": "_id",
+                    "as": "product"
+                }
+            },
             {"$unwind": "$product"},
+            # ⭐ THÊM LOOKUP ĐỂ LẤY VARIANTS
+            {
+                "$lookup": {
+                    "from": "product_variants",
+                    "localField": "product_id",
+                    "foreignField": "product_id",
+                    "as": "variants"
+                }
+            },
             {"$addFields": {
                 "product_id_str": {"$toString": "$product_id"},
                 "user_id_str": {"$toString": "$user_id"},
-                "product_id_obj": "$product_id",
-                "user_id_obj": "$user_id"
+                # Thêm variants vào product
+                "product.variants": "$variants"
             }}
         ]
         
@@ -94,7 +105,16 @@ class FavoriteService:
         favorites = []
         
         async for doc in cursor:
-            # Convert các ObjectId sang string
+            # Xử lý variants
+            variants = []
+            for v in doc.get("variants", []):
+                variants.append({
+                    "id": str(v["_id"]),
+                    "name": v.get("name", ""),
+                    "price": v.get("price", 0),
+                    "stock": v.get("stock", 0)
+                })
+            
             favorite = {
                 "_id": str(doc["_id"]),
                 "user_id": str(doc["user_id"]),
@@ -112,21 +132,9 @@ class FavoriteService:
                     "shop_id": str(doc["product"]["shop_id"]) if doc["product"].get("shop_id") else None,
                     "rating": doc["product"].get("rating", 4.5),
                     "created_at": doc["product"].get("created_at"),
-                    "variants": []
+                    "variants": variants  # ⭐ THÊM VARIANTS VÀO RESPONSE
                 }
             }
-            
-            # Thêm variants nếu có
-            if "variants" in doc["product"] and doc["product"]["variants"]:
-                favorite["product"]["variants"] = [
-                    {
-                        "id": str(v["_id"]) if v.get("_id") else None,
-                        "name": v.get("name", ""),
-                        "price": v.get("price", 0),
-                        "stock": v.get("stock", 0)
-                    }
-                    for v in doc["product"].get("variants", [])
-                ]
             
             favorites.append(favorite)
         
