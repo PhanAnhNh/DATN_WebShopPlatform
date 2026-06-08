@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.db.mongodb import get_database
 from app.core.security import get_current_admin
 from app.models.user_model import UserUpdate
+from app.routes.shop_profile import upload_to_r2
 from app.services.user_service import UserService
 from app.services.admin_dashboard_service import AdminService
 from bson import ObjectId
 from datetime import datetime
-import os
-import shutil
+import uuid
 
 router = APIRouter(prefix="/admin/profile", tags=["Admin Profile"])
 
@@ -65,40 +65,44 @@ async def upload_admin_avatar(
     db = Depends(get_database),
     admin = Depends(get_current_admin)
 ):
-    """Upload ảnh đại diện cho admin"""
+    """Upload ảnh đại diện cho admin lên Cloudflare R2"""
     # Kiểm tra file type
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file ảnh")
     
     # Kiểm tra kích thước (5MB)
-    file.file.seek(0, 2)
-    file_size = file.file.tell()
-    file.file.seek(0)
-    
-    if file_size > 5 * 1024 * 1024:
+    MAX_SIZE = 5 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="Kích thước file không được vượt quá 5MB")
     
-    # Tạo thư mục nếu chưa có
-    upload_dir = "static/admin_avatars"
-    os.makedirs(upload_dir, exist_ok=True)
+    # Kiểm tra định dạng file
+    file_extension = file.filename.split(".")[-1].lower()
+    if file_extension not in ["jpg", "jpeg", "png", "gif", "webp"]:
+        raise HTTPException(status_code=400, detail="Định dạng ảnh không được hỗ trợ. Hỗ trợ: jpg, jpeg, png, gif, webp")
     
-    # Tạo tên file
-    file_ext = os.path.splitext(file.filename)[1]
-    file_name = f"admin_{admin.id}_{datetime.now().timestamp()}{file_ext}"
-    file_path = os.path.join(upload_dir, file_name)
-    
-    # Lưu file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # Cập nhật database
-    avatar_url = f"/static/admin_avatars/{file_name}"
-    await db["users"].update_one(
-        {"_id": ObjectId(admin.id)},
-        {"$set": {"avatar_url": avatar_url, "updated_at": datetime.utcnow()}}
-    )
-    
-    return {"avatar_url": avatar_url}
+    try:
+        # Tạo tên file unique
+        unique_filename = f"admin_avatars/admin_{admin.id}_{uuid.uuid4()}.{file_extension}"
+        
+        # Upload lên R2
+        image_url = await upload_to_r2(
+            file_content=content,
+            filename=unique_filename,
+            content_type=file.content_type
+        )
+        
+        # Cập nhật database với URL mới từ R2
+        await db["users"].update_one(
+            {"_id": ObjectId(admin.id)},
+            {"$set": {"avatar_url": image_url, "updated_at": datetime.utcnow()}}
+        )
+        
+        return {"avatar_url": image_url}
+        
+    except Exception as error:
+        print(f"Error uploading avatar: {error}")
+        raise HTTPException(status_code=500, detail=f"Có lỗi xảy ra khi upload ảnh: {str(error)}")
 
 @router.put("/password")
 async def change_admin_password(
