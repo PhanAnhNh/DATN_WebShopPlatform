@@ -17,18 +17,17 @@ class ChatService:
             raise ValueError("Không thể nhắn tin cho chính mình")
         
         # Xác định loại người nhận
-        from bson import ObjectId
+        
         receiver_is_shop = await self.shop_collection.find_one({"_id": ObjectId(receiver_id)})
         receiver_type = "shop" if receiver_is_shop else "user"
         
-        # Cho phép user nhắn cho shop và ngược lại (không cần kiểm tra bạn bè)
-        # Chỉ user-user cần kiểm tra bạn bè
-        if sender_type == "user" and receiver_type == "user":
-            from app.services.friend_service import FriendService
-            friend_service = FriendService(self.db)
-            status = await friend_service.check_friendship(sender_id, receiver_id)
-            if status.get("status") != "friends":
-                raise ValueError("Chỉ có thể nhắn tin với bạn bè")
+        # # Chỉ user-user cần kiểm tra bạn bè
+        # if sender_type == "user" and receiver_type == "user":
+        #     from app.services.friend_service import FriendService
+        #     friend_service = FriendService(self.db)
+        #     status = await friend_service.check_friendship(sender_id, receiver_id)
+        #     if status.get("status") != "friends":
+        #         raise ValueError("Chỉ có thể nhắn tin với bạn bè")
         
         # Lưu tin nhắn
         msg_dict = {
