@@ -14,42 +14,51 @@ router = APIRouter(prefix="/users", tags=["Người dùng"])
 def get_user_service():
     return UserService()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def register_user(
-    user_in: UserCreate,
-    user_service: UserService = Depends(get_user_service)
+@router.get("/search")  # Phải ở TRÊN route /{user_id}
+async def search_users(
+    keyword: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: CurrentUser = Depends(get_current_user),
+    db = Depends(get_database)
 ):
-    user_id = await user_service.create_user(user_in)
-    if not user_id:
-        raise HTTPException(status_code=400, detail="Username hoặc Email đã tồn tại")
-    return {"message": "Tạo người dùng thành công", "user_id": user_id}
+    """Tìm kiếm người dùng theo tên hoặc username"""
+    users_collection = db["users"]
+    
+    pipeline = [
+        {
+            "$match": {
+                "$or": [
+                    {"full_name": {"$regex": keyword, "$options": "i"}},
+                    {"username": {"$regex": keyword, "$options": "i"}}
+                ],
+                "is_active": True
+            }
+        },
+        {"$limit": limit},
+        {
+            "$project": {
+                "_id": {"$toString": "$_id"},
+                "full_name": 1,
+                "username": 1,
+                "avatar_url": 1,
+                "bio": 1
+            }
+        }
+    ]
+    
+    users = []
+    cursor = users_collection.aggregate(pipeline)
+    async for user in cursor:
+        users.append(user)
+    
+    return users
 
-@router.get("/")
-async def list_users(
-    user_service: UserService = Depends(get_user_service)
+@router.get("/me")  # Cũng nên đặt trước route động
+async def get_current_user_info(
+    current_user: CurrentUser = Depends(get_current_user)
 ):
-    return await user_service.get_all_users()
-
-@router.put("/{user_id}")
-async def update_user_info(
-    user_id: str,
-    user_update: UserUpdate,
-    user_service: UserService = Depends(get_user_service)
-):
-    success = await user_service.update_user(user_id, user_update)
-    if not success:
-        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-    return {"message": "Cập nhật thành công"}
-
-@router.delete("/{user_id}")
-async def remove_user(
-    user_id: str,
-    user_service: UserService = Depends(get_user_service)
-):
-    success = await user_service.delete_user(user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-    return {"message": "Xóa người dùng thành công"}
+    """Lấy thông tin user hiện tại"""
+    return current_user
 
 @router.get("/{user_id}")
 async def get_user_profile(
@@ -87,42 +96,41 @@ async def get_user_profile(
         "posts_count": user.get("posts_count", 0)
     }
 
-@router.get("/search")
-async def search_users(
-    keyword: str = Query(..., min_length=1),
-    limit: int = Query(10, ge=1, le=50),
-    current_user: CurrentUser = Depends(get_current_user),
-    db = Depends(get_database)
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_in: UserCreate,
+    user_service: UserService = Depends(get_user_service)
 ):
-    """Tìm kiếm người dùng theo tên hoặc username"""
-    users_collection = db["users"]
-    
-    # Tìm kiếm với regex (không phân biệt hoa thường)
-    pipeline = [
-        {
-            "$match": {
-                "$or": [
-                    {"full_name": {"$regex": keyword, "$options": "i"}},
-                    {"username": {"$regex": keyword, "$options": "i"}}
-                ],
-                "is_active": True
-            }
-        },
-        {"$limit": limit},
-        {
-            "$project": {
-                "_id": {"$toString": "$_id"},
-                "full_name": 1,
-                "username": 1,
-                "avatar_url": 1,
-                "bio": 1
-            }
-        }
-    ]
-    
-    users = []
-    cursor = users_collection.aggregate(pipeline)
-    async for user in cursor:
-        users.append(user)
-    
-    return users
+    user_id = await user_service.create_user(user_in)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Username hoặc Email đã tồn tại")
+    return {"message": "Tạo người dùng thành công", "user_id": user_id}
+
+@router.get("/")
+async def list_users(
+    user_service: UserService = Depends(get_user_service)
+):
+    return await user_service.get_all_users()
+
+@router.put("/{user_id}")
+async def update_user_info(
+    user_id: str,
+    user_update: UserUpdate,
+    user_service: UserService = Depends(get_user_service)
+):
+    success = await user_service.update_user(user_id, user_update)
+    if not success:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    return {"message": "Cập nhật thành công"}
+
+@router.delete("/{user_id}")
+async def remove_user(
+    user_id: str,
+    user_service: UserService = Depends(get_user_service)
+):
+    success = await user_service.delete_user(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    return {"message": "Xóa người dùng thành công"}
+
