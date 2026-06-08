@@ -70,11 +70,11 @@ from app.routes import (
     user_routes,
     voucher_router
 )
-
-# Import services
 from app.services.chat_service import ChatService
 from app.services.cleanup_service import cleanup_expired_posts
 from app.services.sepay_poller import SePayPoller
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Setup logging
 logging.basicConfig(
@@ -174,6 +174,17 @@ async def lifespan(app: FastAPI):
     await close_mongo_connection()
     logger.info(" Server shutdown complete")
 
+class BlockDirectBrowserAccessMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        accept_header = request.headers.get("accept", "")
+        
+        if "text/html" in accept_header and "XMLHttpRequest" not in request.headers.get("x-requested-with", ""):
+            from fastapi.responses import RedirectResponse
+            # ⚠️ Vấn đề: URL này nên đọc từ config, không hardcode
+            return RedirectResponse(url="https://www.dacsanvietplatform.shop", status_code=302)
+        
+        response = await call_next(request)
+        return response
 # ====================== FASTAPI APP ======================
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -183,6 +194,9 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
 )
+
+# Block direct browser access middleware
+app.add_middleware(BlockDirectBrowserAccessMiddleware)
 
 # CORS Middleware
 app.add_middleware(
