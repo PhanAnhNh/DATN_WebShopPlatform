@@ -1,9 +1,11 @@
 # app/routes/admin_profile_router.py
+from aiohttp import ClientError
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from app.core.r2_config import R2Config
 from app.db.mongodb import get_database
 from app.core.security import get_current_admin
 from app.models.user_model import UserUpdate
-from app.routes.shop_profile import upload_to_r2
+from app.routes.upload_router import get_r2_client
 from app.services.user_service import UserService
 from app.services.admin_dashboard_service import AdminService
 from bson import ObjectId
@@ -128,3 +130,41 @@ async def change_admin_password(
     )
     
     return {"message": "Đổi mật khẩu thành công"}
+
+async def upload_to_r2(file_content: bytes, filename: str, content_type: str) -> str:
+    """
+    Upload file lên Cloudflare R2
+    
+    Args:
+        file_content: Nội dung file dạng bytes
+        filename: Tên file (có thể bao gồm folder path, ví dụ: admin_avatars/admin_xxx.jpg)
+        content_type: MIME type của file
+    
+    Returns:
+        str: URL công khai của file
+    """
+    try:
+        s3 = get_r2_client()
+        
+        # Upload lên R2
+        s3.put_object(
+            Bucket=R2Config.BUCKET_NAME,
+            Key=filename,
+            Body=file_content,
+            ContentType=content_type,
+            CacheControl="public, max-age=31536000"
+        )
+        
+        # Tạo URL công khai
+        public_url = f"{R2Config.PUBLIC_URL_BASE}/{filename}"
+        
+        print(f"Upload successful! URL: {public_url}")
+        
+        return public_url
+        
+    except ClientError as e:
+        print(f"R2 Client error: {str(e)}")
+        raise Exception(f"Lỗi từ Cloudflare R2: {str(e)}")
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        raise Exception(f"Lỗi khi upload ảnh: {str(e)}")
