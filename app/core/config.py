@@ -58,9 +58,9 @@ class Settings(BaseSettings):
     
     # Production CORS (will be appended if in production)
     PRODUCTION_CORS_ORIGINS: List[str] = [
-        "https://dacsanqueto i.com",
-        "https://www.dacsanqueto i.com",
-        "https://api.dacsanqueto i.com",
+        "https://dacsanvietplatform.shop",
+        "https://www.dacsanvietplatform.shop",
+        "https://api.dacsanvietplatform.shop",
     ]
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
@@ -171,7 +171,7 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # ==================== Admin Config ====================
-    ADMIN_EMAIL: str = "admin@dacsanqueto i.com"
+    ADMIN_EMAIL: str = "admin@dacsanquetoi.com"
     ADMIN_USERNAME: str = "admin"
     
     # ==================== Third Party APIs ====================

@@ -123,70 +123,111 @@ async def create_shop_with_owner(
         "data": result
     }
 
-# app/routes/shops_router.py - SỬA LẠI hàm get_nearby_shops
-
 @router.get("/nearby")
 async def get_nearby_shops(
-    lat: float = Query(...),
-    lng: float = Query(...),
-    radius_km: float = Query(10),
-    limit: int = Query(20),
+    lat: float = Query(..., description="Vĩ độ người dùng"),
+    lng: float = Query(..., description="Kinh độ người dùng"),
+    radius_km: float = Query(50, ge=1, le=200, description="Bán kính tìm kiếm (km)"),
+    limit: int = Query(100, ge=1, le=500, description="Số lượng shop tối đa"),
     db = Depends(get_database)
 ):
+    """
+    Lấy danh sách shop gần vị trí người dùng, sử dụng Mapbox API để tính khoảng cách đường đi thực tế
+    """
     shops_collection = db["shops"]
     locations_collection = db["locations"]
     
-    shops = []
+    # Lấy tất cả shop đang hoạt động
     cursor = shops_collection.find({"status": "active"})
     
-    shop_service = ShopService(db)
+    shops_with_distance = []
     
     async for shop in cursor:
         location_id = shop.get("location_id")
+        
+        # Kiểm tra shop có location_id không
         if not location_id:
+            print(f"⚠️ Shop {shop.get('name')} không có location_id")
             continue
         
-        if isinstance(location_id, ObjectId):
-            location_obj_id = location_id
-        else:
-            try:
+        # Convert location_id sang ObjectId
+        try:
+            if isinstance(location_id, str):
                 location_obj_id = ObjectId(location_id)
-            except:
-                continue
+            else:
+                location_obj_id = location_id
+        except:
+            print(f"❌ Invalid location_id for shop {shop.get('name')}: {location_id}")
+            continue
         
+        # Lấy thông tin location
         location = await locations_collection.find_one({"_id": location_obj_id})
         if not location:
+            print(f"❌ Không tìm thấy location cho shop {shop.get('name')}")
             continue
         
+        # Lấy tọa độ từ location
         shop_lat = location.get("lat")
         shop_lng = location.get("lng")
         
         if shop_lat is None or shop_lng is None:
+            print(f"⚠️ Location {location.get('name')} không có tọa độ")
             continue
         
-        # ✅ Dùng API đường đi thay vì Haversine
+        # Tính khoảng cách bằng Mapbox API
         road_distance = await distance_service.get_road_distance(lat, lng, shop_lat, shop_lng)
         
-        if road_distance and road_distance["distance_km"] <= radius_km:
-            shop = shop_service._convert_objectids(shop)
-            shop["distance_km"] = road_distance["distance_km"]
-            shop["duration_min"] = road_distance["duration_min"]
-            shops.append(shop)
-        elif not road_distance:
-            # Fallback to Haversine nếu API lỗi
-            distance = calculate_distance(lat, lng, shop_lat, shop_lng) * 1.3
-            if distance <= radius_km:
-                shop = shop_service._convert_objectids(shop)
-                shop["distance_km"] = distance
-                shop["duration_min"] = round(distance * 2, 1)  # Ước lượng 2 phút/km
-                shops.append(shop)
+        # Tạo object shop để trả về
+        shop_dict = {
+            "_id": str(shop["_id"]),
+            "name": shop.get("name", ""),
+            "address": shop.get("address", ""),
+            "phone": shop.get("phone", ""),
+            "email": shop.get("email", ""),
+            "logo_url": shop.get("logo_url", ""),
+            "banner_url": shop.get("banner_url", ""),
+            "rating": shop.get("rating", 0),
+            "total_reviews": shop.get("total_reviews", 0),
+            "is_verified": shop.get("is_verified", False),
+            "status": shop.get("status", "active"),
+        }
+        
+        if road_distance:
+            # Thành công: dùng khoảng cách từ Mapbox
+            distance_km = road_distance["distance_km"]
+            if distance_km <= radius_km:
+                shop_dict["distance_km"] = distance_km
+                shop_dict["duration_min"] = road_distance["duration_min"]
+                shops_with_distance.append(shop_dict)
+                print(f"✅ {shop.get('name')}: {distance_km}km (Mapbox)")
+        else:
+            # Fallback: dùng Haversine nếu Mapbox lỗi
+            haversine_distance = distance_service.calculate_haversine_distance(lat, lng, shop_lat, shop_lng)
+            # Nhân hệ số 1.3 để ước lượng đường đi thực tế
+            estimated_distance = haversine_distance * 1.3
+            
+            if estimated_distance <= radius_km:
+                shop_dict["distance_km"] = round(estimated_distance, 2)
+                shop_dict["duration_min"] = round(estimated_distance * 2, 1)  # Ước lượng 2 phút/km
+                shops_with_distance.append(shop_dict)
+                print(f"⚠️ {shop.get('name')}: {estimated_distance}km (Haversine - fallback)")
     
-    shops.sort(key=lambda x: x["distance_km"])
+    # Sắp xếp theo khoảng cách tăng dần
+    shops_with_distance.sort(key=lambda x: x["distance_km"])
+    
+    # Giới hạn số lượng kết quả
+    result_shops = shops_with_distance[:limit]
+    
+    print(f"📊 Tổng số shop trong bán kính {radius_km}km: {len(result_shops)}")
     
     return {
-        "data": shops[:limit],
-        "user_location": {"lat": lat, "lng": lng},
-        "total": len(shops[:limit])
+        "data": result_shops,
+        "user_location": {
+            "lat": lat,
+            "lng": lng
+        },
+        "total": len(result_shops),
+        "radius_km": radius_km
     }
 
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
