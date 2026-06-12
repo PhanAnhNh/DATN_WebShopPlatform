@@ -32,6 +32,38 @@ async def search_posts(
     )
     return results
 
+@router.get("/search/by-hashtag", response_model=List[SocialPostResponse])
+async def search_by_hashtag(
+    hashtag: str = Query(..., min_length=1, description="Hashtag cần tìm (không bao gồm dấu #)"),
+    limit: int = Query(20, ge=1, le=50, description="Số lượng kết quả tối đa"),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+    db = Depends(get_database)
+):
+    """
+    Tìm kiếm bài viết theo hashtag
+    """
+    service = SocialPostService(db)
+    user_id = str(current_user.id) if current_user else None
+    results = await service.search_by_hashtag(
+        hashtag=hashtag,
+        limit=limit,
+        current_user_id=user_id
+    )
+    return results
+
+@router.get("/trending-hashtags", response_model=List[dict])
+async def get_trending_hashtags(
+    limit: int = Query(10, ge=1, le=50, description="Số lượng hashtag trending"),
+    days: int = Query(7, ge=1, le=30, description="Số ngày gần đây để thống kê"),
+    db = Depends(get_database)
+):
+    """
+    Lấy danh sách hashtag đang thịnh hành
+    """
+    service = SocialPostService(db)
+    results = await service.get_trending_hashtags(limit=limit, days=days)
+    return results
+
 @router.get("/feed", response_model=List[SocialPostResponse])
 async def get_social_feed(
     category: Optional[CategoryType] = None,

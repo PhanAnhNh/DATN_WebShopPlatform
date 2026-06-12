@@ -634,55 +634,245 @@ class SocialPostService:
         return post
     
     async def search_posts(
-    self,
-    keyword: str,
-    limit: int = 20,
-    current_user_id: Optional[str] = None
-) -> List[dict]:
-        try:
-            regex_pattern = {"$regex": keyword, "$options": "i"}
-            
-            matching_user_ids = []
+        self,
+        keyword: str,
+        limit: int = 20,
+        current_user_id: Optional[str] = None
+    ) -> List[dict]:
             try:
-                matching_users = await self.user_collection.find({
-                    "$or": [
-                        {"full_name": regex_pattern},
-                        {"username": regex_pattern}
-                    ]
-                }).to_list(length=None)
+                regex_pattern = {"$regex": keyword, "$options": "i"}
                 
-                matching_user_ids = [user["_id"] for user in matching_users]
-                print(f"Found {len(matching_user_ids)} users matching '{keyword}'")
+                matching_user_ids = []
+                try:
+                    matching_users = await self.user_collection.find({
+                        "$or": [
+                            {"full_name": regex_pattern},
+                            {"username": regex_pattern}
+                        ]
+                    }).to_list(length=None)
+                    
+                    matching_user_ids = [user["_id"] for user in matching_users]
+                    print(f"Found {len(matching_user_ids)} users matching '{keyword}'")
+                except Exception as e:
+                    print(f"Error finding users: {e}")
+                
+                search_conditions = [
+                    {"content": regex_pattern},
+                    {"tags": regex_pattern}
+                ]
+                
+                if matching_user_ids:
+                    search_conditions.append({"author_id": {"$in": matching_user_ids}})
+                
+                search_query = {
+                    "$or": search_conditions,
+                    "is_active": True,
+                    "is_permanently_deleted": False,
+                    "author_type": {"$in": ["user", "admin", "shop_owner"]}
+                }
+                
+                visibility_conditions = []
+                
+                if current_user_id:
+                    try:
+                        user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
+                        if user_exists:
+                            following = await self.db["follows"].find({
+                                "user_id": ObjectId(current_user_id),
+                                "status": "accepted"
+                            }).to_list(length=None)
+                            friend_ids = [ObjectId(f["target_id"]) for f in following]
+                            friend_ids.append(ObjectId(current_user_id))
+                            
+                            visibility_conditions = [
+                                {"visibility": "public"},
+                                {"author_id": ObjectId(current_user_id)},
+                                {
+                                    "visibility": "friends",
+                                    "author_id": {"$in": friend_ids}
+                                }
+                            ]
+                        else:
+                            visibility_conditions = [{"visibility": "public"}]
+                    except Exception as e:
+                        print(f"Error processing user for search: {e}")
+                        visibility_conditions = [{"visibility": "public"}]
+                else:
+                    visibility_conditions = [{"visibility": "public"}]
+                
+                if visibility_conditions:
+                    final_query = {
+                        "$and": [
+                            search_query,
+                            {"$or": visibility_conditions}
+                        ]
+                    }
+                else:
+                    final_query = search_query
+                
+                print(f"Search query: {final_query}")
+                
+                pipeline = [
+                    {"$match": final_query},
+                    {"$sort": {"created_at": -1}},
+                    {"$limit": limit},
+                    {
+                        "$lookup": {
+                            "from": "users",
+                            "localField": "author_id",
+                            "foreignField": "_id",
+                            "as": "author_info"
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$author_info",
+                            "preserveNullAndEmptyArrays": True
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": {"$toString": "$_id"},
+                            "author_id": {"$toString": "$author_id"},
+                            "author_type": "$author_type",
+                            "author_name": {
+                                "$ifNull": [
+                                    "$author_info.full_name",
+                                    "$author_info.username",
+                                    "Người dùng"
+                                ]
+                            },
+                            "author_avatar": "$author_info.avatar_url",
+                            "content": 1,
+                            "images": 1,
+                            "videos": 1,
+                            "tags": 1,
+                            "location": 1,
+                            "visibility": 1,
+                            "post_type": 1,
+                            "product_category": 1,
+                            "allow_comment": 1,
+                            "allow_share": 1,
+                            "stats": 1,
+                            "created_at": 1,
+                            "updated_at": 1,
+                            "is_active": 1,
+                            "is_approved": 1,
+                            "is_pinned": 1,
+                            "report_count": 1,
+                            "feed_score": 1,
+                            "shared_post_id": 1,
+                            "product_id": 1
+                        }
+                    }
+                ]
+                
+                cursor = self.collection.aggregate(pipeline)
+                posts = []
+                
+                async for doc in cursor:
+                    if "stats" not in doc:
+                        doc["stats"] = {
+                            "like_count": 0,
+                            "comment_count": 0,
+                            "share_count": 0,
+                            "save_count": 0,
+                            "view_count": 0
+                        }
+                    
+                    if "author_type" not in doc or not doc["author_type"]:
+                        doc["author_type"] = "user"
+                    
+                    if doc.get("content") and keyword.lower() in doc["content"].lower():
+                        content_lower = doc["content"].lower()
+                        keyword_lower = keyword.lower()
+                        start_index = content_lower.find(keyword_lower)
+                        if start_index != -1:
+                            end_index = start_index + len(keyword)
+                            highlighted = (
+                                doc["content"][:start_index] + 
+                                f'<mark style="background-color: #ffeb3b; padding: 0 2px; border-radius: 3px;">{doc["content"][start_index:end_index]}</mark>' + 
+                                doc["content"][end_index:]
+                            )
+                            doc["content_highlighted"] = highlighted
+                    
+                    author_name = doc.get("author_name", "")
+                    if keyword.lower() in author_name.lower():
+                        author_lower = author_name.lower()
+                        keyword_lower = keyword.lower()
+                        start_index = author_lower.find(keyword_lower)
+                        if start_index != -1:
+                            end_index = start_index + len(keyword)
+                            highlighted_author = (
+                                author_name[:start_index] + 
+                                f'<mark style="background-color: #4caf50; padding: 0 2px; border-radius: 3px; color: white;">{author_name[start_index:end_index]}</mark>' + 
+                                author_name[end_index:]
+                            )
+                            doc["author_name_highlighted"] = highlighted_author
+                    
+                    if doc.get("tags"):
+                        matching_tags = [tag for tag in doc["tags"] if keyword.lower() in tag.lower()]
+                        if matching_tags:
+                            doc["matching_tags"] = matching_tags
+                    
+                    post = await self.get_post_with_shared_info(doc)
+                    posts.append(post)
+                
+                print(f"Search found {len(posts)} posts for keyword: {keyword}")
+                return posts
+                
             except Exception as e:
-                print(f"Error finding users: {e}")
+                print(f"Error in search_posts: {e}")
+                import traceback
+                traceback.print_exc()
+                return []
+
+    async def search_by_hashtag(
+        self,
+        hashtag: str,
+        limit: int = 20,
+        current_user_id: Optional[str] = None
+    ) -> List[dict]:
+        """
+        Tìm kiếm bài viết theo hashtag
+        """
+        try:
+            # Chuẩn hóa hashtag (loại bỏ dấu # nếu có, chuyển về chữ thường)
+            hashtag = hashtag.strip().lower()
+            if hashtag.startswith('#'):
+                hashtag = hashtag[1:]
             
-            search_conditions = [
-                {"content": regex_pattern},
-                {"tags": regex_pattern}
-            ]
+            print(f"🔍 Searching for hashtag: #{hashtag}")
             
-            if matching_user_ids:
-                search_conditions.append({"author_id": {"$in": matching_user_ids}})
-            
+            # Tìm bài viết có chứa hashtag trong mảng tags
             search_query = {
-                "$or": search_conditions,
+                "tags": {"$regex": f"^{hashtag}$", "$options": "i"},
                 "is_active": True,
                 "is_permanently_deleted": False,
                 "author_type": {"$in": ["user", "admin", "shop_owner"]}
             }
             
+            # Xử lý visibility dựa trên người dùng hiện tại
             visibility_conditions = []
             
             if current_user_id:
                 try:
                     user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
                     if user_exists:
-                        following = await self.db["follows"].find({
-                            "user_id": ObjectId(current_user_id),
-                            "status": "accepted"
+                        # Lấy danh sách bạn bè
+                        friendships = await self.db["friends"].find({
+                            "$or": [
+                                {"user_id": current_user_id, "status": "accepted"},
+                                {"friend_id": current_user_id, "status": "accepted"}
+                            ]
                         }).to_list(length=None)
-                        friend_ids = [ObjectId(f["target_id"]) for f in following]
-                        friend_ids.append(ObjectId(current_user_id))
+                        
+                        friend_ids = [ObjectId(current_user_id)]
+                        for friendship in friendships:
+                            if friendship["user_id"] == current_user_id:
+                                friend_ids.append(ObjectId(friendship["friend_id"]))
+                            else:
+                                friend_ids.append(ObjectId(friendship["user_id"]))
                         
                         visibility_conditions = [
                             {"visibility": "public"},
@@ -695,7 +885,7 @@ class SocialPostService:
                     else:
                         visibility_conditions = [{"visibility": "public"}]
                 except Exception as e:
-                    print(f"Error processing user for search: {e}")
+                    print(f"Error processing user for hashtag search: {e}")
                     visibility_conditions = [{"visibility": "public"}]
             else:
                 visibility_conditions = [{"visibility": "public"}]
@@ -710,8 +900,9 @@ class SocialPostService:
             else:
                 final_query = search_query
             
-            print(f"Search query: {final_query}")
+            print(f"Hashtag search query: {final_query}")
             
+            # Aggregation pipeline
             pipeline = [
                 {"$match": final_query},
                 {"$sort": {"created_at": -1}},
@@ -780,49 +971,219 @@ class SocialPostService:
                         "view_count": 0
                     }
                 
-                if "author_type" not in doc or not doc["author_type"]:
-                    doc["author_type"] = "user"
-                
-                if doc.get("content") and keyword.lower() in doc["content"].lower():
-                    content_lower = doc["content"].lower()
-                    keyword_lower = keyword.lower()
-                    start_index = content_lower.find(keyword_lower)
-                    if start_index != -1:
-                        end_index = start_index + len(keyword)
-                        highlighted = (
-                            doc["content"][:start_index] + 
-                            f'<mark style="background-color: #ffeb3b; padding: 0 2px; border-radius: 3px;">{doc["content"][start_index:end_index]}</mark>' + 
-                            doc["content"][end_index:]
-                        )
-                        doc["content_highlighted"] = highlighted
-                
-                author_name = doc.get("author_name", "")
-                if keyword.lower() in author_name.lower():
-                    author_lower = author_name.lower()
-                    keyword_lower = keyword.lower()
-                    start_index = author_lower.find(keyword_lower)
-                    if start_index != -1:
-                        end_index = start_index + len(keyword)
-                        highlighted_author = (
-                            author_name[:start_index] + 
-                            f'<mark style="background-color: #4caf50; padding: 0 2px; border-radius: 3px; color: white;">{author_name[start_index:end_index]}</mark>' + 
-                            author_name[end_index:]
-                        )
-                        doc["author_name_highlighted"] = highlighted_author
-                
+                # Thêm thông tin highlight cho hashtag
                 if doc.get("tags"):
-                    matching_tags = [tag for tag in doc["tags"] if keyword.lower() in tag.lower()]
+                    matching_tags = [tag for tag in doc["tags"] if tag.lower() == hashtag]
                     if matching_tags:
-                        doc["matching_tags"] = matching_tags
+                        doc["matching_hashtags"] = matching_tags
+                        doc["hashtag_highlight"] = f"#{hashtag}"
                 
                 post = await self.get_post_with_shared_info(doc)
                 posts.append(post)
             
-            print(f"Search found {len(posts)} posts for keyword: {keyword}")
+            print(f"Found {len(posts)} posts for hashtag #{hashtag}")
             return posts
             
         except Exception as e:
-            print(f"Error in search_posts: {e}")
+            print(f"Error in search_by_hashtag: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    async def get_trending_hashtags(
+        self,
+        limit: int = 10,
+        days: int = 7
+    ) -> List[dict]:
+        """
+        Lấy danh sách hashtag thịnh hành trong khoảng thời gian gần đây
+        """
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Aggregation pipeline để thống kê hashtag
+            pipeline = [
+                {
+                    "$match": {
+                        "created_at": {"$gte": cutoff_date},
+                        "is_active": True,
+                        "is_permanently_deleted": False,
+                        "tags": {"$exists": True, "$ne": []}
+                    }
+                },
+                {"$unwind": "$tags"},
+                {
+                    "$group": {
+                        "_id": {"$toLower": "$tags"},
+                        "count": {"$sum": 1},
+                        "latest_posts": {"$push": {
+                            "post_id": {"$toString": "$_id"},
+                            "content": {"$substr": ["$content", 0, 100]},
+                            "created_at": "$created_at"
+                        }}
+                    }
+                },
+                {"$sort": {"count": -1}},
+                {"$limit": limit},
+                {
+                    "$project": {
+                        "hashtag": "$_id",
+                        "count": 1,
+                        "latest_posts": {"$slice": ["$latest_posts", 3]}
+                    }
+                }
+            ]
+            
+            cursor = self.collection.aggregate(pipeline)
+            trending = []
+            
+            async for doc in cursor:
+                trending.append({
+                    "hashtag": doc["hashtag"],
+                    "count": doc["count"],
+                    "display_name": f"#{doc['hashtag']}",
+                    "latest_posts": doc.get("latest_posts", [])
+                })
+            
+            print(f"Found {len(trending)} trending hashtags")
+            return trending
+            
+        except Exception as e:
+            print(f"Error in get_trending_hashtags: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    async def get_posts_by_multiple_hashtags(
+        self,
+        hashtags: List[str],
+        limit: int = 20,
+        current_user_id: Optional[str] = None
+    ) -> List[dict]:
+        """
+        Tìm kiếm bài viết theo nhiều hashtag (AND logic - bài viết phải có tất cả các hashtag)
+        """
+        try:
+            # Chuẩn hóa các hashtag
+            normalized_hashtags = []
+            for tag in hashtags:
+                tag = tag.strip().lower()
+                if tag.startswith('#'):
+                    tag = tag[1:]
+                normalized_hashtags.append(tag)
+            
+            print(f"🔍 Searching for multiple hashtags: {normalized_hashtags}")
+            
+            # Tìm bài viết có chứa TẤT CẢ các hashtag
+            search_query = {
+                "tags": {"$all": normalized_hashtags},
+                "is_active": True,
+                "is_permanently_deleted": False,
+                "author_type": {"$in": ["user", "admin", "shop_owner"]}
+            }
+            
+            # Xử lý visibility (giống như trên)
+            visibility_conditions = []
+            
+            if current_user_id:
+                try:
+                    user_exists = await self.user_collection.find_one({"_id": ObjectId(current_user_id)})
+                    if user_exists:
+                        friendships = await self.db["friends"].find({
+                            "$or": [
+                                {"user_id": current_user_id, "status": "accepted"},
+                                {"friend_id": current_user_id, "status": "accepted"}
+                            ]
+                        }).to_list(length=None)
+                        
+                        friend_ids = [ObjectId(current_user_id)]
+                        for friendship in friendships:
+                            if friendship["user_id"] == current_user_id:
+                                friend_ids.append(ObjectId(friendship["friend_id"]))
+                            else:
+                                friend_ids.append(ObjectId(friendship["user_id"]))
+                        
+                        visibility_conditions = [
+                            {"visibility": "public"},
+                            {"author_id": ObjectId(current_user_id)},
+                            {
+                                "visibility": "friends",
+                                "author_id": {"$in": friend_ids}
+                            }
+                        ]
+                    else:
+                        visibility_conditions = [{"visibility": "public"}]
+                except Exception as e:
+                    print(f"Error: {e}")
+                    visibility_conditions = [{"visibility": "public"}]
+            else:
+                visibility_conditions = [{"visibility": "public"}]
+            
+            final_query = {
+                "$and": [
+                    search_query,
+                    {"$or": visibility_conditions}
+                ]
+            }
+            
+            # Aggregation pipeline
+            pipeline = [
+                {"$match": final_query},
+                {"$sort": {"created_at": -1}},
+                {"$limit": limit},
+                {
+                    "$lookup": {
+                        "from": "users",
+                        "localField": "author_id",
+                        "foreignField": "_id",
+                        "as": "author_info"
+                    }
+                },
+                {
+                    "$unwind": {
+                        "path": "$author_info",
+                        "preserveNullAndEmptyArrays": True
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": {"$toString": "$_id"},
+                        "author_id": {"$toString": "$author_id"},
+                        "author_name": {
+                            "$ifNull": [
+                                "$author_info.full_name",
+                                "$author_info.username",
+                                "Người dùng"
+                            ]
+                        },
+                        "author_avatar": "$author_info.avatar_url",
+                        "content": 1,
+                        "images": 1,
+                        "videos": 1,
+                        "tags": 1,
+                        "location": 1,
+                        "visibility": 1,
+                        "post_type": 1,
+                        "product_category": 1,
+                        "stats": 1,
+                        "created_at": 1,
+                        "shared_post_id": 1
+                    }
+                }
+            ]
+            
+            cursor = self.collection.aggregate(pipeline)
+            posts = []
+            
+            async for doc in cursor:
+                post = await self.get_post_with_shared_info(doc)
+                posts.append(post)
+            
+            print(f"Found {len(posts)} posts for hashtags {normalized_hashtags}")
+            return posts
+            
+        except Exception as e:
+            print(f"Error in get_posts_by_multiple_hashtags: {e}")
             import traceback
             traceback.print_exc()
             return []

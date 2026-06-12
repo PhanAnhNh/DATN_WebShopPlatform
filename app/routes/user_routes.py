@@ -29,7 +29,7 @@ async def search_users(
             "$match": {
                 "$or": [
                     {"full_name": {"$regex": keyword, "$options": "i"}},
-                    {"username": {"$regex": keyword, "$options": "i"}}
+                    
                 ],
                 "is_active": True
             }
