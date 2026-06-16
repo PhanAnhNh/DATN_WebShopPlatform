@@ -64,6 +64,20 @@ async def get_trending_hashtags(
     results = await service.get_trending_hashtags(limit=limit, days=days)
     return results
 
+@router.get("/suggest-tags", response_model=List[dict])
+async def suggest_tags(
+    prefix: str = Query("", description="Tiền tố của tag cần gợi ý"),
+    limit: int = Query(10, ge=1, le=20, description="Số lượng tag gợi ý"),
+    db = Depends(get_database)
+):
+    """
+    Gợi ý tags dựa trên tiền tố nhập vào
+    - Nếu prefix rỗng: trả về tags thịnh hành (5 tags bất kỳ)
+    - Nếu có prefix: trả về tags bắt đầu bằng prefix đó
+    """
+    service = SocialPostService(db)
+    return await service.suggest_tags(prefix=prefix, limit=limit)
+
 @router.get("/feed", response_model=List[SocialPostResponse])
 async def get_social_feed(
     category: Optional[CategoryType] = None,

@@ -1054,6 +1054,80 @@ class SocialPostService:
             traceback.print_exc()
             return []
 
+    async def suggest_tags(
+        self,
+        prefix: str = "",
+        limit: int = 10
+    ) -> List[dict]:
+        """
+        Gợi ý tags dựa trên tiền tố
+        """
+        try:
+            # Nếu prefix rỗng, lấy tags thịnh hành
+            if not prefix or len(prefix.strip()) == 0:
+                # Lấy 5 tags bất kỳ từ các bài viết gần đây
+                pipeline = [
+                    {
+                        "$match": {
+                            "is_active": True,
+                            "is_permanently_deleted": False,
+                            "tags": {"$exists": True, "$ne": []}
+                        }
+                    },
+                    {"$unwind": "$tags"},
+                    {
+                        "$group": {
+                            "_id": {"$toLower": "$tags"},
+                            "count": {"$sum": 1}
+                        }
+                    },
+                    {"$sort": {"count": -1}},
+                    {"$limit": limit}
+                ]
+            else:
+                # Tìm tags bắt đầu bằng prefix (không phân biệt hoa thường)
+                regex_pattern = f"^{prefix}"  # Bắt đầu bằng prefix
+                pipeline = [
+                    {
+                        "$match": {
+                            "is_active": True,
+                            "is_permanently_deleted": False,
+                            "tags": {"$exists": True, "$ne": []}
+                        }
+                    },
+                    {"$unwind": "$tags"},
+                    {
+                        "$match": {
+                            "tags": {"$regex": regex_pattern, "$options": "i"}
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": {"$toLower": "$tags"},
+                            "count": {"$sum": 1}
+                        }
+                    },
+                    {"$sort": {"count": -1}},
+                    {"$limit": limit}
+                ]
+            
+            cursor = self.collection.aggregate(pipeline)
+            results = []
+            
+            async for doc in cursor:
+                results.append({
+                    "tag": doc["_id"],
+                    "count": doc["count"]
+                })
+            
+            print(f"✅ Found {len(results)} tags for prefix '{prefix}'")
+            return results
+            
+        except Exception as e:
+            print(f"❌ Error in suggest_tags: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
     async def get_posts_by_multiple_hashtags(
         self,
         hashtags: List[str],
